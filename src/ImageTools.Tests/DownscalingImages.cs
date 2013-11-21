@@ -18,7 +18,7 @@ namespace ImageTools.Tests
 			{
 				targetWidth = bmp.Width - 10;
 				targetHeight = bmp.Height - 10;
-				using (var bmp2 = Scale.DisregardAspect(bmp, targetWidth, targetHeight))
+				using (var bmp2 = FastScale.DisregardAspect(bmp, targetWidth, targetHeight))
 				{
 					bmp2.SaveJpeg("./outputs/1_scaled_slight.jpg");
 				}
@@ -42,7 +42,7 @@ namespace ImageTools.Tests
 			{
 				targetWidth = (bmp.Width / 2) + 15;
 				targetHeight = (bmp.Height / 2) + 15;
-				using (var bmp2 = Scale.DisregardAspect(bmp, targetWidth, targetHeight))
+				using (var bmp2 = FastScale.DisregardAspect(bmp, targetWidth, targetHeight))
 				{
 					bmp2.SaveJpeg("./outputs/1_scaled.jpg");
 				}
