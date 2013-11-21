@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
 
 namespace ImageTools
 {
@@ -13,13 +12,13 @@ namespace ImageTools
 		/// </summary>
 		public static unsafe Bitmap DisregardAspect(Bitmap src, int targetWidth, int targetHeight)
 		{
-			var stride = (src.Width * 32) / 8;
+			var stride = src.Width * 4;
 			var fmt = PixelFormat.Format32bppArgb;
 
 			var outx = new Bitmap(src.Width, src.Height, fmt);
 			var ro = new Rectangle(Point.Empty, outx.Size);
-			var dstData = outx.LockBits(ro, ImageLockMode.ReadOnly, fmt);
-
+			var dstData = outx.LockBits(ro, ImageLockMode.ReadWrite, fmt);
+			
 			Bitmap final;
 			try
 			{
@@ -37,12 +36,15 @@ namespace ImageTools
 				{
 					src.UnlockBits(srcData);
 				}
+
+				var restride = new Bitmap(targetWidth, targetHeight, stride, fmt, dstData.Scan0);
+				final = new Bitmap(restride);
 			}
 			finally
 			{
-				final = new Bitmap(targetWidth, targetHeight, stride, fmt, dstData.Scan0);
 				outx.UnlockBits(dstData);
 			}
+			outx.Dispose();
 			return final;
 		}
 
@@ -53,7 +55,8 @@ namespace ImageTools
 		{
 			for (int i = 0; i < componentCount; i++)
 			{
-				GeneralScale(src, dest, width, height, targetWidth, targetHeight, i, componentCount);
+				GeneralScale(src, dest, width, height, targetWidth, targetHeight, 
+					i, componentCount);
 			}
 		}
 
@@ -82,30 +85,34 @@ namespace ImageTools
 			}
 
 			if (SrcHeight > DstHeight && SrcWidth > DstWidth)
-			{ // down scaling
-				for (int x = 0; x < SrcWidth; x++)
+			{
+				// down scaling
+				for (int y = 0; y < SrcHeight - componentCount; y++)
+				{
+					RescaleFence_DOWN(Src, Dst,
+							(y * SrcWidth * componentCount) + componentIndex, // start at left of row
+							componentCount, // Move 1 pixel at a time
+							SrcWidth * componentCount, // source length
+
+							//(y * (DstWidth * componentCount)) + componentIndex, 
+							// ^^ start at left of row (in packed space)
+							//    it's important to note that the output bytes-per-row is
+							//    NOT the same as the input bytes-per-row
+							(y * SrcWidth * componentCount) + componentIndex, 
+							componentCount, // Move 1 column at a time (1 pixel)
+							DstWidth * componentCount); // dest length
+				}
+				for (int x = 0; x < DstWidth; x++)
 				{
 					var pixX = (x * componentCount) + componentIndex;
-					RescaleFence_DOWN(Src, Dst, // copy Src to dst, scaling vertically
+					RescaleFence_DOWN(Dst, Dst, // copy Src to dst, while scaling vertically
 							pixX, // start at top of column
-							SrcWidth * componentCount, // Move 1 row at a time source
+							SrcWidth * componentCount, // Move 1 row at a time through source
 							SrcHeight, // source length
 
 							pixX, // start at top of column
 							SrcWidth * componentCount, // Move 1 row at a time in dest (equally spaced to src)
-							DstHeight); // dest length
-				}
-				for (int y = 0; y < DstHeight; y++)
-				{
-					RescaleFence_DOWN(Dst, Dst, // copy Dst onto itself, scaling horizontally and packing rows together in memory
-							(y * (SrcWidth * componentCount)) + componentIndex, // start at left of row
-							componentCount, // Move 1 pixel at a time
-							SrcWidth * componentCount, // source length
-
-							//(y * (DstWidth * componentCount)) + componentIndex, // start at left of row (in packed space)
-							(y * (SrcWidth * componentCount)) + componentIndex, // start at left of row (unpacked for testing)
-							componentCount, // Move 1 column at a time (1 pixel)
-							DstWidth * componentCount); // dest length
+							DstHeight + componentCount); // dest length
 				}
 			}
 			else
