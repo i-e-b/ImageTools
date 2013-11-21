@@ -7,7 +7,7 @@ namespace ImageTools.Tests
 
 	public class WithCleanedOutput
 	{
-		[SetUp]
+		[TestFixtureSetUp]
 		public void setup()
 		{
 			Console.WriteLine("Deleting old output");
