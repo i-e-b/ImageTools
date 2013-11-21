@@ -7,8 +7,13 @@ namespace ImageTools
 {
 	public static class Save
 	{
-		public static void Jpeg(this Bitmap src, string filePath, int quality = 95)
+		public static void SaveJpeg(this Bitmap src, string filePath, int quality = 95)
 		{
+			var p = Path.GetDirectoryName(filePath);
+			if (!string.IsNullOrEmpty(p))
+			{
+				Directory.CreateDirectory(p);
+			}
 			using (var fs = new FileStream(filePath, FileMode.Create))
 			{
 				src.JpegStream(fs);

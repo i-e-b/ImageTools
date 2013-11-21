@@ -36,13 +36,28 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BlurringImages.cs" />
     <Compile Include="DownscalingImages.cs" />
+    <Compile Include="Files.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SavingImages.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ImageTools\ImageTools.csproj">
+      <Project>{93fad718-f07f-4210-9aea-f8be82bb58a6}</Project>
+      <Name>ImageTools</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="inputs\1.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
