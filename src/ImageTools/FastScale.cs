@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Linq;
 
 namespace ImageTools
 {
@@ -32,7 +33,7 @@ namespace ImageTools
 			try
 			{
 				var ri = new Rectangle(Point.Empty, src.Size);
-				var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, fmt);
+				var srcData = src.LockBits(ri, ImageLockMode.ReadWrite, fmt);
 
 				try
 				{
@@ -63,57 +64,76 @@ namespace ImageTools
 		static unsafe void InterleavedScale(int componentCount, byte* src, byte* dest, int width, int height, int targetWidth, int targetHeight)
 		{			
 			// scale by power of two (half, quarter, double, etc.)
-			if (Aspect(width, targetWidth) >= 2 && Aspect(height, targetHeight) >= 2)
+			var dim = new Size(width, height);
+			var nextDim = new Size(width, height);
+			var aBuf = src;
+			var bBuf = dest;
+			while (Aspect(dim.Width, targetWidth) >= 2 && Aspect(dim.Height, targetHeight) >= 2)
 			{
-				var dim = new Size(width, height);
 				// shrink by half
 				for (int i = 0; i < componentCount; i++)
 				{
-					dim = PowerOfTwoScale(src, dest, width, height, targetWidth, targetHeight, i, componentCount);
+					nextDim = PowerOfTwoScale(aBuf, bBuf, dim.Width, width, dim.Height, targetWidth, targetHeight, 
+						i, componentCount);
 				}
-				// flip buffers back
-				CopyBytes(src, dest, width, height);
-				// recurse until less than power-of-two
-				InterleavedScale(componentCount, dest, src, dim.Width, dim.Height, targetWidth, targetHeight);
+				dim = nextDim;
+				// flip buffers
+				var tmp = bBuf;
+				bBuf = aBuf;
+				aBuf = tmp; // aBuf is last written-to buffer
 			}
 
 			// scale by less-than-power-of-two
-			for (int i = 0; i < componentCount; i++)
+			if (dim.Width != targetWidth || dim.Height != targetHeight)
 			{
-				GeneralScale(src, dest, width, height, targetWidth, targetHeight, i, componentCount);
+				for (int i = 0; i < componentCount; i++)
+				{
+					GeneralScale(aBuf, bBuf, dim.Width, width, dim.Height, targetWidth, targetHeight, i, componentCount);
+				}
+				aBuf = bBuf; // aBuf is last written-to buffer
+			}
+
+			if (aBuf != dest) // if last write was to source, copy to dest
+			{
+				CopyBytes(aBuf, dest, width, height, componentCount); // copy all data (a bit wasteful)
 			}
 		}
 
-		static unsafe Size PowerOfTwoScale(byte* Src, byte* Dst, int SrcWidth, int SrcHeight, int DstWidth, int DstHeight,
+		static unsafe Size PowerOfTwoScale(byte* Src, byte* Dst, int SrcWidth, int SrcStride, int SrcHeight, int DstWidth, int DstHeight,
 			int componentIndex, int componentCount)
 		{
 			if (DstWidth > SrcWidth || DstHeight > SrcHeight) 
 				throw new NotImplementedException("Upscale is not yet implemented");
 
+			var outHeight = SrcHeight / 2;
+			var outWidth = SrcWidth / 2;
+
 			// down scaling
 			for (int y = 0; y < SrcHeight - componentCount; y++)
 			{
 				RescaleFence_HALF(Src, Dst,
-						(y * SrcWidth * componentCount) + componentIndex, // start at left of row
+						(y * SrcStride * componentCount) + componentIndex, // start at left of row
 						componentCount, // Move 1 pixel at a time
 						SrcWidth * componentCount, // source length
 
-						(y * SrcWidth * componentCount) + componentIndex,
+						(y * SrcStride * componentCount) + componentIndex,
 						componentCount, // Move 1 column at a time (1 pixel)
-						DstWidth * componentCount); // dest length
+						outWidth * componentCount); // dest length
 			}
-			for (int x = 0; x < DstWidth; x++)
+			for (int x = 0; x < outWidth; x++)
 			{
 				var pixX = (x * componentCount) + componentIndex;
 				RescaleFence_HALF(Dst, Dst, // copy Src to dst, while scaling vertically
 						pixX, // start at top of column
-						SrcWidth * componentCount, // Move 1 row at a time through source
+						SrcStride * componentCount, // Move 1 row at a time through source
 						SrcHeight, // source length
 
 						pixX, // start at top of column
-						SrcWidth * componentCount, // Move 1 row at a time in dest (equally spaced to src)
-						DstHeight + componentCount); // dest length
+						SrcStride * componentCount, // Move 1 row at a time in dest (equally spaced to src)
+						outHeight + componentCount); // dest length
 			}
+
+			return new Size(outWidth, outHeight); // TODO: only scale dimensions that need it.
 		}
 
 		static int Aspect(int width, int targetWidth)
@@ -128,27 +148,20 @@ namespace ImageTools
 		/// For Planar images, call on each plane with count of 1 and index of 0.
 		/// For Interleaved images (e.g. RGB), call on whole image 3 times, with count of 3 and index from 0 to 2 incl.
 		/// </summary>
-		static unsafe void GeneralScale(byte* Src, byte* Dst, int SrcWidth, int SrcHeight, int DstWidth, int DstHeight,
+		static unsafe void GeneralScale(byte* Src, byte* Dst, int SrcWidth, int SrcStride, int SrcHeight, int DstWidth, int DstHeight,
 			int componentIndex, int componentCount)
 		{
-			if (SrcHeight == DstHeight && SrcWidth == DstHeight)
-			{
-				// Exactly the same size. Just copy.
-				CopyBytes(Src, Dst, SrcWidth, SrcHeight);
-				return;
-			}
-
 			if (SrcHeight > DstHeight && SrcWidth > DstWidth)
 			{
 				// down scaling
 				for (int y = 0; y < SrcHeight - componentCount; y++)
 				{
 					RescaleFence_SMALL_DOWN(Src, Dst,
-							(y * SrcWidth * componentCount) + componentIndex, // start at left of row
+							(y * SrcStride * componentCount) + componentIndex, // start at left of row
 							componentCount, // Move 1 pixel at a time
 							SrcWidth * componentCount, // source length
 
-							(y * SrcWidth * componentCount) + componentIndex, 
+							(y * SrcStride * componentCount) + componentIndex, 
 							componentCount, // Move 1 column at a time (1 pixel)
 							DstWidth * componentCount); // dest length
 				}
@@ -157,11 +170,11 @@ namespace ImageTools
 					var pixX = (x * componentCount) + componentIndex;
 					RescaleFence_SMALL_DOWN(Dst, Dst, // copy Src to dst, while scaling vertically
 							pixX, // start at top of column
-							SrcWidth * componentCount, // Move 1 row at a time through source
+							SrcStride * componentCount, // Move 1 row at a time through source
 							SrcHeight, // source length
 
 							pixX, // start at top of column
-							SrcWidth * componentCount, // Move 1 row at a time in dest (equally spaced to src)
+							SrcStride * componentCount, // Move 1 row at a time in dest (equally spaced to src)
 							DstHeight + componentCount); // dest length
 				}
 			}
@@ -172,9 +185,9 @@ namespace ImageTools
 
 		}
 
-		static unsafe void CopyBytes(byte* Src, byte* Dst, int SrcWidth, int SrcHeight)
+		static unsafe void CopyBytes(byte* Src, byte* Dst, int SrcWidth, int SrcHeight, int componentCount)
 		{
-			int length = SrcHeight*SrcWidth;
+			int length = SrcHeight*SrcWidth*componentCount;
 			for (int i = 0; i < length; i++) Dst[i] = Src[i];
 		}
 
@@ -192,48 +205,68 @@ namespace ImageTools
 			int o = DstStart;
 			int i = SrcStart;
 			int v = Src[i];
-
-			int p = NumPixels - 1;
-			while (p-- > 0)
+			
+			unchecked
 			{
-				if (E < Mid)
-				{ // do interpolation
-					v = (short)((v + Src[i + SrcStride]) >> 1);
-				}
-				E += srcw;
-				Dst[o] = (byte)v;
-				i += SrcStride;
+				int p = NumPixels - 1;
+				while (p-- > 0)
+				{
+					if (E < Mid)
+					{
+						// do interpolation
+						v = (short) ((v + Src[i + SrcStride]) >> 1);
+					}
+					E += srcw;
+					Dst[o] = (byte) v;
+					i += SrcStride;
 
-				if (E < dstw) continue;
-				E -= dstw;
-				o += DstStride;
-				v = Src[i];
+					if (E < dstw) continue;
+					E -= dstw;
+					o += DstStride;
+					v = Src[i];
+				}
 			}
 		}
+
+		// Generate lookup tables
+		static FastScale()
+		{
+			ThreeTimes = Enumerable.Range(0, 256).Select(x=>x*3).ToArray();
+		}
+		static readonly int[] ThreeTimes;
 
 		/// <summary>
 		/// Smooth (ish) halfing of a signal's resolution
 		/// </summary>
 		static unsafe void RescaleFence_HALF(byte* Src, byte* Dst, int SrcStart, int SrcStride, int SrcLength, int DstStart, int DstStride, int DstLength)
 		{
-			int NumPixels = SrcLength;
-			int srcw = DstLength;
-			int dstw = SrcLength;
+			int NumPixels = SrcLength / 2;
 			int o = DstStart;
 			int i = SrcStart;
-			int v = Src[i];
 
-			int p = NumPixels - 1;
-			while (p-- > 0)
+			int ss1 = SrcStride;
+			int ss2 = SrcStride * 2;
+			int ss3 = SrcStride * 3;
+
+			unchecked
 			{
-				Dst[o] = (byte)v;
-				i += SrcStride;
-
-				// todo: implement!
-				//http://johncostella.webs.com/magic/
-
+				// we add 2*(byte), 2*(3*byte), so all values need (x/8), or (x >> 3)
+				// first and last pixels are special cases
+				Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss2]) >> 3);
 				o += DstStride;
-				v = Src[i];
+				i += ss1;
+
+				int p = NumPixels - 2;
+				while (p-- > 0)
+				{
+					Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i + ss1]] + ThreeTimes[Src[i + ss2]] + Src[i + ss3]) >> 3);
+
+					o += DstStride;
+					i += ss2;
+				}
+
+				// first and last pixels are special cases
+				Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i + ss1]] + ThreeTimes[Src[i + ss2]] + Src[i + ss2]) >> 3);
 			}
 		}
 	}
