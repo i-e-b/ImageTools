@@ -34,6 +34,30 @@ namespace ImageTools.Tests
 		}
 
 		[Test]
+		public void exact_small_downscale()
+		{
+			int targetWidth;
+			int targetHeight;
+			using (var bmp = Load.FromFile("./inputs/2.jpg"))
+			{
+				targetWidth = 100;
+				targetHeight = 100;
+				using (var bmp2 = FastScale.DisregardAspect(bmp, targetWidth, targetHeight))
+				{
+					bmp2.SaveJpeg("./outputs/2_scaled.jpg");
+				}
+			}
+
+			Assert.That(File.Exists("./outputs/2_scaled.jpg"));
+			using (var result = Load.FromFile("./outputs/2_scaled.jpg"))
+			{
+				Assert.That(result.Width, Is.EqualTo(targetWidth));
+				Assert.That(result.Height, Is.EqualTo(targetHeight));
+			}
+			Console.WriteLine("Go check the build output and ensure that \"/outputs/2_scaled.jpg\" looks ok");
+		}
+
+		[Test]
 		public void nearly_50_downscale()
 		{
 			int targetWidth;

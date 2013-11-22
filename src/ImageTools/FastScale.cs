@@ -66,7 +66,7 @@ namespace ImageTools
 			var nextDim = new Size(width, height);
 			var aBuf = src;
 			var bBuf = dest;
-			while (Aspect(dim.Width, targetWidth) >= 2 && Aspect(dim.Height, targetHeight) >= 2)
+			while (Aspect(dim.Width, targetWidth) > 2 && Aspect(dim.Height, targetHeight) > 2)
 			{
 				// shrink by half
 				for (int i = 0; i < componentCount; i++)
@@ -210,28 +210,40 @@ namespace ImageTools
 			int Mid = NumPixels / 2;
 			int o = DstStart;
 			int i = SrcStart;
-			int v = Src[i];
 			
+			int ss1 = SrcStride;
+			int ss2 = SrcStride * 2;
+			int ss3 = SrcStride * 3;
+
 			unchecked
 			{
-				int p = NumPixels - 1;
+				// first and last pixels are special cases
+				Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss2]) >> 3);
+				o += DstStride;
+				i += ss1;
+
+				int p = NumPixels - 4;
 				while (p-- > 0)
 				{
 					if (E < Mid)
 					{
-						// do interpolation
-						v = (short) ((v + Src[i + SrcStride]) >> 1);
+						Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss2]) >> 3);
+					} 
+					else
+					{
+						Dst[o] = (byte) ((Src[i - ss1] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss2]) >> 3);
 					}
+
 					E += srcw;
-					Dst[o] = (byte) v;
 					i += SrcStride;
 
 					if (E < dstw) continue;
 					E -= dstw;
 					o += DstStride;
-					v = Src[i];
 				}
-				Dst[o] = (byte) v;
+
+				// first and last pixels are special cases
+				Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i + ss1]] + ThreeTimes[Src[i + ss2]] + Src[i + ss2]) >> 3);
 			}
 		}
 
@@ -243,7 +255,7 @@ namespace ImageTools
 		static readonly int[] ThreeTimes;
 
 		/// <summary>
-		/// Smooth (ish) halfing of a signal's resolution
+		/// Smooth halfing of a signal's resolution
 		/// </summary>
 		static unsafe void RescaleFence_HALF(byte* Src, byte* Dst, int SrcStart, int SrcStride, int SrcLength, int DstStart, int DstStride, int DstLength)
 		{
