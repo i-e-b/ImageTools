@@ -10,12 +10,24 @@ namespace ImageTools
 	/// </summary>
 	public static class FastScale
 	{
+		/// <summary>
+		/// Create a rescaled copy of an image. Original image may be used as temp space
+		/// Image aspect ration is always maintained
+		/// </summary>
 		public static Bitmap MaintainAspect(Bitmap src, int maxWidth, int maxHeight)
 		{
-			return null;
+			float xScale = Math.Min(1.0f, (float)(maxWidth) / src.Width);
+			float yScale = Math.Min(1.0f, (float)(maxHeight) / src.Height);
+
+			float scale = Math.Min(xScale, yScale);
+			var w = (int)(src.Width * scale);
+			var h = (int)(src.Height * scale);
+
+			return DisregardAspect(src, w, h);
 		}
+
 		/// <summary>
-		/// Create a rescaled copy of an image.
+		/// Create a rescaled copy of an image. Original image may be used as temp space
 		/// Output is exactly the height and width specified, even if it means 'squashing' the image.
 		/// </summary>
 		public static unsafe Bitmap DisregardAspect(Bitmap src, int targetWidth, int targetHeight)
@@ -23,7 +35,7 @@ namespace ImageTools
 			var stride = src.Width * 4;
 			var fmt = PixelFormat.Format32bppArgb;
 
-			var outx = new Bitmap(src.Width, src.Height, fmt);
+			var outx = new Bitmap(Math.Max(src.Width, targetWidth), Math.Max(src.Height, targetHeight), fmt);
 			var ro = new Rectangle(Point.Empty, outx.Size);
 			var dstData = outx.LockBits(ro, ImageLockMode.ReadWrite, fmt);
 			
@@ -178,7 +190,7 @@ namespace ImageTools
 			}
 			else
 			{
-				throw new NotImplementedException("Upscaling isn't done yet");
+				throw new NotImplementedException("Upscale is not yet implemented");
 			}
 
 		}
@@ -227,7 +239,7 @@ namespace ImageTools
 					if (E < Mid) // Even blocks
 					{
 						Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss2]) >> 3);
-					} 
+					}
 					else // odd blocks
 					{
 						Dst[o] = (byte) ((Src[i - ss1] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss2]) >> 3);
@@ -247,6 +259,52 @@ namespace ImageTools
 				Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i]] + Src[i]) >> 3);
 			}
 		}
+
+		
+		/// <summary>
+		/// Nearest-neighbour interpolation with mid-points.
+		/// Fast, and reasonable quality for small changes (less halfing or doubling)
+		/// </summary>
+		static unsafe void RescaleFence_SMALL_UP(byte* Src, byte* Dst, int SrcStart, int SrcStride, int SrcLength, int DstStart, int DstStride, int DstLength)
+		{
+			int NumPixels = DstLength;
+			int E = 0;
+			int srcw = SrcLength;
+			int dstw = DstLength;
+			int Mid = NumPixels / 2;
+			int o = SrcStart;
+			int i = DstStart;
+			
+			int ss1 = SrcStride;
+			int ss2 = SrcStride * 2;
+
+			unchecked
+			{
+				// first and last pixels are special cases
+				Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss2]) >> 3);
+				o += DstStride;
+				i += ss1;
+
+				int p = NumPixels - 3;
+				while (p-- > 0)
+				{
+					Dst[o] = (byte) ((Src[i - ss1] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss2]) >> 3);
+
+					E += srcw;
+					i += DstStride;
+
+					if (E < dstw) continue;
+					E -= dstw;
+					o += SrcStride;
+				}
+
+				// first and last pixels are special cases
+				/*Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss1]) >> 3);
+				o += DstStride;
+				Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i]] + Src[i]) >> 3);*/
+			}
+		}
+
 
 		// Generate lookup tables
 		static FastScale()

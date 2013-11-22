@@ -24,7 +24,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/1_scaled.jpg"));
+			Assert.That(File.Exists("./outputs/1_scaled_slight.jpg"));
 			using (var result = Load.FromFile("./outputs/1_scaled_slight.jpg"))
 			{
 				Assert.That(result.Width, Is.EqualTo(targetWidth));
@@ -105,8 +105,6 @@ namespace ImageTools.Tests
 			Console.WriteLine("Go check the build output and ensure that \"/outputs/1_scaled_51.jpg\" looks ok");
 		}
 
-		
-
 		[Test]
 		public void non_square_downscale_flat()
 		{
@@ -153,6 +151,45 @@ namespace ImageTools.Tests
 				Assert.That(result.Height, Is.EqualTo(targetHeight));
 			}
 			Console.WriteLine("Go check the build output and ensure that \"/outputs/non_square_downscale_tall.jpg\" looks ok");
+		}
+
+		
+		[Test]
+		public void keep_aspect_downscale_flat()
+		{
+			int targetWidth;
+			int targetHeight;
+			using (var bmp = Load.FromFile("./inputs/1.jpg"))
+			{
+				targetWidth = bmp.Width - 5;
+				targetHeight = (bmp.Height / 2) - 5;
+				using (var bmp2 = FastScale.MaintainAspect(bmp, targetWidth, targetHeight))
+				{
+					bmp2.SaveJpeg("./outputs/keep_aspect_downscale_flat.jpg");
+				}
+			}
+
+			Assert.That(File.Exists("./outputs/keep_aspect_downscale_flat.jpg"));
+			Console.WriteLine("Go check the build output and ensure that \"/outputs/keep_aspect_downscale_flat.jpg\" looks ok");
+		}
+		
+		[Test]
+		public void keep_aspect_downscale_tall()
+		{
+			int targetWidth;
+			int targetHeight;
+			using (var bmp = Load.FromFile("./inputs/1.jpg"))
+			{
+				targetWidth = (bmp.Width / 2) + 5;
+				targetHeight = bmp.Height - 5;
+				using (var bmp2 = FastScale.MaintainAspect(bmp, targetWidth, targetHeight))
+				{
+					bmp2.SaveJpeg("./outputs/keep_aspect_downscale_tall.jpg");
+				}
+			}
+
+			Assert.That(File.Exists("./outputs/keep_aspect_downscale_tall.jpg"));
+			Console.WriteLine("Go check the build output and ensure that \"/outputs/keep_aspect_downscale_tall.jpg\" looks ok");
 		}
 
 		[Test]
