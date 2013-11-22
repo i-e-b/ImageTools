@@ -7,7 +7,7 @@ namespace ImageTools.Tests
 	[TestFixture]
 	[Description("Most of these tests produce images as output." +
 				 "You should open these and check that they are satisfactory.")]
-	public class DownscalingImages : WithCleanedOutput
+	public class DownscalingImages
 	{
 		[Test]
 		public void slight_downscale()
@@ -81,6 +81,56 @@ namespace ImageTools.Tests
 			Console.WriteLine("Go check the build output and ensure that \"/outputs/1_scaled_51.jpg\" looks ok");
 		}
 
+		
+
+		[Test]
+		public void non_square_downscale_flat()
+		{
+			int targetWidth;
+			int targetHeight;
+			using (var bmp = Load.FromFile("./inputs/1.jpg"))
+			{
+				targetWidth = bmp.Width - 5;
+				targetHeight = (bmp.Height / 2) - 5;
+				using (var bmp2 = FastScale.DisregardAspect(bmp, targetWidth, targetHeight))
+				{
+					bmp2.SaveJpeg("./outputs/non_square_downscale_flat.jpg");
+				}
+			}
+
+			Assert.That(File.Exists("./outputs/non_square_downscale_flat.jpg"));
+			using (var result = Load.FromFile("./outputs/non_square_downscale_flat.jpg"))
+			{
+				Assert.That(result.Width, Is.EqualTo(targetWidth));
+				Assert.That(result.Height, Is.EqualTo(targetHeight));
+			}
+			Console.WriteLine("Go check the build output and ensure that \"/outputs/non_square_downscale_flat.jpg\" looks ok");
+		}
+		
+		[Test]
+		public void non_square_downscale_tall()
+		{
+			int targetWidth;
+			int targetHeight;
+			using (var bmp = Load.FromFile("./inputs/1.jpg"))
+			{
+				targetWidth = (bmp.Width / 2) + 5;
+				targetHeight = bmp.Height - 5;
+				using (var bmp2 = FastScale.DisregardAspect(bmp, targetWidth, targetHeight))
+				{
+					bmp2.SaveJpeg("./outputs/non_square_downscale_tall.jpg");
+				}
+			}
+
+			Assert.That(File.Exists("./outputs/non_square_downscale_tall.jpg"));
+			using (var result = Load.FromFile("./outputs/non_square_downscale_tall.jpg"))
+			{
+				Assert.That(result.Width, Is.EqualTo(targetWidth));
+				Assert.That(result.Height, Is.EqualTo(targetHeight));
+			}
+			Console.WriteLine("Go check the build output and ensure that \"/outputs/non_square_downscale_tall.jpg\" looks ok");
+		}
+
 		[Test]
 		public void very_big_downscale_with_fine_details()
 		{
@@ -136,8 +186,8 @@ namespace ImageTools.Tests
 			int targetHeight;
 			using (var bmp = Load.FromFile("./inputs/moire_sample.PNG"))
 			{
-				targetWidth = (bmp.Width / 8) - 20;
-				targetHeight = (bmp.Height / 8) - 20;
+				targetWidth = (int)(bmp.Width * 0.12);
+				targetHeight = (int)(bmp.Height * 0.12);
 				using (var bmp2 = FastScale.DisregardAspect(bmp, targetWidth, targetHeight))
 				{
 					bmp2.SaveJpeg("./outputs/moire_scaled_np2_2.jpg");

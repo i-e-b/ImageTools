@@ -5,7 +5,7 @@ using NUnit.Framework;
 namespace ImageTools.Tests
 {
 	[TestFixture]
-	public class BlurringImages : WithCleanedOutput
+	public class BlurringImages
 	{
 		[Test]
 		public void can_blur_an_image ()

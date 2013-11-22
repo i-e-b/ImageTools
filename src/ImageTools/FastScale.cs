@@ -10,8 +10,6 @@ namespace ImageTools
 	/// </summary>
 	public static class FastScale
 	{
-
-
 		public static Bitmap MaintainAspect(Bitmap src, int maxWidth, int maxHeight)
 		{
 			return null;
@@ -95,7 +93,7 @@ namespace ImageTools
 
 			if (aBuf != dest) // if last write was to source, copy to dest
 			{
-				CopyBytes(aBuf, dest, width, height, componentCount); // copy all data (a bit wasteful)
+				CopyBytes(aBuf, dest, width, dim.Height, componentCount); // copy all data (a bit wasteful)
 			}
 		}
 
@@ -109,16 +107,16 @@ namespace ImageTools
 			var outWidth = SrcWidth / 2;
 
 			// down scaling
-			for (int y = 0; y < SrcHeight - componentCount; y++)
+			for (int y = 0; y < SrcHeight; y++)
 			{
 				RescaleFence_HALF(Src, Dst,
 						(y * SrcStride * componentCount) + componentIndex, // start at left of row
 						componentCount, // Move 1 pixel at a time
-						SrcWidth * componentCount, // source length
+						SrcWidth, // source length
 
 						(y * SrcStride * componentCount) + componentIndex,
 						componentCount, // Move 1 column at a time (1 pixel)
-						outWidth * componentCount); // dest length
+						outWidth); // dest length
 			}
 			for (int x = 0; x < outWidth; x++)
 			{
@@ -130,7 +128,7 @@ namespace ImageTools
 
 						pixX, // start at top of column
 						SrcStride * componentCount, // Move 1 row at a time in dest (equally spaced to src)
-						outHeight + componentCount); // dest length
+						outHeight); // dest length
 			}
 
 			return new Size(outWidth, outHeight); // TODO: only scale dimensions that need it.
@@ -154,16 +152,16 @@ namespace ImageTools
 			if (SrcHeight > DstHeight && SrcWidth > DstWidth)
 			{
 				// down scaling
-				for (int y = 0; y < SrcHeight - componentCount; y++)
+				for (int y = 0; y < SrcHeight; y++)
 				{
 					RescaleFence_SMALL_DOWN(Src, Dst,
 							(y * SrcStride * componentCount) + componentIndex, // start at left of row
 							componentCount, // Move 1 pixel at a time
-							SrcWidth * componentCount, // source length
+							SrcWidth, // source length
 
 							(y * SrcStride * componentCount) + componentIndex, 
 							componentCount, // Move 1 column at a time (1 pixel)
-							DstWidth * componentCount); // dest length
+							DstWidth); // dest length
 				}
 				for (int x = 0; x < DstWidth; x++)
 				{
@@ -175,7 +173,7 @@ namespace ImageTools
 
 							pixX, // start at top of column
 							SrcStride * componentCount, // Move 1 row at a time in dest (equally spaced to src)
-							DstHeight + componentCount); // dest length
+							DstHeight); // dest length
 				}
 			}
 			else
@@ -185,10 +183,18 @@ namespace ImageTools
 
 		}
 
-		static unsafe void CopyBytes(byte* Src, byte* Dst, int SrcWidth, int SrcHeight, int componentCount)
+		static unsafe void CopyBytes(byte* Src, byte* Dst, int SrcStride, int SrcHeight, int componentCount)
 		{
-			int length = SrcHeight*SrcWidth*componentCount;
-			for (int i = 0; i < length; i++) Dst[i] = Src[i];
+			int x = (SrcHeight * SrcStride * componentCount);
+			int length = (x >> 3);
+			int spSt = length << 3;
+			int spare = spSt + (x % 8);
+
+			var sl = (long*)Src;
+			var dl = (long*)Dst;
+
+			for (int i = 0; i < length; i++) dl[i] = sl[i];
+			for (int i = spSt; i < spare; i++) Dst[i] = Src[i];
 		}
 
 		/// <summary>
@@ -201,7 +207,7 @@ namespace ImageTools
 			int E = 0;
 			int srcw = DstLength;
 			int dstw = SrcLength;
-			int Mid = NumPixels >> 1;
+			int Mid = NumPixels / 2;
 			int o = DstStart;
 			int i = SrcStart;
 			int v = Src[i];
@@ -225,6 +231,7 @@ namespace ImageTools
 					o += DstStride;
 					v = Src[i];
 				}
+				Dst[o] = (byte) v;
 			}
 		}
 

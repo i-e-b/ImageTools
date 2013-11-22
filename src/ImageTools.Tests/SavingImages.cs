@@ -4,7 +4,7 @@ using NUnit.Framework;
 namespace ImageTools.Tests
 {
 	[TestFixture]
-	public class SavingImages : WithCleanedOutput
+	public class SavingImages
 	{
 
 		[Test]

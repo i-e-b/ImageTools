@@ -4,10 +4,10 @@ using NUnit.Framework;
 
 namespace ImageTools.Tests
 {
-
+	[SetUpFixture]
 	public class WithCleanedOutput
 	{
-		[TestFixtureSetUp]
+		[SetUp]
 		public void setup()
 		{
 			Console.WriteLine("Deleting old output");
