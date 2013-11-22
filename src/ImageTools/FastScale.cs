@@ -213,7 +213,6 @@ namespace ImageTools
 			
 			int ss1 = SrcStride;
 			int ss2 = SrcStride * 2;
-			int ss3 = SrcStride * 3;
 
 			unchecked
 			{
@@ -222,14 +221,14 @@ namespace ImageTools
 				o += DstStride;
 				i += ss1;
 
-				int p = NumPixels - 4;
+				int p = NumPixels - 3;
 				while (p-- > 0)
 				{
-					if (E < Mid)
+					if (E < Mid) // Even blocks
 					{
 						Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss2]) >> 3);
 					} 
-					else
+					else // odd blocks
 					{
 						Dst[o] = (byte) ((Src[i - ss1] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss2]) >> 3);
 					}
@@ -243,7 +242,9 @@ namespace ImageTools
 				}
 
 				// first and last pixels are special cases
-				Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i + ss1]] + ThreeTimes[Src[i + ss2]] + Src[i + ss2]) >> 3);
+				Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss1]) >> 3);
+				o += DstStride;
+				Dst[o] = (byte) ((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i]] + Src[i]) >> 3);
 			}
 		}
 
