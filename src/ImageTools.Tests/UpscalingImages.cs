@@ -9,7 +9,32 @@ namespace ImageTools.Tests
 				 "You should open these and check that they are satisfactory.")]
 	public class UpscalingImages
 	{
-		[Test, Ignore("Not implemented")]
+		
+		[Test]
+		public void double_scale()
+		{
+			int targetWidth;
+			int targetHeight;
+			using (var bmp = Load.FromFile("./inputs/1.jpg"))
+			{
+				targetWidth = bmp.Width * 2;
+				targetHeight = bmp.Height * 2;
+				using (var bmp2 = FastScale.DisregardAspect(bmp, targetWidth, targetHeight))
+				{
+					bmp2.SaveJpeg("./outputs/1_double.jpg");
+				}
+			}
+
+			Assert.That(File.Exists("./outputs/1_double.jpg"));
+			using (var result = Load.FromFile("./outputs/1_double.jpg"))
+			{
+				Assert.That(result.Width, Is.EqualTo(targetWidth));
+				Assert.That(result.Height, Is.EqualTo(targetHeight));
+			}
+			Console.WriteLine("Go check the build output and ensure that \"/outputs/1_double.jpg\" looks ok");
+		}
+
+		[Test]
 		public void slight_upscale()
 		{
 			int targetWidth;
