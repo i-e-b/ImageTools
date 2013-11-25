@@ -5,6 +5,9 @@ using System.Linq;
 
 namespace ImageTools
 {
+	internal unsafe delegate void FenceScale (byte* Src, byte* Dst, int SrcStart, int SrcStride, int SrcLength, int DstStart, int DstStride, int DstLength);
+
+
 	/// <summary>
 	/// Pure .Net scaling -- mainly just for interest.
 	/// </summary>
@@ -89,13 +92,14 @@ namespace ImageTools
 			var nextDim = new Size(width, height);
 			var aBuf = src;
 			var bBuf = dest;
+
 			while (Aspect(dim.Width, targetWidth) > 2 && Aspect(dim.Height, targetHeight) > 2)
 			{
 				// shrink by half
 				for (int i = 0; i < componentCount; i++)
 				{
 					nextDim = PowerOfTwoScale(aBuf, bBuf, dim.Width, width, dim.Height, targetWidth, targetHeight,
-						i, componentCount);
+											  i, componentCount);
 				}
 				dim = nextDim;
 				// flip buffers
@@ -109,10 +113,11 @@ namespace ImageTools
 			{
 				for (int i = 0; i < componentCount; i++)
 				{
-					GeneralScale(aBuf, bBuf, dim.Width, width, dim.Height, targetWidth, targetHeight, i, componentCount);
+					GeneralScale(RescaleFence_SMALL_DOWN, aBuf, bBuf, dim.Width, width, dim.Height, targetWidth, targetHeight, i, componentCount);
 				}
 				aBuf = bBuf; // aBuf is last written-to buffer
 			}
+
 
 			if (aBuf != dest) // if last write was to source, copy to dest
 			{
@@ -123,9 +128,6 @@ namespace ImageTools
 		static unsafe Size PowerOfTwoScale(byte* Src, byte* Dst, int SrcWidth, int SrcStride, int SrcHeight, int DstWidth, int DstHeight,
 			int componentIndex, int componentCount)
 		{
-			if (DstWidth > SrcWidth || DstHeight > SrcHeight)
-				throw new NotImplementedException("Upscale is not yet implemented");
-
 			var outHeight = SrcHeight / 2;
 			var outWidth = SrcWidth / 2;
 
@@ -169,13 +171,13 @@ namespace ImageTools
 		/// For Planar images, call on each plane with count of 1 and index of 0.
 		/// For Interleaved images (e.g. RGB), call on whole image 3 times, with count of 3 and index from 0 to 2 incl.
 		/// </summary>
-		static unsafe void GeneralScale(byte* Src, byte* Dst, int SrcWidth, int SrcStride, int SrcHeight, int DstWidth, int DstHeight,
+		static unsafe void GeneralScale(FenceScale scaler, byte* Src, byte* Dst, int SrcWidth, int SrcStride, int SrcHeight, int DstWidth, int DstHeight,
 			int componentIndex, int componentCount)
 		{
 			// down scaling
 			for (int y = 0; y < SrcHeight; y++)
 			{
-				RescaleFence_SMALL_DOWN(Src, Dst,
+				scaler(Src, Dst,
 						(y * SrcStride * componentCount) + componentIndex, // start at left of row
 						componentCount, // Move 1 pixel at a time
 						SrcWidth, // source length
@@ -187,7 +189,7 @@ namespace ImageTools
 			for (int x = 0; x < DstWidth; x++)
 			{
 				var pixX = (x * componentCount) + componentIndex;
-				RescaleFence_SMALL_DOWN(Dst, Dst, // copy Src to dst, while scaling vertically
+				scaler(Dst, Dst, // copy Src to dst, while scaling vertically
 						pixX, // start at top of column
 						SrcStride * componentCount, // Move 1 row at a time through source
 						SrcHeight, // source length
@@ -219,48 +221,28 @@ namespace ImageTools
 		static unsafe void RescaleFence_SMALL_DOWN(byte* Src, byte* Dst, int SrcStart, int SrcStride, int SrcLength, int DstStart, int DstStride, int DstLength)
 		{
 			int NumPixels = SrcLength;
-			int E = 0;
 			int srcw = DstLength;
 			int dstw = SrcLength;
-			int Mid = NumPixels / 2;
+			int Mid = NumPixels >> 1;
 			int o = DstStart;
 			int i = SrcStart;
+			int v = Src[i];
+			int E = 0;
 
-			int ss1 = SrcStride;
-			int ss2 = SrcStride * 2;
-
-			unchecked
+			int p = NumPixels - 1;
+			while (p-- > 0)
 			{
-				// first and last pixels are special cases
-				Dst[o] = (byte)((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss2]) >> 3);
+				if (E < Mid) v = (short)((v + Src[i + SrcStride]) >> 1);
+				E += srcw;
+				Dst[o] = (byte)v;
+				i += SrcStride;
+
+				if (E < dstw) continue;
+				E -= dstw;
 				o += DstStride;
-				i += ss1;
-
-				int p = NumPixels - 3;
-				while (p-- > 0)
-				{
-					if (E < Mid) // Even blocks
-					{
-						Dst[o] = (byte)((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss2]) >> 3);
-					}
-					else // odd blocks
-					{
-						Dst[o] = (byte)((Src[i - ss1] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss2]) >> 3);
-					}
-
-					E += srcw;
-					i += SrcStride;
-
-					if (E < dstw) continue;
-					E -= dstw;
-					o += DstStride;
-				}
-
-				// first and last pixels are special cases
-				Dst[o] = (byte)((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i + ss1]] + Src[i + ss1]) >> 3);
-				o += DstStride;
-				Dst[o] = (byte)((Src[i] + ThreeTimes[Src[i]] + ThreeTimes[Src[i]] + Src[i]) >> 3);
+				v = Src[i];
 			}
+			Dst[o] = (byte)v;
 		}
 
 		// Generate lookup tables
