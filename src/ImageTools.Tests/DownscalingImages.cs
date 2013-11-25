@@ -157,12 +157,10 @@ namespace ImageTools.Tests
 		[Test]
 		public void keep_aspect_downscale_flat()
 		{
-			int targetWidth;
-			int targetHeight;
 			using (var bmp = Load.FromFile("./inputs/1.jpg"))
 			{
-				targetWidth = bmp.Width - 5;
-				targetHeight = (bmp.Height / 2) - 5;
+				int targetWidth = bmp.Width - 5;
+				int targetHeight = (bmp.Height / 2) - 5;
 				using (var bmp2 = FastScale.MaintainAspect(bmp, targetWidth, targetHeight))
 				{
 					bmp2.SaveJpeg("./outputs/keep_aspect_downscale_flat.jpg");
@@ -176,12 +174,10 @@ namespace ImageTools.Tests
 		[Test]
 		public void keep_aspect_downscale_tall()
 		{
-			int targetWidth;
-			int targetHeight;
 			using (var bmp = Load.FromFile("./inputs/1.jpg"))
 			{
-				targetWidth = (bmp.Width / 2) + 5;
-				targetHeight = bmp.Height - 5;
+				int targetWidth = (bmp.Width / 2) + 5;
+				int targetHeight = bmp.Height - 5;
 				using (var bmp2 = FastScale.MaintainAspect(bmp, targetWidth, targetHeight))
 				{
 					bmp2.SaveJpeg("./outputs/keep_aspect_downscale_tall.jpg");
