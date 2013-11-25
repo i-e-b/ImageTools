@@ -1,4 +1,5 @@
 ﻿using System.Drawing;
+using System.IO;
 
 namespace ImageTools
 {
@@ -6,7 +7,13 @@ namespace ImageTools
 	{
 		public static Bitmap FromFile(string filePath)
 		{
-			return (Bitmap)Bitmap.FromFile(filePath);
+			using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+			{
+				using (var bmp = Image.FromStream(fs))
+				{
+					return new Bitmap(bmp);
+				}
+			}
 		}
 	}
 }
