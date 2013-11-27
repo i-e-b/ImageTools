@@ -37,7 +37,9 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Bitmangle.cs" />
     <Compile Include="Blur.cs" />
+    <Compile Include="Haar.cs" />
     <Compile Include="Load.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Save.cs" />
