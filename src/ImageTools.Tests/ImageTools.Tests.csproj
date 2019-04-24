@@ -42,7 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BlurringImages.cs" />
-    <Compile Include="HaarWaveletTests.cs" />
+    <Compile Include="WaveletTests.cs" />
     <Compile Include="SampleDownscales.cs" />
     <Compile Include="UpscalingImages.cs" />
     <Compile Include="DownscalingImages.cs" />

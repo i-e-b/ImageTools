@@ -39,6 +39,7 @@
   <ItemGroup>
     <Compile Include="Bitmangle.cs" />
     <Compile Include="Blur.cs" />
+    <Compile Include="CDF_9_7.cs" />
     <Compile Include="Haar.cs" />
     <Compile Include="Load.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
