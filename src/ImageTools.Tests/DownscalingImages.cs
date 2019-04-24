@@ -24,7 +24,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/1_scaled_slight.jpg"));
+			Assert.That(Load.FileExists("./outputs/1_scaled_slight.jpg"));
 			using (var result = Load.FromFile("./outputs/1_scaled_slight.jpg"))
 			{
 				Assert.That(result.Width, Is.EqualTo(targetWidth));
@@ -48,7 +48,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/2_scaled.jpg"));
+			Assert.That(Load.FileExists("./outputs/2_scaled.jpg"));
 			using (var result = Load.FromFile("./outputs/2_scaled.jpg"))
 			{
 				Assert.That(result.Width, Is.EqualTo(targetWidth));
@@ -72,7 +72,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/1_scaled.jpg"));
+			Assert.That(Load.FileExists("./outputs/1_scaled.jpg"));
 			using (var result = Load.FromFile("./outputs/1_scaled.jpg"))
 			{
 				Assert.That(result.Width, Is.EqualTo(targetWidth));
@@ -96,7 +96,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/1_scaled_51.jpg"));
+			Assert.That(Load.FileExists("./outputs/1_scaled_51.jpg"));
 			using (var result = Load.FromFile("./outputs/1_scaled_51.jpg"))
 			{
 				Assert.That(result.Width, Is.EqualTo(targetWidth));
@@ -120,7 +120,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/non_square_downscale_flat.jpg"));
+			Assert.That(Load.FileExists("./outputs/non_square_downscale_flat.jpg"));
 			using (var result = Load.FromFile("./outputs/non_square_downscale_flat.jpg"))
 			{
 				Assert.That(result.Width, Is.EqualTo(targetWidth));
@@ -144,7 +144,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/non_square_downscale_tall.jpg"));
+			Assert.That(Load.FileExists("./outputs/non_square_downscale_tall.jpg"));
 			using (var result = Load.FromFile("./outputs/non_square_downscale_tall.jpg"))
 			{
 				Assert.That(result.Width, Is.EqualTo(targetWidth));
@@ -167,7 +167,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/keep_aspect_downscale_flat.jpg"));
+			Assert.That(Load.FileExists("./outputs/keep_aspect_downscale_flat.jpg"));
 			Console.WriteLine("Go check the build output and ensure that \"/outputs/keep_aspect_downscale_flat.jpg\" looks ok");
 		}
 		
@@ -184,7 +184,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/keep_aspect_downscale_tall.jpg"));
+			Assert.That(Load.FileExists("./outputs/keep_aspect_downscale_tall.jpg"));
 			Console.WriteLine("Go check the build output and ensure that \"/outputs/keep_aspect_downscale_tall.jpg\" looks ok");
 		}
 
@@ -203,7 +203,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/moire_scaled.jpg"));
+			Assert.That(Load.FileExists("./outputs/moire_scaled.jpg"));
 			using (var result = Load.FromFile("./outputs/moire_scaled.jpg"))
 			{
 				Assert.That(result.Width, Is.EqualTo(targetWidth));
@@ -227,7 +227,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/moire_scaled_np2.jpg"));
+			Assert.That(Load.FileExists("./outputs/moire_scaled_np2.jpg"));
 			using (var result = Load.FromFile("./outputs/moire_scaled_np2.jpg"))
 			{
 				Assert.That(result.Width, Is.EqualTo(targetWidth));
@@ -251,7 +251,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/moire_scaled_np2_2.jpg"));
+			Assert.That(Load.FileExists("./outputs/moire_scaled_np2_2.jpg"));
 			using (var result = Load.FromFile("./outputs/moire_scaled_np2_2.jpg"))
 			{
 				Assert.That(result.Width, Is.EqualTo(targetWidth));

@@ -1,5 +1,4 @@
-﻿using System.IO;
-using NUnit.Framework;
+﻿using NUnit.Framework;
 
 namespace ImageTools.Tests
 {
@@ -15,7 +14,7 @@ namespace ImageTools.Tests
 				bmp.SaveJpeg("./outputs/1.jpg");
 			}
 
-			Assert.That(File.Exists("./outputs/1.jpg"));
+			Assert.That(Load.FileExists("./outputs/1.jpg"));
 		}
 
 	}

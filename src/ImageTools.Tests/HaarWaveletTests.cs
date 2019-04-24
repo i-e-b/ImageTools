@@ -18,7 +18,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/64bpp_1.jpg"));
+			Assert.That(Load.FileExists("./outputs/64bpp_1.jpg"));
 		}
 	}
 }

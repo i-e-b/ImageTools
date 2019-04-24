@@ -18,7 +18,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/1_blurred.jpg"));
+			Assert.That(Load.FileExists("./outputs/1_blurred.jpg"));
 			Console.WriteLine("Go check the build output and ensure that \"/outputs/1_blurred.jpg\" is blurry");
 		}
 	}

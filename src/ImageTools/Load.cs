@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.IO;
+using System.Reflection;
 
 namespace ImageTools
 {
@@ -7,6 +8,10 @@ namespace ImageTools
 	{
 		public static Bitmap FromFile(string filePath)
 		{
+            if (!File.Exists(filePath)) {
+                var basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                filePath = Path.Combine(basePath, filePath);
+            }
 			using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
 			{
 				using (var bmp = Image.FromStream(fs))
@@ -15,5 +20,14 @@ namespace ImageTools
 				}
 			}
 		}
-	}
+
+        public static bool FileExists(string filePath)
+        {
+            if (!File.Exists(filePath)) {
+                var basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                filePath = Path.Combine(basePath, filePath);
+            }
+            return File.Exists(filePath);
+        }
+    }
 }

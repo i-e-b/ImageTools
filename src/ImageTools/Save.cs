@@ -2,6 +2,7 @@
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 
 namespace ImageTools
 {
@@ -9,6 +10,9 @@ namespace ImageTools
 	{
 		public static void SaveJpeg(this Bitmap src, string filePath, int quality = 95)
 		{
+            var basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            filePath = Path.Combine(basePath, filePath);
+
 			var p = Path.GetDirectoryName(filePath);
 			if (!string.IsNullOrEmpty(p))
 			{

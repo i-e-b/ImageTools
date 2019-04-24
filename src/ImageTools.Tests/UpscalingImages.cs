@@ -25,7 +25,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/1_double.jpg"));
+			Assert.That(Load.FileExists("./outputs/1_double.jpg"));
 			using (var result = Load.FromFile("./outputs/1_double.jpg"))
 			{
 				Assert.That(result.Width, Is.EqualTo(targetWidth));
@@ -49,7 +49,7 @@ namespace ImageTools.Tests
 				}
 			}
 
-			Assert.That(File.Exists("./outputs/1_plus_ten.jpg"));
+			Assert.That(Load.FileExists("./outputs/1_plus_ten.jpg"));
 			using (var result = Load.FromFile("./outputs/1_plus_ten.jpg"))
 			{
 				Assert.That(result.Width, Is.EqualTo(targetWidth));
