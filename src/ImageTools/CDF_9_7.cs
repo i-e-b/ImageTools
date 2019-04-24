@@ -94,7 +94,7 @@ namespace ImageTools
             double lowest = 0;
             double highest = 0;
 
-            double scale = 8192 / 2.6;
+            double scale = 8192;// / 2.6;
 
             // width wise
             for (int y = 0; y < si.Height; y++) // each row
@@ -117,7 +117,9 @@ namespace ImageTools
                     for (int x = 0; x < si.Width; x++) // each pixel (write cycle)
                     {
                         var dptr = yo + (x * bytePerPix) + ch;
-                        d[dptr] = (ushort)((1.3 + buffer[x]) * scale); // TODO: what are the limits on CDF97? I've seen -1.3..1.3
+                        var value = buffer[x]; // TODO: what are the limits on CDF97? I've seen -1.3..1.3
+                        value = Math.Sqrt(value);
+                        d[dptr] = (ushort)((value) * scale);
                     }
                 }
             }
