@@ -63,6 +63,9 @@
     <Content Include="inputs\2.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="inputs\3.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="inputs\moire_sample.PNG">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
