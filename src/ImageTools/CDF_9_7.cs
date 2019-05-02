@@ -170,8 +170,9 @@ namespace ImageTools
             var bufferSize = Morton.EncodeMorton2((uint)si.Width - 1, (uint)si.Height - 1) + 1; // should be identical to planeSize
             var buffer = new double[Math.Max(bufferSize, planeSize)];
 
+            const int sqrByte = 65025;
 
-            const int rounds = 8;
+            const int rounds = 6;
 
             for (int ch = 0; ch < bytePerPix; ch++) // each channel
             {
@@ -197,9 +198,18 @@ namespace ImageTools
                     fwt97(buffer, buffer.Length >> i); // decompose signal (single round)
                 }
 
+                //Test : threshold coeffs
+                double scaler = 255.0 / (planeSize - (planeSize >> rounds));
+                for (int i = planeSize >> rounds; i < planeSize; i++)
+                {
+                    var thresh = i * scaler;
+                    if (Math.Abs(buffer[i]) < thresh) buffer[i] = 0;
+                }
+
                 // Normalise values
                 //DCOffsetAndPinToRange(buffer, rounds);
 
+                WriteToRLE(buffer);
                 
                 //DCRestore(buffer, rounds);
 
@@ -220,16 +230,6 @@ namespace ImageTools
                     d[dst] = (byte)Saturate(value);
                 }
             }
-        }
-
-        private static byte[] ByteEncode(double[] buffer)
-        {
-            var b = new byte[buffer.Length];
-            for (int i = 0; i < buffer.Length; i++)
-            {
-                b[i] = (byte)buffer[i];
-            }
-            return b;
         }
 
         static unsafe void HorizonalWaveletTest(byte* s, byte* d, BitmapData si, BitmapData di)
@@ -282,8 +282,8 @@ namespace ImageTools
                         var rle = RLZ_Encode(buffer);
                         fs.Write(rle, 0, rle.Length);
 
-                        //DCOffsetAndPinToRange(buffer, rounds);
-
+                        DCOffsetAndPinToRange(buffer, rounds);
+                        DCRestore(buffer, rounds);
 
                         // Expansion phase
                         ExpandLine(buffer, rounds, factor);
@@ -302,6 +302,32 @@ namespace ImageTools
             Console.WriteLine("Min cdf value = " + lowest);
             Console.WriteLine("Max cdf value = " + highest);
         }
+        
+
+        private static void WriteToRLE(double[] buffer)
+        {
+            
+            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\rle_test.dat";
+            if (File.Exists(testpath)) File.Delete(testpath);
+
+            using (var fs = File.Open(testpath, FileMode.Append))
+            using (var gs = new GZipStream(fs, CompressionMode.Compress))
+            {
+                var buf = RLZ_Encode(buffer);
+                gs.Write(buf, 0, buf.Length);
+                gs.Flush();
+            }
+        }
+
+        private static byte[] ByteEncode(double[] buffer)
+        {
+            var b = new byte[buffer.Length];
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                b[i] = (byte)buffer[i];
+            }
+            return b;
+        }
 
         /// <summary>
         /// Run length of zeros
@@ -309,9 +335,10 @@ namespace ImageTools
         private static byte[] RLZ_Encode(double[] buffer)
         {
             var samples = new byte[buffer.Length];
+            const int DC = 127;
             for (int i = 0; i < buffer.Length; i++)
             {
-                samples[i] = (byte)buffer[i];
+                samples[i] = (byte)Saturate(buffer[i] + DC) ;
             }
 
             // the run length encoding is ONLY for zeros...
@@ -319,31 +346,31 @@ namespace ImageTools
             //
 
             var runs = new List<byte>();
-            var zlength = 0;
+            var dcLength = 0;
 
             for (int i = 0; i < samples.Length; i++)
             {
                 var samp = samples[i];
-                if (samp == 0)
+                if (samp == DC && dcLength < 252)
                 {
-                    zlength++;
+                    dcLength++;
                     continue;
                 }
 
                 // non zero sample...
-                if (zlength > 0)
+                if (dcLength > 0)
                 {
-                    runs.Add(0);
-                    runs.Add((byte)zlength);
+                    runs.Add(DC);
+                    runs.Add((byte)dcLength);
                 }
-                zlength = 0;
+                dcLength = 0;
                 runs.Add(samp);
             }
 
-            if (zlength > 0)
+            if (dcLength > 0)
             {
-                runs.Add(0);
-                runs.Add((byte)zlength);
+                runs.Add(DC);
+                runs.Add((byte)dcLength);
             }
 
             return runs.ToArray();
