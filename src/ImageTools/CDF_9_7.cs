@@ -206,13 +206,14 @@ namespace ImageTools
                     if (Math.Abs(buffer[i]) < thresh) buffer[i] = 0;
                 }
 
-
-                WriteToRLE(buffer);
-
-                ReadFromRLE(buffer);
-                
                 // Normalise values
                 DCOffsetAndPinToRange(buffer, rounds);
+
+                //if (ch == 0) {
+                    WriteToRLE(buffer);
+                    ReadFromRLE(buffer);
+                //}
+
                 DCRestore(buffer, rounds);
 
                 for (int i = rounds - 1; i >= 0; i--)
@@ -311,12 +312,15 @@ namespace ImageTools
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\rle_test.dat";
             if (File.Exists(testpath)) File.Delete(testpath);
 
-            using (var fs = File.Open(testpath, FileMode.Append))
+            using (var fs = File.Open(testpath, FileMode.Create))
             using (var gs = new GZipStream(fs, CompressionMode.Compress))
             {
-                var buf = RLZ_Encode(buffer);
+                //var buf = RLZ_Encode(buffer);
+                var buf = ByteEncode(buffer);
                 gs.Write(buf, 0, buf.Length);
+                Console.WriteLine($"double[{buffer.Length}] -> byte[{buf.Length}]");
                 gs.Flush();
+                fs.Flush();
             }
         }
 
@@ -329,11 +333,64 @@ namespace ImageTools
             }
             return b;
         }
+
+        private static void ByteDecode(byte[] src, double[] buffer)
+        {
+            for (int i = 0; i < src.Length; i++)
+            {
+                buffer[i] = src[i];
+            }
+        }
         
 
         private static void ReadFromRLE(double[] buffer)
         {
-         //   TODO_IMPLEMENT_ME();
+            // unpack from gzip, expand DC values by run length
+            
+            var ms = new MemoryStream();
+            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\rle_test.dat";
+            using (var fs = File.Open(testpath, FileMode.Open))
+            using (var gs = new GZipStream(fs, CompressionMode.Decompress))
+            {
+                gs.CopyTo(ms);
+            }
+
+            ms.Seek(0, SeekOrigin.Begin);
+            //RLZ_Decode(ms.ToArray(), buffer);
+            ByteDecode(ms.ToArray(), buffer);
+        }
+
+        /// <summary>
+        /// Reverse of RLZ_Encode
+        /// </summary>
+        private static void RLZ_Decode(byte[] packedSource, double[] buffer)
+        {
+            int DC = DC_Bias;
+            var p = 0;
+            var lim = buffer.Length - 1;
+            bool err = false;
+            for (int i = 0; i < packedSource.Length; i++)
+            {
+                if (p > lim) { err = true; break; }
+                var value = packedSource[i];
+
+                if (value == DC) {
+                    if (i >= packedSource.Length) { err = true; break; }
+                    // next byte is run length
+                    for (int j = 0; j < packedSource[i+1]; j++)
+                    {
+                        buffer[p] = value;
+                        p++;
+                        if (p > lim) break;
+                    }
+                    i++;
+                    continue;
+                }
+                buffer[p] = value;
+                p++;
+            }
+            if (err) Console.WriteLine("RLZ Decode did not line up correctly");
+            else Console.WriteLine("RLZ A-OK");
         }
 
         /// <summary>
@@ -341,12 +398,8 @@ namespace ImageTools
         /// </summary>
         private static byte[] RLZ_Encode(double[] buffer)
         {
-            var samples = new byte[buffer.Length];
-            const int DC = 127;
-            for (int i = 0; i < buffer.Length; i++)
-            {
-                samples[i] = (byte)Saturate(buffer[i] + DC) ;
-            }
+            var samples = ByteEncode(buffer);
+            byte DC = DC_Bias;
 
             // the run length encoding is ONLY for zeros...
             // [data] ?[runlength] in bytes.
