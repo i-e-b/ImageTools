@@ -2,7 +2,7 @@
 
 namespace ImageTools.Tests
 {
-	[TestFixture]
+    [TestFixture]
 	public class WaveletTests
 	{
 		[Test]

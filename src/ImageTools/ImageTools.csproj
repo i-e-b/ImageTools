@@ -41,7 +41,9 @@
     <Compile Include="Blur.cs" />
     <Compile Include="CDF_9_7.cs" />
     <Compile Include="Haar.cs" />
+    <Compile Include="Hilbert.cs" />
     <Compile Include="Load.cs" />
+    <Compile Include="Morton.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Save.cs" />
     <Compile Include="FastScale.cs" />

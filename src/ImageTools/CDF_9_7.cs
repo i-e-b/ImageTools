@@ -158,16 +158,25 @@ namespace ImageTools
         static unsafe void WaveletDecompose(byte* s, byte* d, BitmapData si, BitmapData di)
         {
             var bytePerPix = si.Stride / si.Width;
+            var rowBytes = si.Stride;
             var planeSize = si.Width * si.Height;
-            var buffer = new double[planeSize];
-            int i = 0;
+            var bufferSize = Morton.EncodeMorton2((uint)si.Width, (uint)si.Height);
+            var buffer = new double[bufferSize];
 
             for (int ch = 0; ch < bytePerPix; ch++) // each channel
             {
                 // load image as doubles
-                for (i = 0; i < planeSize; i++) // each pixel (read cycle)
+                // each pixel (read cycle)
+                for (uint y = 0; y < si.Height; y++) 
                 {
-                    buffer[i] = s[(i * bytePerPix) + ch];
+                    var row = y * rowBytes;
+                    for (uint x = 0; x < si.Width; x++)
+                    {
+                        var dst = Morton.EncodeMorton2(x,y);
+                        var src = row + (x*bytePerPix) + ch;
+                        // 2D -> 1D with space filling curves
+                        buffer[dst] = s[src];
+                    }
                 }
 
 
@@ -180,10 +189,14 @@ namespace ImageTools
 
 
                 // Write output
-                for (i = 0; i < planeSize; i++) // each pixel (read cycle)
+                for (uint i = 0; i < planeSize; i++) // each pixel (read cycle)
                 {
+                    Morton.DecodeMorton2(i, out var x, out var y);
+                    
+                    var row = (y*rowBytes);
+                    var dst = row + (x*bytePerPix) + ch;
                     var value = buffer[i];
-                    d[(i * bytePerPix) + ch] = (byte)Saturate(value);
+                    d[dst] = (byte)Saturate(value);
                 }
 
             }
@@ -227,7 +240,7 @@ namespace ImageTools
 
                     // EXPERIMENTS go here
                     // Thresholding co-effs
-                    for (int i = buffer.Length >> rounds; i < buffer.Length - 1; i++)
+                    for (int i = buffer.Length >> rounds; i < buffer.Length; i++)
                     {
                         if (Math.Abs(buffer[i]) < 10) // energy threshold. Play with this.
                         {
