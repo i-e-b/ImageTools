@@ -199,19 +199,21 @@ namespace ImageTools
                 }
 
                 //Test : threshold coeffs
-                double scaler = 255.0 / (planeSize - (planeSize >> rounds));
+                double scaler = 64.0 / (planeSize - (planeSize >> rounds));
                 for (int i = planeSize >> rounds; i < planeSize; i++)
                 {
                     var thresh = i * scaler;
                     if (Math.Abs(buffer[i]) < thresh) buffer[i] = 0;
                 }
 
-                // Normalise values
-                //DCOffsetAndPinToRange(buffer, rounds);
 
                 WriteToRLE(buffer);
+
+                ReadFromRLE(buffer);
                 
-                //DCRestore(buffer, rounds);
+                // Normalise values
+                DCOffsetAndPinToRange(buffer, rounds);
+                DCRestore(buffer, rounds);
 
                 for (int i = rounds - 1; i >= 0; i--)
                 {
@@ -306,7 +308,6 @@ namespace ImageTools
 
         private static void WriteToRLE(double[] buffer)
         {
-            
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\rle_test.dat";
             if (File.Exists(testpath)) File.Delete(testpath);
 
@@ -327,6 +328,12 @@ namespace ImageTools
                 b[i] = (byte)buffer[i];
             }
             return b;
+        }
+        
+
+        private static void ReadFromRLE(double[] buffer)
+        {
+         //   TODO_IMPLEMENT_ME();
         }
 
         /// <summary>
@@ -427,11 +434,11 @@ namespace ImageTools
             var end = buffer.Length;
             for (int i = 0; i < mid; i++)
             {
-                buffer[i] = Saturate(buffer[i]); // pin to byte range
+                buffer[i] = Saturate(buffer[i] / 2); // pin to byte range
             }
             for (int i = mid; i < end; i++)
             {
-                buffer[i] = Saturate((buffer[i] * 0.5) + DC_Bias); // pin to byte range
+                buffer[i] = Saturate((buffer[i]) + DC_Bias); // pin to byte range
             }
         }
 
@@ -439,10 +446,14 @@ namespace ImageTools
         {
             var mid = buffer.Length >> rounds;
             var end = buffer.Length;
-
+            
+            for (int i = 0; i < mid; i++)
+            {
+                buffer[i] = buffer[i] * 2;
+            }
             for (int i = mid; i < end; i++)
             {
-                buffer[i] = (buffer[i] - DC_Bias) * 2;
+                buffer[i] = (buffer[i] - DC_Bias) ;
             }
         }
 
