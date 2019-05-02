@@ -1,21 +1,31 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Linq;
+using System.IO;
 
 namespace ImageTools
 {
     public class CDF_9_7
     {
         /// <summary>
-        /// Returns a 64 bit-per-pixel image
-        /// containing the gradients of a 32-bpp image
+        /// Returns a 32 bit-per-pixel image
+        /// containing the compressed gradients of a 32-bpp image
         /// </summary>
-        public static unsafe Bitmap Gradients(Bitmap src)
+        public static unsafe Bitmap HorizontalGradients(Bitmap src)
         {
             var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
 
-            Bitmangle.RunKernel(src, dst, WaveletProcess);
+            Bitmangle.RunKernel(src, dst, HorizonalWaveletTest);
+
+            return dst;
+        }
+
+        public static unsafe Bitmap ReduceImage(Bitmap src)
+        {
+            var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
+
+            Bitmangle.RunKernel(src, dst, WaveletDecompose);
 
             return dst;
         }
@@ -25,6 +35,7 @@ namespace ImageTools
          *
          *  x is an input signal, which will be replaced by its output transform.
          *  n is the length of the signal, and must be a power of 2.
+         *  s is the stride across the signal (for multi dimensional signals)
          *
          *  The first half part of the output signal contains the approximation coefficients.
          *  The second half part contains the detail coefficients (aka. the wavelets coefficients).
@@ -143,14 +154,54 @@ namespace ImageTools
         }
 
         
+        
+        static unsafe void WaveletDecompose(byte* s, byte* d, BitmapData si, BitmapData di)
+        {
+            var bytePerPix = si.Stride / si.Width;
+            var planeSize = si.Width * si.Height;
+            var buffer = new double[planeSize];
+            int i = 0;
 
-        static unsafe void WaveletProcess(byte* s, byte* d, BitmapData si, BitmapData di)
+            for (int ch = 0; ch < bytePerPix; ch++) // each channel
+            {
+                // load image as doubles
+                for (i = 0; i < planeSize; i++) // each pixel (read cycle)
+                {
+                    buffer[i] = s[(i * bytePerPix) + ch];
+                }
+
+
+                // process rounds
+                // ...
+
+
+                // Normalise values
+                // ...
+
+
+                // Write output
+                for (i = 0; i < planeSize; i++) // each pixel (read cycle)
+                {
+                    var value = buffer[i];
+                    d[(i * bytePerPix) + ch] = (byte)Saturate(value);
+                }
+
+            }
+        }
+
+        static unsafe void HorizonalWaveletTest(byte* s, byte* d, BitmapData si, BitmapData di)
         {
             var bytePerPix = si.Stride / si.Width;
             var buffer = new double[si.Width];
 
             double lowest = 0;
             double highest = 0;
+
+            // HACK: Test output size with RLE
+            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\rle.dat";
+            if (File.Exists(testpath)) File.Delete(testpath);
+
+            using (var fs = File.Open(testpath, FileMode.Append)) {
 
             // width wise
             for (int y = 0; y < si.Height; y++) // each row
@@ -164,45 +215,34 @@ namespace ImageTools
                         buffer[x] = s[sptr];
                     }
 
-                    int len = buffer.Length; // TODO: make sure this is 2^n
-
-                    // lower = more compressed; Reasonable range is 0.25 to 0.8
+                    // lower = more compressed; Reasonable range is 0.1 to 0.8
                     // if this is set too high, you will get 'burn' artefacts
                     // if this is too low, you will get a blank image
                     double CompressionFactor = 0.76;
-                    int rounds = 3; // more = more compression, more scale factors, more time
+                    int rounds = 4; // more = more compression, more scale factors, more time
                     double factor = CompressionFactor;
 
                     // Compression phase
-                    for (int i = 0; i < rounds; i++)
+                    CompressLine(rounds, buffer, factor);
+
+                    // EXPERIMENTS go here
+                    // Thresholding co-effs
+                    for (int i = buffer.Length >> rounds; i < buffer.Length - 1; i++)
                     {
-                        fwt97(buffer, len);// decompose signal
-                        Compress(buffer, factor);
+                        if (Math.Abs(buffer[i]) < 10) // energy threshold. Play with this.
+                        {
+                            buffer[i] = 0; // remove coefficient
+                        }
                     }
 
-                    lowest = Math.Min(lowest, buffer.Min());
-                    highest = Math.Max(highest, buffer.Max());
+                    var rle = RLEncode(buffer);
+                    fs.Write(rle, 0, rle.Length);
 
                     DCOffsetAndPinToRange(buffer, rounds);
-                    // End of compression
-
-
-                    // test removing DCs entirely:
-                    /*var mid = buffer.Length >> rounds;
-                    for (int i = 0; i < mid; i++)
-                    {
-                        buffer[i] = 64;
-                    }*/
-
+                        
 
                     // Expansion phase
-                    DCRestore(buffer, rounds);
-                    for (int i = 0; i < rounds; i++)
-                    {
-                        Expand(buffer, factor);
-                        iwt97(buffer, len); // restore signal
-                    }
-                    // End of expansion
+                    ExpandLine(buffer, rounds, factor);
 
                     for (int x = 0; x < si.Width; x++) // each pixel (write cycle)
                     {
@@ -212,27 +252,92 @@ namespace ImageTools
                     }
                 }
             }
-
+            fs.Flush();
+            }
             
             Console.WriteLine("Min cdf value = " + lowest);
             Console.WriteLine("Max cdf value = " + highest);
         }
 
-        private static void Compress(double[] buffer, double factor)
+        private static byte[] RLEncode(double[] buffer)
         {
-            var start = 0;
-            var end = buffer.Length;
+            var samples = new byte[buffer.Length];
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                samples[i] = (byte)buffer[i];
+            }
+
+            // the run length encoding is ONLY for zeros...
+            // [data] ?[runlength] in bytes.
+            //
+
+            var runs = new List<byte>();
+            var zlength = 0;
+
+            for (int i = 0; i < samples.Length; i++)
+            {
+                var samp = samples[i];
+                if (samp == 0)
+                {
+                    zlength++;
+                    continue;
+                }
+
+                // non zero sample...
+                if (zlength > 0)
+                {
+                    runs.Add(0);
+                    runs.Add((byte)zlength);
+                }
+                zlength = 0;
+                runs.Add(samp);
+            }
+
+            if (zlength > 0)
+            {
+                runs.Add(0);
+                runs.Add((byte)zlength);
+            }
+
+            return runs.ToArray();
+        }
+
+        private static void CompressLine(int rounds, double[] buffer, double factor)
+        {
+            for (int i = 0; i < rounds; i++)
+            {
+                fwt97(buffer, buffer.Length >> i); // decompose signal
+                Compress(buffer, factor, i);
+            }
+
+            //DCOffsetAndPinToRange(buffer, rounds);
+        }
+
+        private static void ExpandLine(double[] buffer, int rounds, double factor)
+        {
+            DCRestore(buffer, rounds);
+            for (int i = rounds - 1; i >= 0; i--)
+            {
+                Expand(buffer, factor, i);
+                iwt97(buffer, buffer.Length >> i); // restore signal
+            }
+        }
+
+        private static void Compress(double[] buffer, double factor, int round)
+        {
+            var start = 0; // buffer.Length >> (round + 1);
+            var end = buffer.Length >> round;
             for (int i = start; i < end; i++)
             {
                 buffer[i] = (int)(buffer[i] * factor);
             }
         }
         
-        private static void Expand(double[] buffer, double factor)
+        private static void Expand(double[] buffer, double factor, int round)
         {
             var expansion = 1 / factor;
-            var start = 0;
-            var end = buffer.Length;
+            var start = 0; //buffer.Length >> (round + 1);
+            var end = buffer.Length >> round;
             for (int i = start; i < end; i++)
             {
                 buffer[i] *= expansion;
@@ -240,8 +345,7 @@ namespace ImageTools
         }
 
         // bias for coefficients. 127 is neutral, 0 is 100% positive, 255 is 100% negative
-        // a slight positive bias seems to work best. Anything too strong will cause ringing.
-        const int DC_Bias = 64;
+        const int DC_Bias = 127;
 
         private static void DCOffsetAndPinToRange(double[] buffer, int rounds)
         {
