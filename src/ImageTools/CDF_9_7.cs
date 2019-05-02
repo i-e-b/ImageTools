@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.IO.Compression;
 
 namespace ImageTools
 {
@@ -111,95 +112,124 @@ namespace ImageTools
 
             // Unpack
             var tempbank = new double[n];
-            for (i=0;i<n/2;i++) {
-                tempbank[i*2]=x[i];
-                tempbank[i*2+1]=x[i+n/2];
+            for (i = 0; i < n / 2; i++)
+            {
+                tempbank[i * 2] = x[i];
+                tempbank[i * 2 + 1] = x[i + n / 2];
             }
-            for (i=0;i<n;i++) x[i]=tempbank[i];
+            for (i = 0; i < n; i++) x[i] = tempbank[i];
 
             // Undo scale
-            a=1.149604398;
-            for (i=0;i<n;i++) {
+            a = 1.149604398;
+            for (i = 0; i < n; i++)
+            {
                 if ((i % 2) == 0) x[i] *= a;
-                else x[i]/=a;
+                else x[i] /= a;
             }
 
             // Undo update 2
-            a=-0.4435068522;
-            for (i=2;i<n;i+=2) {
-                x[i]+=a*(x[i-1]+x[i+1]);
+            a = -0.4435068522;
+            for (i = 2; i < n; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
             }
-            x[0]+=2*a*x[1];
+            x[0] += 2 * a * x[1];
 
             // Undo predict 2
-            a=-0.8829110762;
-            for (i=1;i<n-2;i+=2) {
-                x[i]+=a*(x[i-1]+x[i+1]);
+            a = -0.8829110762;
+            for (i = 1; i < n - 2; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
             }
-            x[n-1]+=2*a*x[n-2];
+            x[n - 1] += 2 * a * x[n - 2];
 
             // Undo update 1
-            a=0.05298011854;
-            for (i=2;i<n;i+=2) {
-                x[i]+=a*(x[i-1]+x[i+1]);
+            a = 0.05298011854;
+            for (i = 2; i < n; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
             }
-            x[0]+=2*a*x[1];
+            x[0] += 2 * a * x[1];
 
             // Undo predict 1
-            a=1.586134342;
-            for (i=1;i<n-2;i+=2) {
-                x[i]+=a*(x[i-1]+x[i+1]);
-            } 
-            x[n-1]+=2*a*x[n-2];
+            a = 1.586134342;
+            for (i = 1; i < n - 2; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
+            }
+            x[n - 1] += 2 * a * x[n - 2];
         }
 
-        
-        
+
+
         static unsafe void WaveletDecompose(byte* s, byte* d, BitmapData si, BitmapData di)
         {
             var bytePerPix = si.Stride / si.Width;
             var rowBytes = si.Stride;
             var planeSize = si.Width * si.Height;
-            var bufferSize = Morton.EncodeMorton2((uint)si.Width, (uint)si.Height);
-            var buffer = new double[bufferSize];
+            var bufferSize = Morton.EncodeMorton2((uint)si.Width - 1, (uint)si.Height - 1) + 1; // should be identical to planeSize
+            var buffer = new double[Math.Max(bufferSize, planeSize)];
+
+
+            const int rounds = 8;
 
             for (int ch = 0; ch < bytePerPix; ch++) // each channel
             {
                 // load image as doubles
                 // each pixel (read cycle)
-                for (uint y = 0; y < si.Height; y++) 
+                for (uint y = 0; y < si.Height; y++)
                 {
                     var row = y * rowBytes;
                     for (uint x = 0; x < si.Width; x++)
                     {
-                        var dst = Morton.EncodeMorton2(x,y);
-                        var src = row + (x*bytePerPix) + ch;
-                        // 2D -> 1D with space filling curves
+                        var dst = Morton.EncodeMorton2(x, y);
+                        //var dst = Hilbert.xy2d(si.Width, (int)x, (int)y);
+
+                        var src = row + (x * bytePerPix) + ch;
                         buffer[dst] = s[src];
                     }
                 }
 
 
                 // process rounds
-                // ...
-
+                for (int i = 0; i < rounds; i++)
+                {
+                    fwt97(buffer, buffer.Length >> i); // decompose signal (single round)
+                }
 
                 // Normalise values
-                // ...
+                //DCOffsetAndPinToRange(buffer, rounds);
 
+                
+                //DCRestore(buffer, rounds);
+
+                for (int i = rounds - 1; i >= 0; i--)
+                {
+                    iwt97(buffer, buffer.Length >> i); // restore signal
+                }
 
                 // Write output
                 for (uint i = 0; i < planeSize; i++) // each pixel (read cycle)
                 {
                     Morton.DecodeMorton2(i, out var x, out var y);
-                    
-                    var row = (y*rowBytes);
-                    var dst = row + (x*bytePerPix) + ch;
+                    //Hilbert.d2xy(si.Width, (int)i, out var x, out var y);
+
+                    var row = (y * rowBytes);
+                    var dst = row + (x * bytePerPix) + ch;
                     var value = buffer[i];
                     d[dst] = (byte)Saturate(value);
                 }
-
             }
+        }
+
+        private static byte[] ByteEncode(double[] buffer)
+        {
+            var b = new byte[buffer.Length];
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                b[i] = (byte)buffer[i];
+            }
+            return b;
         }
 
         static unsafe void HorizonalWaveletTest(byte* s, byte* d, BitmapData si, BitmapData di)
@@ -214,65 +244,69 @@ namespace ImageTools
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\rle.dat";
             if (File.Exists(testpath)) File.Delete(testpath);
 
-            using (var fs = File.Open(testpath, FileMode.Append)) {
-
-            // width wise
-            for (int y = 0; y < si.Height; y++) // each row
+            using (var fs = File.Open(testpath, FileMode.Append))
             {
-                var yo = y * si.Stride;
-                for (int ch = 0; ch < bytePerPix; ch++) // each channel
+
+                // width wise
+                for (int y = 0; y < si.Height; y++) // each row
                 {
-                    for (int x = 0; x < si.Width; x++) // each pixel (read cycle)
+                    var yo = y * si.Stride;
+                    for (int ch = 0; ch < bytePerPix; ch++) // each channel
                     {
-                        var sptr = yo + (x * bytePerPix) + ch;
-                        buffer[x] = s[sptr];
-                    }
-
-                    // lower = more compressed; Reasonable range is 0.1 to 0.8
-                    // if this is set too high, you will get 'burn' artefacts
-                    // if this is too low, you will get a blank image
-                    double CompressionFactor = 0.76;
-                    int rounds = 4; // more = more compression, more scale factors, more time
-                    double factor = CompressionFactor;
-
-                    // Compression phase
-                    CompressLine(rounds, buffer, factor);
-
-                    // EXPERIMENTS go here
-                    // Thresholding co-effs
-                    for (int i = buffer.Length >> rounds; i < buffer.Length; i++)
-                    {
-                        if (Math.Abs(buffer[i]) < 10) // energy threshold. Play with this.
+                        for (int x = 0; x < si.Width; x++) // each pixel (read cycle)
                         {
-                            buffer[i] = 0; // remove coefficient
+                            var sptr = yo + (x * bytePerPix) + ch;
+                            buffer[x] = s[sptr];
+                        }
+
+                        // lower = more compressed; Reasonable range is 0.1 to 0.8
+                        // if this is set too high, you will get 'burn' artefacts
+                        // if this is too low, you will get a blank image
+                        double CompressionFactor = 0.76;
+                        int rounds = 4; // more = more compression, more scale factors, more time
+                        double factor = CompressionFactor;
+
+                        // Compression phase
+                        CompressLine(rounds, buffer, factor);
+
+                        // EXPERIMENTS go here
+                        // Thresholding co-effs
+                        for (int i = buffer.Length >> rounds; i < buffer.Length; i++)
+                        {
+                            if (Math.Abs(buffer[i]) < 10) // energy threshold. Play with this.
+                            {
+                                buffer[i] = 0; // remove coefficient
+                            }
+                        }
+
+                        var rle = RLZ_Encode(buffer);
+                        fs.Write(rle, 0, rle.Length);
+
+                        //DCOffsetAndPinToRange(buffer, rounds);
+
+
+                        // Expansion phase
+                        ExpandLine(buffer, rounds, factor);
+
+                        for (int x = 0; x < si.Width; x++) // each pixel (write cycle)
+                        {
+                            var dptr = yo + (x * bytePerPix) + ch;
+                            var value = buffer[x];
+                            d[dptr] = (byte)Saturate(value);
                         }
                     }
-
-                    var rle = RLEncode(buffer);
-                    fs.Write(rle, 0, rle.Length);
-
-                    DCOffsetAndPinToRange(buffer, rounds);
-                        
-
-                    // Expansion phase
-                    ExpandLine(buffer, rounds, factor);
-
-                    for (int x = 0; x < si.Width; x++) // each pixel (write cycle)
-                    {
-                        var dptr = yo + (x * bytePerPix) + ch;
-                        var value = buffer[x];
-                        d[dptr] = (byte)Saturate(value);
-                    }
                 }
+                fs.Flush();
             }
-            fs.Flush();
-            }
-            
+
             Console.WriteLine("Min cdf value = " + lowest);
             Console.WriteLine("Max cdf value = " + highest);
         }
 
-        private static byte[] RLEncode(double[] buffer)
+        /// <summary>
+        /// Run length of zeros
+        /// </summary>
+        private static byte[] RLZ_Encode(double[] buffer)
         {
             var samples = new byte[buffer.Length];
             for (int i = 0; i < buffer.Length; i++)
@@ -345,7 +379,7 @@ namespace ImageTools
                 buffer[i] = (int)(buffer[i] * factor);
             }
         }
-        
+
         private static void Expand(double[] buffer, double factor, int round)
         {
             var expansion = 1 / factor;
@@ -370,7 +404,7 @@ namespace ImageTools
             }
             for (int i = mid; i < end; i++)
             {
-                buffer[i] = Saturate(buffer[i] + DC_Bias); // pin to byte range
+                buffer[i] = Saturate((buffer[i] * 0.5) + DC_Bias); // pin to byte range
             }
         }
 
@@ -381,7 +415,7 @@ namespace ImageTools
 
             for (int i = mid; i < end; i++)
             {
-                buffer[i] = (buffer[i]) - DC_Bias;
+                buffer[i] = (buffer[i] - DC_Bias) * 2;
             }
         }
 
