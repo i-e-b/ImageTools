@@ -165,15 +165,22 @@ namespace ImageTools
         static unsafe void WaveletDecompose(byte* s, byte* d, BitmapData si, BitmapData di)
         {
             var bytePerPix = si.Stride / si.Width;
-            var rowBytes = si.Stride;
             var planeSize = si.Width * si.Height;
             var bufferSize = Morton.EncodeMorton2((uint)si.Width - 1, (uint)si.Height - 1) + 1; // should be identical to planeSize
             var buffer = new double[Math.Max(bufferSize, planeSize)];
 
-            const int rounds = 5;
-            const double threshold = 200; // more = worse image, smaller size
+            const int rounds = 4;
+            const double color_threshold = 200; // 1..; more = worse image, smaller size
+            const double brightness_threshold = 64; // 1..; more = worse image, smaller size
 
-            for (int ch = 0; ch < bytePerPix; ch++) // each channel
+            // Change color space
+            var pixelBuf = (uint*)(s);
+            for (int i = 0; i < bufferSize; i++)
+            {
+                pixelBuf[i] = ColorSpace.RGB32_To_Ycbcr32(pixelBuf[i]);
+            }
+
+            for (int ch = 0; ch < 3; ch++) // each channel
             {
                 // load image as doubles
                 // each pixel (read cycle)
@@ -190,7 +197,8 @@ namespace ImageTools
                 
 
                 // Threshold coeffs
-                double scaler = threshold / (planeSize - (planeSize >> rounds));
+                double thres = (ch == 2) ? (brightness_threshold) : (color_threshold); // Y channel gets more res than color
+                double scaler = thres / (planeSize - (planeSize >> rounds));
                 for (int i = planeSize >> rounds; i < planeSize; i++)
                 {
                     var thresh = i * scaler;
@@ -218,6 +226,14 @@ namespace ImageTools
 
                 // Write output
                 for (uint i = 0; i < planeSize; i++) { d[(i * bytePerPix) + ch] = (byte)Saturate(buffer[i]); }
+            }
+
+            
+            // Restore color space
+            var pixelBuf2 = (uint*)(d);
+            for (int i = 0; i < bufferSize; i++)
+            {
+                pixelBuf2[i] = ColorSpace.Ycbcr32_To_RGB32(pixelBuf2[i]);
             }
         }
 

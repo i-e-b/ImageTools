@@ -40,6 +40,7 @@
     <Compile Include="Bitmangle.cs" />
     <Compile Include="Blur.cs" />
     <Compile Include="CDF_9_7.cs" />
+    <Compile Include="ColorSpace.cs" />
     <Compile Include="Haar.cs" />
     <Compile Include="Hilbert.cs" />
     <Compile Include="Load.cs" />
