@@ -20,27 +20,41 @@ namespace ImageTools.Tests
 		}
         
         [Test]
-        public void cdf97_simple_test()
+        public void cdf97_horz_test()
         {
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
                 using (var bmp2 = CDF_9_7.HorizontalGradients(bmp))
                 {
-                    bmp2.SaveJpeg("./outputs/Cdf97_32bpp_3.jpg", quality: 100);
+                    bmp2.SaveJpeg("./outputs/Cdf97_32bpp_3_HZ.jpg", quality: 100);
                 }
             }
 
-            Assert.That(Load.FileExists("./outputs/Cdf97_32bpp_3.jpg"));
+            Assert.That(Load.FileExists("./outputs/Cdf97_32bpp_3_HZ.jpg"));
+        }
+        
+        [Test]
+        public void cdf97_vert_test()
+        {
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                using (var bmp2 = CDF_9_7.HorizontalGradients(bmp))
+                {
+                    bmp2.SaveJpeg("./outputs/Cdf97_32bpp_3_VT.jpg", quality: 100);
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Cdf97_32bpp_3_VT.jpg"));
         }
 
         
         
         [Test]
-        public void cdf97_reduce_test()
+        public void cdf97_morton_reduce_test()
         {
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
-                using (var bmp2 = CDF_9_7.ReduceImage(bmp))
+                using (var bmp2 = CDF_9_7.MortonReduceImage(bmp))
                 {
                     bmp2.SaveJpeg("./outputs/Cdf97_Reduce_32bpp_3.jpg", quality: 100);
                 }
