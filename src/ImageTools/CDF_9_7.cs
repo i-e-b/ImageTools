@@ -109,11 +109,9 @@ namespace ImageTools
                 if (i % 2 == 0) tempbank[i / 2] = x[i];
                 else tempbank[n / 2 + i / 2] = x[i];
             }
-            for (i = 0; i < n; i++) x[i] = tempbank[i];
-
-
+            
             // pick out stride data
-            for (i = 0; i < n; i++) { buf[i * stride + offset] = x[i]; }
+            for (i = 0; i < n; i++) { buf[i * stride + offset] = tempbank[i]; }
         }
 
         /**
@@ -133,6 +131,8 @@ namespace ImageTools
             for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
 
             // Unpack
+            // The raw input is like [DC][DC]...[AC][AC]
+            // we want it as         [DC][AC][DC][AC]...
             var tempbank = new double[n];
             for (i = 0; i < n / 2; i++)
             {
