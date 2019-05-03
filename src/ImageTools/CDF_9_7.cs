@@ -170,69 +170,87 @@ namespace ImageTools
             var bufferSize = Morton.EncodeMorton2((uint)si.Width - 1, (uint)si.Height - 1) + 1; // should be identical to planeSize
             var buffer = new double[Math.Max(bufferSize, planeSize)];
 
-            const int sqrByte = 65025;
-
-            const int rounds = 6;
+            const int rounds = 5;
+            const double threshold = 200; // more = worse image, smaller size
 
             for (int ch = 0; ch < bytePerPix; ch++) // each channel
             {
                 // load image as doubles
                 // each pixel (read cycle)
-                for (uint y = 0; y < si.Height; y++)
-                {
-                    var row = y * rowBytes;
-                    for (uint x = 0; x < si.Width; x++)
-                    {
-                        var dst = Morton.EncodeMorton2(x, y);
-                        //var dst = Hilbert.xy2d(si.Width, (int)x, (int)y);
 
-                        var src = row + (x * bytePerPix) + ch;
-                        buffer[dst] = s[src];
-                    }
-                }
-
+                // load image as doubles
+                for (int i = 0; i < planeSize; i++) { buffer[i] = s[(i * bytePerPix) + ch]; }
+                buffer = ToMortonOrder(buffer, si.Width, si.Height);
 
                 // process rounds
                 for (int i = 0; i < rounds; i++)
                 {
                     fwt97(buffer, buffer.Length >> i); // decompose signal (single round)
                 }
+                
 
-                //Test : threshold coeffs
-                double scaler = 64.0 / (planeSize - (planeSize >> rounds));
+                // Threshold coeffs
+                double scaler = threshold / (planeSize - (planeSize >> rounds));
                 for (int i = planeSize >> rounds; i < planeSize; i++)
                 {
                     var thresh = i * scaler;
                     if (Math.Abs(buffer[i]) < thresh) buffer[i] = 0;
                 }
 
-                // Normalise values
+
+                // Normalise values and write
                 DCOffsetAndPinToRange(buffer, rounds);
+                WriteToRLE(buffer, ch);
 
-                //if (ch == 0) {
-                    WriteToRLE(buffer);
-                    ReadFromRLE(buffer);
-                //}
+                // prove it's actually working
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] = AC_Bias; }
 
+                // Read
+                ReadFromRLE(buffer, ch);
                 DCRestore(buffer, rounds);
 
+                // Restore
                 for (int i = rounds - 1; i >= 0; i--)
                 {
                     iwt97(buffer, buffer.Length >> i); // restore signal
                 }
+                buffer = FromMortonOrder(buffer, si.Width, si.Height);
 
                 // Write output
-                for (uint i = 0; i < planeSize; i++) // each pixel (read cycle)
-                {
-                    Morton.DecodeMorton2(i, out var x, out var y);
-                    //Hilbert.d2xy(si.Width, (int)i, out var x, out var y);
+                for (uint i = 0; i < planeSize; i++) { d[(i * bytePerPix) + ch] = (byte)Saturate(buffer[i]); }
+            }
+        }
 
-                    var row = (y * rowBytes);
-                    var dst = row + (x * bytePerPix) + ch;
-                    var value = buffer[i];
-                    d[dst] = (byte)Saturate(value);
+        private static double[] FromMortonOrder(double[] src, int width, int height)
+        {
+            var dst = new double[width*height];
+            var planeSize = width * height;
+            for (uint i = 0; i < planeSize; i++) // each pixel (read cycle)
+            {
+                Morton.DecodeMorton2(i, out var x, out var y);
+                //Hilbert.d2xy(si.Width, (int)i, out var x, out var y);
+
+                var row = (int)y * height;
+                dst[row + (int)x] = src[i];
+            }
+            return dst;
+        }
+
+        private static double[] ToMortonOrder(double[] src, int width, int height)
+        {
+            var dst = new double[width*height];
+            for (uint y = 0; y < height; y++)
+            {
+                var row = y * height;
+                for (uint x = 0; x < width; x++)
+                {
+                    var i = Morton.EncodeMorton2(x, y);
+                    //var dst = Hilbert.xy2d(si.Width, (int)x, (int)y);
+
+                    dst[i] = src[row + x];
                 }
             }
+            return dst;
         }
 
         static unsafe void HorizonalWaveletTest(byte* s, byte* d, BitmapData si, BitmapData di)
@@ -307,9 +325,9 @@ namespace ImageTools
         }
         
 
-        private static void WriteToRLE(double[] buffer)
+        private static void WriteToRLE(double[] buffer, int ch)
         {
-            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\rle_test.dat";
+            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\rle_test_"+ch+".dat";
             if (File.Exists(testpath)) File.Delete(testpath);
 
             using (var fs = File.Open(testpath, FileMode.Create))
@@ -323,32 +341,14 @@ namespace ImageTools
                 fs.Flush();
             }
         }
-
-        private static byte[] ByteEncode(double[] buffer)
-        {
-            var b = new byte[buffer.Length];
-            for (int i = 0; i < buffer.Length; i++)
-            {
-                b[i] = (byte)buffer[i];
-            }
-            return b;
-        }
-
-        private static void ByteDecode(byte[] src, double[] buffer)
-        {
-            for (int i = 0; i < src.Length; i++)
-            {
-                buffer[i] = src[i];
-            }
-        }
         
 
-        private static void ReadFromRLE(double[] buffer)
+        private static void ReadFromRLE(double[] buffer, int ch)
         {
             // unpack from gzip, expand DC values by run length
             
             var ms = new MemoryStream();
-            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\rle_test.dat";
+            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\rle_test_"+ch+".dat";
             using (var fs = File.Open(testpath, FileMode.Open))
             using (var gs = new GZipStream(fs, CompressionMode.Decompress))
             {
@@ -365,7 +365,7 @@ namespace ImageTools
         /// </summary>
         private static void RLZ_Decode(byte[] packedSource, double[] buffer)
         {
-            int DC = DC_Bias;
+            int DC = AC_Bias;
             var p = 0;
             var lim = buffer.Length - 1;
             bool err = false;
@@ -379,15 +379,13 @@ namespace ImageTools
                     // next byte is run length
                     for (int j = 0; j < packedSource[i+1]; j++)
                     {
-                        buffer[p] = value;
-                        p++;
-                        if (p > lim) break;
+                        buffer[p++] = value;
+                        if (p > lim) { err = true; break; }
                     }
                     i++;
                     continue;
                 }
-                buffer[p] = value;
-                p++;
+                buffer[p++] = value;
             }
             if (err) Console.WriteLine("RLZ Decode did not line up correctly");
             else Console.WriteLine("RLZ A-OK");
@@ -399,7 +397,7 @@ namespace ImageTools
         private static byte[] RLZ_Encode(double[] buffer)
         {
             var samples = ByteEncode(buffer);
-            byte DC = DC_Bias;
+            byte DC = AC_Bias;
 
             // the run length encoding is ONLY for zeros...
             // [data] ?[runlength] in bytes.
@@ -434,6 +432,24 @@ namespace ImageTools
             }
 
             return runs.ToArray();
+        }
+
+        private static byte[] ByteEncode(double[] buffer)
+        {
+            var b = new byte[buffer.Length];
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                b[i] = (byte)buffer[i];
+            }
+            return b;
+        }
+
+        private static void ByteDecode(byte[] src, double[] buffer)
+        {
+            for (int i = 0; i < src.Length; i++)
+            {
+                buffer[i] = src[i];
+            }
         }
 
         private static void CompressLine(int rounds, double[] buffer, double factor)
@@ -479,19 +495,38 @@ namespace ImageTools
         }
 
         // bias for coefficients. 127 is neutral, 0 is 100% positive, 255 is 100% negative
-        const int DC_Bias = 127;
+        const int AC_Bias = 127;
 
         private static void DCOffsetAndPinToRange(double[] buffer, int rounds)
         {
             var mid = buffer.Length >> rounds;
             var end = buffer.Length;
+
+            double max = 0;
+            double min = 0;
+
+            // Find range of DC
             for (int i = 0; i < mid; i++)
             {
-                buffer[i] = Saturate(buffer[i] / 2); // pin to byte range
+                max = Math.Max(max, buffer[i]);
+                min = Math.Min(min, buffer[i]);
             }
+
+            var baseOffset = (min < 0) ? (-min) : 0;
+            var crush = max + baseOffset;
+            if (crush < 255) crush = 1;
+            else crush = 255 / crush;
+
+            // normalise if out of bounds
+            for (int i = 0; i < mid; i++)
+            {
+                buffer[i] = Saturate((buffer[i] + baseOffset) * crush); // pin to byte range
+            }
+
+            // recentre AC
             for (int i = mid; i < end; i++)
             {
-                buffer[i] = Saturate((buffer[i]) + DC_Bias); // pin to byte range
+                buffer[i] = Saturate((buffer[i]) + AC_Bias); // pin to byte range
             }
         }
 
@@ -502,11 +537,11 @@ namespace ImageTools
             
             for (int i = 0; i < mid; i++)
             {
-                buffer[i] = buffer[i] * 2;
+                buffer[i] = buffer[i] * 1.333;
             }
             for (int i = mid; i < end; i++)
             {
-                buffer[i] = (buffer[i] - DC_Bias) ;
+                buffer[i] = (buffer[i] - AC_Bias) ;
             }
         }
 
