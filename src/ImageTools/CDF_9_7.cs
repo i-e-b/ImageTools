@@ -55,55 +55,68 @@ namespace ImageTools
         {
             double a;
             int i;
+            var bn = n * stride + offset;
+            var s = stride;
+            var s2 = 2 * stride;
 
             // Predict 1
             a = -1.586134342;
             for (i = 1; i < n - 2; i += 2)
             {
-                x[i] += a * (x[i - 1] + x[i + 1]);
+                var j = i * stride + offset;
+                x[j] += a * (x[j - s] + x[j + s]);
             }
-            x[n - 1] += 2 * a * x[n - 2];
+
+            x[bn - s] += 2 * a * x[bn - s2];
 
             // Update 1
             a = -0.05298011854;
             for (i = 2; i < n; i += 2)
             {
-                x[i] += a * (x[i - 1] + x[i + 1]);
+                var j = i * stride + offset;
+                x[j] += a * (x[j - s] + x[j + s]);
             }
-            x[0] += 2 * a * x[1];
+            x[offset] += 2 * a * x[offset + s];
 
             // Predict 2
             a = 0.8829110762;
             for (i = 1; i < n - 2; i += 2)
             {
-                x[i] += a * (x[i - 1] + x[i + 1]);
+                var j = i * stride + offset;
+                x[j] += a * (x[j - s] + x[j + s]);
             }
-            x[n - 1] += 2 * a * x[n - 2];
+            x[bn - s] += 2 * a * x[bn - s2];
 
             // Update 2
             a = 0.4435068522;
             for (i = 2; i < n; i += 2)
             {
-                x[i] += a * (x[i - 1] + x[i + 1]);
+                var j = i * stride + offset;
+                x[j] += a * (x[j - s] + x[j + s]);
             }
-            x[0] += 2 * a * x[1];
+            x[offset] += 2 * a * x[offset + s];
 
             // Scale
             a = 1 / 1.149604398;
             for (i = 0; i < n; i++)
             {
-                if ((i % 2) == 0) x[i] *= a;
-                else x[i] /= a;
+                var j = i * stride + offset;
+                if ((i % 2) == 0) x[j] *= a;
+                else x[j] /= a;
             }
 
             // Pack
             var tempbank = new double[n];
             for (i = 0; i < n; i++)
             {
-                if (i % 2 == 0) tempbank[i / 2] = x[i];
-                else tempbank[n / 2 + i / 2] = x[i];
+                var j = i * stride + offset;
+                if (i % 2 == 0) tempbank[i / 2] = x[j];
+                else tempbank[n / 2 + i / 2] = x[j];
             }
-            for (i = 0; i < n; i++) x[i] = tempbank[i];
+            for (i = 0; i < n; i++) {
+                var j = i * stride + offset;
+                x[j] = tempbank[i];
+            }
         }
 
         /**
@@ -493,7 +506,6 @@ namespace ImageTools
 
         static unsafe void HorizonalWaveletTest(byte* s, byte* d, BitmapData si, BitmapData di)
         {
-
             for (int ch = 0; ch < 3; ch++)
             {
                 var buffer = ReadPlane(s, si, ch);
@@ -517,43 +529,25 @@ namespace ImageTools
         
         static unsafe void VerticalWaveletTest(byte* s, byte* d, BitmapData si, BitmapData di)
         {
-            var bytePerPix = si.Stride / si.Width;
-            var buffer = new double[si.Width];
-
-            double lowest = 0;
-            double highest = 0;
-
-            // width wise
-            for (int y = 0; y < si.Height; y++) // each row
+            for (int ch = 0; ch < 3; ch++)
             {
-                var yo = y * si.Stride;
-                for (int ch = 0; ch < bytePerPix; ch++) // each channel
+                var buffer = ReadPlane(s, si, ch);
+
+                // DC to AC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
+
+                // Wavelet decompose
+                for (int x = 0; x < si.Width; x++) // each row
                 {
-                    for (int x = 0; x < si.Width; x++) // each pixel (read cycle)
-                    {
-                        var sptr = yo + (x * bytePerPix) + ch;
-                        buffer[x] = s[sptr];
-                    }
-
-                    int rounds = 1;
-
-                    // Compression phase
-                    for (int i = 0; i < rounds; i++)
-                    {
-                        fwt97(buffer, buffer.Length >> i, 0, 1); // decompose signal
-                    }
-
-                    DCOffsetAndPinToRange(buffer, rounds);
-
-                    for (int x = 0; x < si.Width; x++) // each pixel (write cycle)
-                    {
-                        var dptr = yo + (x * bytePerPix) + ch;
-                        var value = buffer[x];
-                        d[dptr] = (byte)Saturate(value);
-                    }
+                    fwt97(buffer, si.Height, x, si.Width);
                 }
-            }
 
+                // AC to DC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
+
+                // Write back to image
+                WritePlane(buffer, d, di, ch);
+            }
         }
     }
 }

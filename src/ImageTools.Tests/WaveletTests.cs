@@ -38,7 +38,7 @@ namespace ImageTools.Tests
         {
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
-                using (var bmp2 = CDF_9_7.HorizontalGradients(bmp))
+                using (var bmp2 = CDF_9_7.VerticalGradients(bmp))
                 {
                     bmp2.SaveJpeg("./outputs/Cdf97_32bpp_3_VT.jpg", quality: 100);
                 }
