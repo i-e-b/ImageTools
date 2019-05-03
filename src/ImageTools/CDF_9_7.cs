@@ -51,72 +51,69 @@ namespace ImageTools
          *
          *  See also iwt97.
          */
-        public static void fwt97(double[] x, int n, int offset, int stride)
+        public static void fwt97(double[] buf, int n, int offset, int stride)
         {
             double a;
             int i;
-            var bn = n * stride + offset;
-            var s = stride;
-            var s2 = 2 * stride;
+
+            // pick out stride data
+            var x = new double[n];
+            for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
 
             // Predict 1
             a = -1.586134342;
             for (i = 1; i < n - 2; i += 2)
             {
-                var j = i * stride + offset;
-                x[j] += a * (x[j - s] + x[j + s]);
+                x[i] += a * (x[i - 1] + x[i + 1]);
             }
-
-            x[bn - s] += 2 * a * x[bn - s2];
+            x[n - 1] += 2 * a * x[n - 2];
 
             // Update 1
             a = -0.05298011854;
             for (i = 2; i < n; i += 2)
             {
-                var j = i * stride + offset;
-                x[j] += a * (x[j - s] + x[j + s]);
+                x[i] += a * (x[i - 1] + x[i + 1]);
             }
-            x[offset] += 2 * a * x[offset + s];
+            x[0] += 2 * a * x[1];
 
             // Predict 2
             a = 0.8829110762;
             for (i = 1; i < n - 2; i += 2)
             {
-                var j = i * stride + offset;
-                x[j] += a * (x[j - s] + x[j + s]);
+                x[i] += a * (x[i - 1] + x[i + 1]);
             }
-            x[bn - s] += 2 * a * x[bn - s2];
+            x[n - 1] += 2 * a * x[n - 2];
 
             // Update 2
             a = 0.4435068522;
             for (i = 2; i < n; i += 2)
             {
-                var j = i * stride + offset;
-                x[j] += a * (x[j - s] + x[j + s]);
+                x[i] += a * (x[i - 1] + x[i + 1]);
             }
-            x[offset] += 2 * a * x[offset + s];
+            x[0] += 2 * a * x[1];
 
             // Scale
             a = 1 / 1.149604398;
             for (i = 0; i < n; i++)
             {
-                var j = i * stride + offset;
-                if ((i % 2) == 0) x[j] *= a;
-                else x[j] /= a;
+                if ((i % 2) == 0) x[i] *= a;
+                else x[i] /= a;
             }
 
             // Pack
+            // The raw output is like [DC][AC][DC][AC]...
+            // we want it as          [DC][DC]...[AC][AC]
             var tempbank = new double[n];
             for (i = 0; i < n; i++)
             {
-                var j = i * stride + offset;
-                if (i % 2 == 0) tempbank[i / 2] = x[j];
-                else tempbank[n / 2 + i / 2] = x[j];
+                if (i % 2 == 0) tempbank[i / 2] = x[i];
+                else tempbank[n / 2 + i / 2] = x[i];
             }
-            for (i = 0; i < n; i++) {
-                var j = i * stride + offset;
-                x[j] = tempbank[i];
-            }
+            for (i = 0; i < n; i++) x[i] = tempbank[i];
+
+
+            // pick out stride data
+            for (i = 0; i < n; i++) { buf[i * stride + offset] = x[i]; }
         }
 
         /**
@@ -126,10 +123,14 @@ namespace ImageTools
          *
          *  See also fwt97.
          */
-        public static void iwt97(double[] x, int n)
+        public static void iwt97(double[] buf, int n, int offset, int stride)
         {
             double a;
             int i;
+            
+            // pick out stride data
+            var x = new double[n];
+            for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
 
             // Unpack
             var tempbank = new double[n];
@@ -179,9 +180,11 @@ namespace ImageTools
                 x[i] += a * (x[i - 1] + x[i + 1]);
             }
             x[n - 1] += 2 * a * x[n - 2];
-        }
+            
 
-        // TODO: modify the wavelet transforms to take a stride (so we can do separate horz/vert)
+            // pick out stride data
+            for (i = 0; i < n; i++) { buf[i * stride + offset] = x[i]; }
+        }
 
 
         static unsafe void WaveletDecomposeMortonOrder(byte* s, byte* d, BitmapData si, BitmapData di)
@@ -242,7 +245,7 @@ namespace ImageTools
                 // Restore
                 for (int i = rounds - 1; i >= 0; i--)
                 {
-                    iwt97(buffer, buffer.Length >> i); // restore signal
+                    iwt97(buffer, buffer.Length >> i, 0, 1); // restore signal
                 }
                 buffer = FromMortonOrder(buffer, si.Width, si.Height);
 
@@ -518,6 +521,12 @@ namespace ImageTools
                 {
                     fwt97(buffer, si.Width, y * si.Width, 1);
                 }
+                
+                // Wavelet restore (half image)
+                for (int y = 0; y < si.Height / 2; y++) // each row
+                {
+                    iwt97(buffer, si.Width, y * si.Width, 1);
+                }
 
                 // AC to DC
                 for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
@@ -537,9 +546,16 @@ namespace ImageTools
                 for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
 
                 // Wavelet decompose
-                for (int x = 0; x < si.Width; x++) // each row
+                for (int x = 0; x < si.Width; x++) // each column
                 {
                     fwt97(buffer, si.Height, x, si.Width);
+                }
+
+                
+                // Wavelet restore (half image)
+                for (int x = 0; x < si.Width / 2; x++) // each column
+                {
+                    iwt97(buffer, si.Height, x, si.Width);
                 }
 
                 // AC to DC
