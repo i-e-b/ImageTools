@@ -36,7 +36,14 @@ namespace ImageTools
             return dst;
         }
 
+        public static unsafe Bitmap PlanarReduceImage(Bitmap src)
+        {
+            var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
 
+            Bitmangle.RunKernel(src, dst, WaveletDecomposePlanar);
+
+            return dst;
+        }
 
 
         /**
@@ -186,6 +193,60 @@ namespace ImageTools
             for (i = 0; i < n; i++) { buf[i * stride + offset] = x[i]; }
         }
 
+        
+        static unsafe void WaveletDecomposePlanar(byte* s, byte* d, BitmapData si, BitmapData di)
+        {
+            // Change color space
+            var pixelBuf = (uint*)(s);
+            var bufferSize = si.Width * si.Height;
+            for (int i = 0; i < bufferSize; i++)
+            {
+                pixelBuf[i] = ColorSpace.RGB32_To_Ycbcr32(pixelBuf[i]);
+            }
+
+            for (int ch = 0; ch < 3; ch++)
+            {
+                var buffer = ReadPlane(s, si, ch);
+
+                // DC to AC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
+
+                // Transform
+                PlanarDecompose(si, buffer, 4);
+
+
+                // Test:
+                // TODO: do this is a much smarter order!
+                buffer = ToMortonOrder(buffer, si.Width, si.Height);
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    var alt = (ch == 2) ? 20 : 10;
+                    var scale = i >> alt;
+                    if (scale < 1) continue;
+                    buffer[i] = ((int)(buffer[i] / scale) ) * scale; // quantise
+                }
+
+                buffer = FromMortonOrder(buffer, si.Width, si.Height);
+
+                WriteToRLE(buffer, ch);
+
+                // Restore
+                PlanarRestore(si, buffer, 4);
+
+                // AC to DC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
+
+                // Write back to image
+                WritePlane(buffer, d, di, ch);
+            }
+            
+            // Restore color space
+            var pixelBuf2 = (uint*)(d);
+            for (int i = 0; i < bufferSize; i++)
+            {
+                pixelBuf2[i] = ColorSpace.Ycbcr32_To_RGB32(pixelBuf2[i]);
+            }
+        }
 
         static unsafe void WaveletDecomposeMortonOrder(byte* s, byte* d, BitmapData si, BitmapData di)
         {
@@ -295,6 +356,46 @@ namespace ImageTools
         }
         
 
+        private static void PlanarDecompose(BitmapData si, double[] buffer, int rounds)
+        {
+            for (int i = 0; i < rounds; i++)
+            {
+                var height = si.Height >> i;
+                var width = si.Width >> i;
+                // Wavelet decompose vertical
+                for (int x = 0; x < width; x++) // each column
+                {
+                    fwt97(buffer, height, x, si.Width);
+                }
+
+                // Wavelet decompose horizontal
+                for (int y = 0; y < height; y++) // each row
+                {
+                    fwt97(buffer, width, y * si.Width, 1);
+                }
+            }
+        }
+
+        private static void PlanarRestore(BitmapData si, double[] buffer, int rounds)
+        {
+            for (int i = rounds - 1; i >= 0; i--)
+            {
+                var height = si.Height >> i;
+                var width = si.Width >> i;
+                // Wavelet decompose vertical
+                for (int x = 0; x < width; x++) // each column
+                {
+                    iwt97(buffer, height, x, si.Width);
+                }
+
+                // Wavelet decompose horizontal
+                for (int y = 0; y < height; y++) // each row
+                {
+                    iwt97(buffer, width, y * si.Width, 1);
+                }
+            }
+        }
+
         private static void WriteToRLE(double[] buffer, int ch)
         {
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\rle_test_"+ch+".dat";
@@ -311,7 +412,6 @@ namespace ImageTools
                 fs.Flush();
             }
         }
-        
 
         private static void ReadFromRLE(double[] buffer, int ch)
         {

@@ -56,11 +56,26 @@ namespace ImageTools.Tests
             {
                 using (var bmp2 = CDF_9_7.MortonReduceImage(bmp))
                 {
-                    bmp2.SaveJpeg("./outputs/Cdf97_Reduce_32bpp_3.jpg", quality: 100);
+                    bmp2.SaveJpeg("./outputs/Cdf97_Morton_32bpp_3.jpg", quality: 100);
                 }
             }
 
-            Assert.That(Load.FileExists("./outputs/Cdf97_Reduce_32bpp_3.jpg"));
+            Assert.That(Load.FileExists("./outputs/Cdf97_Morton_32bpp_3.jpg"));
+        }
+        
+        
+        [Test]
+        public void cdf97_planar_reduce_test()
+        {
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                using (var bmp2 = CDF_9_7.PlanarReduceImage(bmp))
+                {
+                    bmp2.SaveJpeg("./outputs/Cdf97_Planar_32bpp_3.jpg", quality: 100);
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Cdf97_Planar_32bpp_3.jpg"));
         }
 	}
 }
