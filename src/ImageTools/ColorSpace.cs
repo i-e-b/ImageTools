@@ -5,6 +5,7 @@ namespace ImageTools
     {
         /// <summary>
         /// Lossy conversion from RGB to Ycbcr (both 24 bit, stored as 32)
+        /// This is approximately a (luma + blue/green + yellow/red) space
         /// </summary>
         public static uint RGB32_To_Ycbcr32(uint c)
         {
@@ -67,7 +68,50 @@ namespace ImageTools
             return (uint)((R << 16) + (G << 8) + B);
         }
 
-        
+        /// <summary>
+        /// Lossy conversion from RGB to YCoCg (both 24 bit, stored as 32).
+        /// This is a (luma + blue/orange + purple/green) space
+        /// </summary>
+        public static uint RGB32_To_Ycocg32(uint c)
+        {
+            int R = (int) ((c >> 16) & 0xff);
+            int G = (int) ((c >>  8) & 0xff);
+            int B = (int) ((c      ) & 0xff);
+
+            var Co  = R - B;
+            var tmp = B + (Co >> 1);
+            var Cg  = G - tmp;
+            var Y   = tmp + (Cg >> 1);
+
+            // if you don't do this step, it's a lossless transform,
+            // but you need 2 extra bits to store the color data
+            Co = (Co >> 1) + 127;
+            Cg = (Cg >> 1) + 127;
+            
+            return (uint)((clip(Y) << 16) + (clip(Co) << 8) + (clip(Cg)));
+        }
+
+        /// <summary>
+        /// Lossy conversion from YCoCg to RGB (both 24 bit, stored as 32).
+        /// This is a (luma + blue/orange + purple/green) space
+        /// </summary>
+        public static uint Ycocg32_To_RGB32(uint c)
+        {
+            int Y  = (int) ((c >> 16) & 0xff);
+            int Co = (int) ((c >>  8) & 0xff);
+            int Cg = (int) ((c      ) & 0xff);
+            
+            Co = (Co - 127) << 1;
+            Cg = (Cg - 127) << 1;
+
+            var tmp = Y - (Cg >> 1);
+            var G   = Cg + tmp;
+            var B   = tmp - (Co >> 1);
+            var R   = B + Co;
+
+            return (uint)((clip(R) << 16) + (clip(G) << 8) + clip(B));
+        }
+
         public static int clip(double v) {
             if (v > 255) return 255;
             if (v < 0) return 0;
@@ -78,6 +122,26 @@ namespace ImageTools
             if (v > 255) return 255;
             if (v < 0) return 0;
             return (int)v;
+        }
+
+        /// <summary>
+        /// Clip and convert 3 RGB channels of 0..255
+        /// to a packed 32 bit int
+        /// </summary>
+        public static uint ComponentToRGB32(int R, int G, int B)
+        {
+            return (uint)((clip(R) << 16) + (clip(G) << 8) + clip(B));
+        }
+        
+        /// <summary>
+        /// Converta packed 32 bit int
+        /// to 3 RGB channels of 0..255
+        /// </summary>
+        public static void RGB32ToComponent(uint c, out int R, out int G, out int B)
+        {
+            R = (int) ((c >> 16) & 0xff);
+            G = (int) ((c >>  8) & 0xff);
+            B = (int) ((c      ) & 0xff);
         }
     }
 }
