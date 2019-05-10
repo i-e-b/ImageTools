@@ -49,9 +49,6 @@ namespace ImageTools.Utilities
             }
         }
         
-
-
-        
         /// <summary>
         /// Reverse of RLZ_Encode
         /// </summary>
@@ -126,6 +123,116 @@ namespace ImageTools.Utilities
             return runs.ToArray();
         }
 
+        /// <summary>
+        /// Reverse UnsignedFibEncode()
+        /// </summary>
+        public static uint[] UnsignedFibDecode(byte[] data) {
+            //  Make a bit queue from the byte data
+            var q = new Queue<byte>(data.Length * 8);
+            for (int Byte = 0; Byte < data.Length; Byte++)
+            {
+                for (int bit = 0; bit < 8; bit++)
+                {
+                    q.Enqueue((byte) ((data[Byte] >> bit) & 0x01));
+                }
+            }
+
+            var result = new Stack<uint>();
+            while (q.Count > 0)  {
+                var num = FibDecodeNum(q);
+                if (num > 0) result.Push(num - 1); // this -1 matches a +1 in the encode
+            }
+
+            return result.ToArray();
+        }
+
+        /// <summary>
+        /// Encode data as a sequence of fibonacci codes
+        /// </summary>
+        public static byte[] UnsignedFibEncode(uint[] data) {
+            var q = new Stack<byte>();
+            for (int i = 0; i < data.Length; i++)
+            {
+                q = FibEncodeNum(data[i] + 1, q); // this +1 matches a -1 in the decode
+            }
+
+            var result = new byte[(q.Count / 8) + 1];
+
+            int bit = 0, Byte = 0;
+
+            while (q.Count > 0) {
+                var v = q.Pop();
+                result[Byte] |= (byte)(v << bit);
+                bit++;
+                if (bit > 7) {
+                    bit = 0;
+                    Byte++;
+                }
+            }
+
+            // TODO: write all 1s to the end of the last byte
+
+            return result;
+        }
+
+        /// <summary>
+        /// take a single number and return an array encoding of the fibonacci code. Returns empty array on error.
+        /// Results are 1 or 0 encoded in a byte
+        /// </summary>
+        public static Stack<byte> FibEncodeNum(uint n, Stack<byte> previous) {
+            if (n < 1) return new Stack<byte>(0);
+
+            var res = previous ?? new Stack<byte>(20);
+            res.Push(1);
+
+            // find the smallest fibonacci number greater than `n`
+            uint f = 1, k = 1;
+            while (f <= n) {f = fibonacci(++k);}
+
+            // decompose back through the sequence
+            while(--k > 1) {
+                f = fibonacci(k);
+                if (f <= n) {
+                    res.Push(1);
+                    n -= f;
+                } else {
+                    res.Push(0);
+                }
+            }
+            res.Push(0); // stuff 1 bit -- this is only needed for error recovery
+            return res;
+        }
+        
+        /// <summary>
+        /// Read a single number from a bit queue and return a single unsigned number.
+        /// This reverses FibEncodeNum();
+        /// </summary>
+        public static uint FibDecodeNum(Queue<byte> bitArray) {
+            bool lastWas1 = false;
+            uint accum = 0;
+            uint pos = 0;
+
+            while (bitArray.Count > 0) {
+                var f = bitArray.Dequeue();
+                if (f > 0) {
+                    if (lastWas1) break;
+                    lastWas1 = true;
+                } else lastWas1 = false;
+
+                accum += f * fibonacci(pos + 1);
+                pos++;
+            }
+
+            return accum;
+        }
+
+        // Cache of fib sequence
+        private static readonly uint[] fibonacciSeq = {0,1,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,1597,2584,4181,6765,10946,17711,28657,46368,75025,121393,196418 };
+
+        private static uint fibonacci (uint n) {
+            if (fibonacciSeq.Length > n) { return fibonacciSeq[n]; }
+            return 0; // out of bounds
+        }
 
         private static int Saturate(double value)
         {
