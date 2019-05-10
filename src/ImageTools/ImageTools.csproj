@@ -48,6 +48,7 @@
     <Compile Include="DataCompression\BijectiveEC\IByteStream.cs" />
     <Compile Include="Haar.cs" />
     <Compile Include="Hilbert.cs" />
+    <Compile Include="Utilities\DataEncoding.cs" />
     <Compile Include="Utilities\Load.cs" />
     <Compile Include="DataCompression\LzoCompression.cs" />
     <Compile Include="Morton.cs" />
