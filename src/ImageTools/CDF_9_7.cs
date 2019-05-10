@@ -220,18 +220,19 @@ namespace ImageTools
                 PlanarDecompose(si, buffer, rounds);
 
                 // Reduce values
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] /= 2; }
+                //for (int i = 0; i < buffer.Length; i++) { buffer[i] /= 2; }
 
 
                 // Test of quantisation:
-                var quality = (ch == 2) ? 3 : 1;
+                var quality = (ch + 1) ; // bias quality by color channel. Assumes 2=Y
+                //buffer = QuantiseByIndependentRound(si, buffer, ch, rounds, quality);
                 buffer = QuantiseByEnergyBalance(si, buffer, ch, rounds, quality);
 
                 WriteToRLE(buffer, ch, "planar");
 
                 
                 // Expand values
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] *= 2; }
+                //for (int i = 0; i < buffer.Length; i++) { buffer[i] *= 2; }
 
                 // Restore
                 PlanarRestore(si, buffer, rounds);
@@ -251,10 +252,85 @@ namespace ImageTools
             }
         }
 
+        static unsafe void WaveletDecomposeMortonOrder(byte* s, byte* d, BitmapData si, BitmapData di)
+        {
+            var bytePerPix = si.Stride / si.Width;
+            var planeSize = si.Width * si.Height;
+            var bufferSize = Morton.EncodeMorton2((uint)si.Width - 1, (uint)si.Height - 1) + 1; // should be identical to planeSize
+            var buffer = new double[Math.Max(bufferSize, planeSize)];
+
+            const int rounds = 4;
+            const double color_threshold = 200; // 1..; more = worse image, smaller size
+            const double brightness_threshold = 64; // 1..; more = worse image, smaller size
+
+            // Change color space
+            var pixelBuf = (uint*)(s);
+            for (int i = 0; i < bufferSize; i++)
+            {
+                pixelBuf[i] = ColorSpace.RGB32_To_Ycbcr32(pixelBuf[i]);
+            }
+
+            for (int ch = 0; ch < 3; ch++) // each channel
+            {
+                // load image as doubles
+                // each pixel (read cycle)
+
+                // load image as doubles
+                for (int i = 0; i < planeSize; i++) { buffer[i] = s[(i * bytePerPix) + ch]; }
+                buffer = ToMortonOrder(buffer, si.Width, si.Height);
+
+                // process rounds
+                for (int i = 0; i < rounds; i++)
+                {
+                    fwt97(buffer, buffer.Length >> i, 0, 1); // decompose signal (single round)
+                }
+                
+
+                // Threshold coeffs
+                double thres = (ch == 2) ? (brightness_threshold) : (color_threshold); // Y channel gets more res than color
+                double scaler = thres / (planeSize - (planeSize >> rounds));
+                for (int i = planeSize >> rounds; i < planeSize; i++)
+                {
+                    var thresh = i * scaler;
+                    if (Math.Abs(buffer[i]) < thresh) buffer[i] = 0;
+                }
+
+
+                // Normalise values and write
+                DCOffsetAndPinToRange(buffer, rounds);
+                WriteToRLE(buffer, ch, "morton");
+
+                // prove it's actually working
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] = AC_Bias; }
+
+                // Read
+                ReadFromRLE(buffer, ch, "morton");
+                DCRestore(buffer, rounds);
+
+                // Restore
+                for (int i = rounds - 1; i >= 0; i--)
+                {
+                    iwt97(buffer, buffer.Length >> i, 0, 1); // restore signal
+                }
+                buffer = FromMortonOrder(buffer, si.Width, si.Height);
+
+                // Write output
+                for (uint i = 0; i < planeSize; i++) { d[(i * bytePerPix) + ch] = (byte)Saturate(buffer[i]); }
+            }
+
+            
+            // Restore color space
+            var pixelBuf2 = (uint*)(d);
+            for (int i = 0; i < bufferSize; i++)
+            {
+                pixelBuf2[i] = ColorSpace.Ycbcr32_To_RGB32(pixelBuf2[i]);
+            }
+        }
         
+
         private static double[] QuantiseByEnergyBalance(BitmapData si, double[] buffer, int ch, int rounds, double quality)
         {
-            // TODO: idea:
+            // idea:
             // Start with the high frequencies. Areas with lots of high frequency data get their
             // low frequencies reduced harder.
 
@@ -265,7 +341,7 @@ namespace ImageTools
             // bottom left
             QuantiseByEnergy_Quadrant(si, buffer, rounds, si.Height / 2, si.Height, 0, si.Width / 2, quality);
             // bottom right
-            QuantiseByEnergy_Quadrant(si, buffer, rounds, si.Height / 2, si.Height, si.Width / 2, si.Width, quality);
+            QuantiseByEnergy_Quadrant(si, buffer, rounds, si.Height / 2, si.Height, si.Width / 2, si.Width, quality / 2);
             // top right
             QuantiseByEnergy_Quadrant(si, buffer, rounds, 0, si.Height / 2, si.Width / 2, si.Width, quality);
 
@@ -354,7 +430,8 @@ namespace ImageTools
         {
             var ranks = new double[]{
             //1,2,3,4,5,6,7,8,9,10,11
-            300,250,240,230,200,128,64,32,16
+            //300,250,240,230,200,128, 64, 32, 16
+                1,  1,  2,  4,  8, 16, 32, 64,128,256
             };
             buffer = ToMortonOrder(buffer, si.Width, si.Height);
             int lower = 4;
@@ -364,18 +441,13 @@ namespace ImageTools
                 var incr = 3 * (int) Math.Pow(4, i);
                 var upper = lower + incr;
 
-                double min = 1000, max = -1000;
-                for (int j = lower; j < upper; j++) {
-                    min = Math.Min(min, buffer[j]);
-                    max = Math.Max(max, buffer[j]);
-                }
+                var threshold = ranks[i - 1] / 2; // based on energy?
 
-                var threshold = (max - min) / ranks[i - 1]; // based on energy?
-
-                Console.WriteLine($"Round {i} at {threshold}; min = {min}, max = {max}");
+                Console.WriteLine($"Round {i} at {threshold};");
                 for (int j = lower; j < upper; j++)
                 {
-                    if (Math.Abs(buffer[j]) < threshold) buffer[j] = 0;
+                    buffer[j] = (int)(buffer[j] / threshold) * threshold;
+                    //if (Math.Abs(buffer[j]) < 0.01) buffer[j] = -1000; // show zeros
                 }
 
                 lower = upper;
@@ -383,81 +455,6 @@ namespace ImageTools
 
             buffer = FromMortonOrder(buffer, si.Width, si.Height);
             return buffer;
-        }
-
-        static unsafe void WaveletDecomposeMortonOrder(byte* s, byte* d, BitmapData si, BitmapData di)
-        {
-            var bytePerPix = si.Stride / si.Width;
-            var planeSize = si.Width * si.Height;
-            var bufferSize = Morton.EncodeMorton2((uint)si.Width - 1, (uint)si.Height - 1) + 1; // should be identical to planeSize
-            var buffer = new double[Math.Max(bufferSize, planeSize)];
-
-            const int rounds = 4;
-            const double color_threshold = 200; // 1..; more = worse image, smaller size
-            const double brightness_threshold = 64; // 1..; more = worse image, smaller size
-
-            // Change color space
-            var pixelBuf = (uint*)(s);
-            for (int i = 0; i < bufferSize; i++)
-            {
-                pixelBuf[i] = ColorSpace.RGB32_To_Ycbcr32(pixelBuf[i]);
-            }
-
-            for (int ch = 0; ch < 3; ch++) // each channel
-            {
-                // load image as doubles
-                // each pixel (read cycle)
-
-                // load image as doubles
-                for (int i = 0; i < planeSize; i++) { buffer[i] = s[(i * bytePerPix) + ch]; }
-                buffer = ToMortonOrder(buffer, si.Width, si.Height);
-
-                // process rounds
-                for (int i = 0; i < rounds; i++)
-                {
-                    fwt97(buffer, buffer.Length >> i, 0, 1); // decompose signal (single round)
-                }
-                
-
-                // Threshold coeffs
-                double thres = (ch == 2) ? (brightness_threshold) : (color_threshold); // Y channel gets more res than color
-                double scaler = thres / (planeSize - (planeSize >> rounds));
-                for (int i = planeSize >> rounds; i < planeSize; i++)
-                {
-                    var thresh = i * scaler;
-                    if (Math.Abs(buffer[i]) < thresh) buffer[i] = 0;
-                }
-
-
-                // Normalise values and write
-                DCOffsetAndPinToRange(buffer, rounds);
-                WriteToRLE(buffer, ch, "morton");
-
-                // prove it's actually working
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] = AC_Bias; }
-
-                // Read
-                ReadFromRLE(buffer, ch, "morton");
-                DCRestore(buffer, rounds);
-
-                // Restore
-                for (int i = rounds - 1; i >= 0; i--)
-                {
-                    iwt97(buffer, buffer.Length >> i, 0, 1); // restore signal
-                }
-                buffer = FromMortonOrder(buffer, si.Width, si.Height);
-
-                // Write output
-                for (uint i = 0; i < planeSize; i++) { d[(i * bytePerPix) + ch] = (byte)Saturate(buffer[i]); }
-            }
-
-            
-            // Restore color space
-            var pixelBuf2 = (uint*)(d);
-            for (int i = 0; i < bufferSize; i++)
-            {
-                pixelBuf2[i] = ColorSpace.Ycbcr32_To_RGB32(pixelBuf2[i]);
-            }
         }
 
         private static double[] FromMortonOrder(double[] src, int width, int height)
@@ -491,7 +488,6 @@ namespace ImageTools
             }
             return dst;
         }
-        
 
         private static void PlanarDecompose(BitmapData si, double[] buffer, int rounds)
         {
