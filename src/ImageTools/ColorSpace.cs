@@ -1,4 +1,5 @@
 ﻿
+using System;
 using System.Linq;
 
 namespace ImageTools
@@ -12,7 +13,7 @@ namespace ImageTools
         public int B;
 
         public static ColorRGB FromARGB32(uint c) {
-            ColorSpace.RGB32ToComponent(c, out var r,out var g, out var b);
+            ColorSpace.CompoundToComponent(c, out _, out var r, out var g, out var b);
             return new ColorRGB { R = r, G = g, B = b };
         }
 
@@ -28,7 +29,7 @@ namespace ImageTools
 
         public static ColorYUV FromYUV32(uint c)
         {
-            ColorSpace.RGB32ToComponent(c, out var y, out var u, out var v);
+            ColorSpace.CompoundToComponent(c, out _, out var y, out var u, out var v);
             return new ColorYUV { Y = y, U = u, V = v };
         }
     }
@@ -166,23 +167,24 @@ namespace ImageTools
         }
 
         /// <summary>
-        /// Clip and convert 3 RGB channels of 0..255
+        /// Clip and convert 4 channels of 0..255
         /// to a packed 32 bit int
         /// </summary>
-        public static uint ComponentToRGB32(int R, int G, int B)
+        public static uint ComponentToCompound(int A, int B, int C, int D)
         {
-            return (uint)((clip(R) << 16) + (clip(G) << 8) + clip(B));
+            return (uint)((clip(B) << 24) | (clip(B) << 16) | (clip(C) << 8) | clip(D));
         }
         
         /// <summary>
-        /// Converta packed 32 bit int
-        /// to 3 RGB channels of 0..255
+        /// Convert a packed 32 bit int
+        /// to 4 channels of 0..255
         /// </summary>
-        public static void RGB32ToComponent(uint c, out int R, out int G, out int B)
+        public static void CompoundToComponent(uint c, out int A, out int B, out int C, out int D)
         {
-            R = (int) ((c >> 16) & 0xff);
-            G = (int) ((c >>  8) & 0xff);
-            B = (int) ((c      ) & 0xff);
+            A = (int) ((c >> 24) & 0xff);
+            B = (int) ((c >> 16) & 0xff);
+            C = (int) ((c >>  8) & 0xff);
+            D = (int) ((c      ) & 0xff);
         }
 
 
@@ -256,7 +258,7 @@ namespace ImageTools
         /// </summary>
         public static ColorYUV RGB32_To_YUV(uint c)
         {
-            RGB32ToComponent(c, out var R, out var G, out var B);
+            CompoundToComponent(c, out _, out var R, out var G, out var B);
             var Y = 16 + (0.257 * R + 0.504 * G + 0.098 * B);
             var U = 128 + (-0.148 * R + -0.291 * G + 0.439 * B);
             var V = 128 + (0.439 * R + -0.368 * G + -0.071 * B);
@@ -273,21 +275,7 @@ namespace ImageTools
             var G = clip(1.164 * (Y - 16) + -0.392 * (cb - 128) + -0.813 * (cr - 128));
             var B = clip(1.164 * (Y - 16) + 2.017 * (cb - 128) + 0.0 * (cr - 128));
 
-            return ComponentToRGB32(R, G, B);
-        }
-
-
-        /// <summary>
-        /// Capture 4x4 array of brightness into a linear list of 16 elements
-        /// </summary>
-        public static ColorRGB[] CaptureColors(uint[] input, int width, int x, int y)
-        {
-            return new ColorRGB[]{/*
-                input.GetPixel(x, y),  input.GetPixel(x+1, y),  input.GetPixel(x+2, y),  input.GetPixel(x+3, y),
-                input.GetPixel(x, y+1),input.GetPixel(x+1, y+1),input.GetPixel(x+2, y+1),input.GetPixel(x+3, y+1),
-                input.GetPixel(x, y+2),input.GetPixel(x+1, y+2),input.GetPixel(x+2, y+2),input.GetPixel(x+3, y+2),
-                input.GetPixel(x, y+3),input.GetPixel(x+1, y+3),input.GetPixel(x+2, y+3),input.GetPixel(x+3, y+3)*/
-            };
+            return ComponentToCompound(0, R, G, B);
         }
 
         /// <summary>
@@ -299,10 +287,173 @@ namespace ImageTools
         }
 
         /// <summary>
-        /// YCrCb brightness
+        /// YUV brightness
         /// </summary>
         public static byte Brightness(ColorRGB c){
             return (byte)(16+(0.257 * c.R + 0.504 * c.G + 0.098 * c.B));
+        }
+
+        private const double Pr = 0.299;
+        private const double Pg = 0.587;
+        private const double Pb = 0.114;
+
+        /// <summary>
+        /// Convert a compound RGB to compound HSP ( see http://alienryderflex.com/hsp.html )
+        /// </summary><remarks>
+        /// The internal function expects the passed-in values to be on a scale
+        ///  of 0 to 1, and uses that same scale for the return values.
+        /// </remarks>
+        public static uint RGB32_To_HSP32(uint c) {
+            CompoundToComponent(c, out _, out var r, out var g, out var b);
+            double R = r / 255.0;
+            double G = g / 255.0;
+            double B = b / 255.0;
+
+            var P = Math.Sqrt(R * R * Pr + G * G * Pg + B * B * Pb);
+
+            // check for greys
+            if (r == g && r == b) { return ComponentToCompound(0, 0, 0, clip(P*255)); }
+
+            double H = 0;
+            double S = 0;
+
+            //  Calculate the Hue and Saturation.  (This part works
+            //  the same way as in the HSV/B and HSL systems???.)
+            if (R >= G && R >= B)
+            {   //  R is largest
+                if (B >= G)
+                {
+                    H = 6.0 / 6.0 - 1.0 / 6.0 * (B - G) / (R - G);
+                    S = 1.0 - G / R;
+                }
+                else
+                {
+                    H = 0.0 / 6.0 + 1.0 / 6.0 * (G - B) / (R - B);
+                    S = 1.0 - B / R;
+                }
+            }
+            else if (G >= R && G >= B)
+            {   //  G is largest
+                if (R >= B)
+                {
+                    H = 2.0 / 6.0 - 1.0 / 6.0 * (R - B) / (G - B);
+                    S = 1.0 - B / G;
+                }
+                else
+                {
+                    H = 2.0 / 6.0 + 1.0 / 6.0 * (B - R) / (G - R);
+                    S = 1.0 - R / G;
+                }
+            }
+            else
+            {   //  B is largest
+                if (G >= R)
+                {
+                    H = 4.0 / 6.0 - 1.0 / 6.0 * (G - R) / (B - R);
+                    S = 1.0 - R / B;
+                }
+                else
+                {
+                    H = 4.0 / 6.0 + 1.0 / 6.0 * (R - G) / (B - G);
+                    S = 1.0 - G / B;
+                }
+            }
+
+            return ComponentToCompound(0, clip(H * 255), clip(S * 255), clip(P * 255));
+        }
+        
+        /// <summary>
+        /// Convert a compound HSP to compound RGB ( see http://alienryderflex.com/hsp.html )
+        /// </summary><remarks>
+        /// The internal function expects the passed-in values to be on a scale
+        ///  of 0 to 1, and uses that same scale for the return values.
+        ///
+        ///  Note that some combinations of HSP, even if in the scale
+        ///  0-1, may return RGB values that exceed a value of 1.  For
+        ///  example, if you pass in the HSP color 0,1,1, the result
+        ///  will be the RGB color 2.037,0,0.
+        /// </remarks>
+        public static uint HSP32_To_RGB32(uint c) {
+            CompoundToComponent(c, out _, out var h, out var s, out var p);
+            double H = h / 255.0;
+            double S = s / 255.0;
+            double P = p / 255.0;
+            
+            double R = 0;
+            double G = 0;
+            double B = 0;
+
+            double minOverMax = 1.0 - S;
+
+            if (minOverMax > 0)
+            {
+                double part;
+                if (H < 1.0 / 6.0)
+                {   //  R>G>B
+                    H = 6.0 * (H - 0.0 / 6.0); part = 1.0 + H * (1.0 / minOverMax - 1.0);
+                    B = P / Math.Sqrt(Pr / minOverMax / minOverMax + Pg * part * part + Pb);
+                    R = (B) / minOverMax; G = (B) + H * ((R) - (B));
+                }
+                else if (H < 2.0 / 6.0)
+                {   //  G>R>B
+                    H = 6.0 * (-H + 2.0 / 6.0); part = 1.0 + H * (1.0 / minOverMax - 1.0);
+                    B = P / Math.Sqrt(Pg / minOverMax / minOverMax + Pr * part * part + Pb);
+                    G = (B) / minOverMax; R = (B) + H * ((G) - (B));
+                }
+                else if (H < 3.0 / 6.0)
+                {   //  G>B>R
+                    H = 6.0 * (H - 2.0 / 6.0); part = 1.0 + H * (1.0 / minOverMax - 1.0);
+                    R = P / Math.Sqrt(Pg / minOverMax / minOverMax + Pb * part * part + Pr);
+                    G = (R) / minOverMax; B = (R) + H * ((G) - (R));
+                }
+                else if (H < 4.0 / 6.0)
+                {   //  B>G>R
+                    H = 6.0 * (-H + 4.0 / 6.0); part = 1.0 + H * (1.0 / minOverMax - 1.0);
+                    R = P / Math.Sqrt(Pb / minOverMax / minOverMax + Pg * part * part + Pr);
+                    B = (R) / minOverMax; G = (R) + H * ((B) - (R));
+                }
+                else if (H < 5.0 / 6.0)
+                {   //  B>R>G
+                    H = 6.0 * (H - 4.0 / 6.0); part = 1.0 + H * (1.0 / minOverMax - 1.0);
+                    G = P / Math.Sqrt(Pb / minOverMax / minOverMax + Pr * part * part + Pg);
+                    B = (G) / minOverMax; R = (G) + H * ((B) - (G));
+                }
+                else
+                {   //  R>B>G
+                    H = 6.0 * (-H + 6.0 / 6.0); part = 1.0 + H * (1.0 / minOverMax - 1.0);
+                    G = P / Math.Sqrt(Pr / minOverMax / minOverMax + Pb * part * part + Pg);
+                    R = (G) / minOverMax; B = (G) + H * ((R) - (G));
+                }
+            }
+            else
+            {
+                if (H < 1.0 / 6.0)
+                {   //  R>G>B
+                    H = 6.0 * (H - 0.0 / 6.0); R = Math.Sqrt(P * P / (Pr + Pg * H * H)); G = (R) * H; B = 0.0;
+                }
+                else if (H < 2.0 / 6.0)
+                {   //  G>R>B
+                    H = 6.0 * (-H + 2.0 / 6.0); G = Math.Sqrt(P * P / (Pg + Pr * H * H)); R = (G) * H; B = 0.0;
+                }
+                else if (H < 3.0 / 6.0)
+                {   //  G>B>R
+                    H = 6.0 * (H - 2.0 / 6.0); G = Math.Sqrt(P * P / (Pg + Pb * H * H)); B = (G) * H; R = 0.0;
+                }
+                else if (H < 4.0 / 6.0)
+                {   //  B>G>R
+                    H = 6.0 * (-H + 4.0 / 6.0); B = Math.Sqrt(P * P / (Pb + Pg * H * H)); G = (B) * H; R = 0.0;
+                }
+                else if (H < 5.0 / 6.0)
+                {   //  B>R>G
+                    H = 6.0 * (H - 4.0 / 6.0); B = Math.Sqrt(P * P / (Pb + Pr * H * H)); R = (B) * H; G = 0.0;
+                }
+                else
+                {   //  R>B>G
+                    H = 6.0 * (-H + 6.0 / 6.0); R = Math.Sqrt(P * P / (Pr + Pb * H * H)); B = (R) * H; G = 0.0;
+                }
+            }
+
+            return ComponentToCompound(0, clip(R * 255), clip(G * 255), clip(B * 255));
         }
     }
 }

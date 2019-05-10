@@ -10,12 +10,12 @@ namespace ImageTools.Tests
             var G_in = 20;
             var B_in = 30;
 
-            var c_in = ColorSpace.ComponentToRGB32(R_in, G_in, B_in);
+            var c_in = ColorSpace.ComponentToCompound(0, R_in, G_in, B_in);
 
             var ycgcb = ColorSpace.RGB32_To_Ycbcr32(c_in);
             var c_out = ColorSpace.Ycbcr32_To_RGB32(ycgcb);
 
-            ColorSpace.RGB32ToComponent(c_out, out var R_out, out var G_out, out var B_out);
+            ColorSpace.CompoundToComponent(c_out, out _, out var R_out, out var G_out, out var B_out);
 
             Assert.That(R_out, Is.InRange(R_in - 2, R_in + 2));
             Assert.That(G_out, Is.InRange(G_in - 2, G_in + 2));
@@ -28,13 +28,13 @@ namespace ImageTools.Tests
             var G_in = 20;
             var B_in = 30;
 
-            var c_in = ColorSpace.ComponentToRGB32(R_in, G_in, B_in);
+            var c_in = ColorSpace.ComponentToCompound(0, R_in, G_in, B_in);
 
             var ycgcb = ColorSpace.RGB32_To_Ycocg32(c_in);
             var c_out = ColorSpace.Ycocg32_To_RGB32(ycgcb);
             // https://en.wikipedia.org/wiki/YCoCg
 
-            ColorSpace.RGB32ToComponent(c_out, out var R_out, out var G_out, out var B_out);
+            ColorSpace.CompoundToComponent(c_out, out _, out var R_out, out var G_out, out var B_out);
             
             Assert.That(R_out, Is.InRange(R_in - 2, R_in + 2));
             Assert.That(G_out, Is.InRange(G_in - 2, G_in + 2));
