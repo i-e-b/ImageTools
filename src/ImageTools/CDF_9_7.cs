@@ -55,19 +55,20 @@ namespace ImageTools
             return dst;
         }
 
-        /**
-         *  fwt97 - Forward biorthogonal 9/7 wavelet transform (lifting implementation)
-         *
-         *  x is an input signal, which will be replaced by its output transform.
-         *  n is the length of the signal, and must be a power of 2.
-         *  s is the stride across the signal (for multi dimensional signals)
-         *
-         *  The first half part of the output signal contains the approximation coefficients.
-         *  The second half part contains the detail coefficients (aka. the wavelets coefficients).
-         *
-         *  See also iwt97.
-         */
-        public static void fwt97(double[] buf, int n, int offset, int stride)
+         /// <summary>
+         ///  fwt97 - Forward biorthogonal 9/7 wavelet transform (lifting implementation)
+         ///<para></para><list type="bullet">
+         ///  <item><description>x is an input signal, which will be replaced by its output transform.</description></item>
+         ///  <item><description>n is the length of the signal, and must be a power of 2.</description></item>
+         ///  <item><description>s is the stride across the signal (for multi dimensional signals)</description></item>
+         /// </list>
+         ///<para></para>
+         ///  The first half part of the output signal contains the approximation coefficients.
+         ///  The second half part contains the detail coefficients (aka. the wavelets coefficients).
+         ///<para></para>
+         ///  See also iwt97.
+         /// </summary>
+        public static void Fwt97(double[] buf, int n, int offset, int stride)
         {
             double a;
             int i;
@@ -130,14 +131,14 @@ namespace ImageTools
             for (i = 0; i < n; i++) { buf[i * stride + offset] = tempbank[i]; }
         }
 
-        /**
-         *  iwt97 - Inverse biorthogonal 9/7 wavelet transform
-         *
-         *  This is the inverse of fwt97 so that iwt97(fwt97(x,n),n)=x for every signal x of length n.
-         *
-         *  See also fwt97.
-         */
-        public static void iwt97(double[] buf, int n, int offset, int stride)
+        /// <summary>
+        /// iwt97 - Inverse biorthogonal 9/7 wavelet transform
+        /// <para></para>
+        /// This is the inverse of fwt97 so that iwt97(fwt97(x,n),n)=x for every signal x of length n.
+        /// <para></para>
+        /// See also fwt97.
+        /// </summary>
+        public static void Iwt97(double[] buf, int n, int offset, int stride)
         {
             double a;
             int i;
@@ -277,13 +278,13 @@ namespace ImageTools
                     // Wavelet decompose vertical
                     for (int x = 0; x < width; x++) // each column
                     {
-                        fwt97(buffer, height, x, si.Width);
+                        Fwt97(buffer, height, x, si.Width);
                     }
                     
                     // Wavelet decompose HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
                     {
-                        fwt97(buffer, width, y * si.Width, 1);
+                        Fwt97(buffer, width, y * si.Width, 1);
                     }
                 }
                 
@@ -305,13 +306,13 @@ namespace ImageTools
                     // Wavelet restore HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
                     {
-                        iwt97(buffer, width, y * si.Width, 1);
+                        Iwt97(buffer, width, y * si.Width, 1);
                     }
 
                     // Wavelet restore vertical
                     for (int x = 0; x < width; x++) // each column
                     {
-                        iwt97(buffer, height, x, si.Width);
+                        Iwt97(buffer, height, x, si.Width);
                     }
 
                 }
@@ -347,7 +348,7 @@ namespace ImageTools
                 for (int i = 0; i < rounds; i++)
                 {
                     var length = bufferSize >> i;
-                    fwt97(buffer, length, 0, 1);
+                    Fwt97(buffer, length, 0, 1);
                 }
 
                 WriteToRLE_Short(buffer, ch, "morton");
@@ -359,7 +360,7 @@ namespace ImageTools
                 for (int i = rounds - 1; i >= 0; i--)
                 {
                     var length = bufferSize >> i;
-                    iwt97(buffer, length, 0, 1);
+                    Iwt97(buffer, length, 0, 1);
                 }
 
                 buffer = FromMortonOrder(buffer, si.Width, si.Height);
@@ -567,13 +568,13 @@ namespace ImageTools
                 // Wavelet decompose vertical
                 for (int x = 0; x < width; x++) // each column
                 {
-                    fwt97(buffer, height, x, si.Width);
+                    Fwt97(buffer, height, x, si.Width);
                 }
 
                 // Wavelet decompose horizontal
                 for (int y = 0; y < height; y++) // each row
                 {
-                    fwt97(buffer, width, y * si.Width, 1);
+                    Fwt97(buffer, width, y * si.Width, 1);
                 }
             }
         }
@@ -588,13 +589,13 @@ namespace ImageTools
                 // Wavelet restore horizontal
                 for (int y = 0; y < height; y++) // each row
                 {
-                    iwt97(buffer, width, y * si.Width, 1);
+                    Iwt97(buffer, width, y * si.Width, 1);
                 }
 
                 // Wavelet restore vertical
                 for (int x = 0; x < width; x++) // each column
                 {
-                    iwt97(buffer, height, x, si.Width);
+                    Iwt97(buffer, height, x, si.Width);
                 }
             }
         }
@@ -628,89 +629,6 @@ namespace ImageTools
             DataEncoding.ShortToDouble_DecodeBytes(ms.ToArray(), buffer);
         }
 
-        private static void WriteToRLE_Byte(double[] buffer, int ch, string name)
-        {
-            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_gzip_test_"+ch+".dat";
-            if (File.Exists(testpath)) File.Delete(testpath);
-            using (var fs = File.Open(testpath, FileMode.Create))
-            using (var gs = new GZipStream(fs, CompressionMode.Compress))
-            {
-                var buf = DataEncoding.DoubleToByte_EncodeBytes(buffer);
-                gs.Write(buf, 0, buf.Length);
-                gs.Flush();
-                fs.Flush();
-            }
-        }
-
-        private static void ReadFromRLE_Byte(double[] buffer, int ch, string name)
-        {
-            // unpack from gzip, expand DC values by run length
-            
-            var ms = new MemoryStream();
-            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_gzip_test_"+ch+".dat";
-            using (var fs = File.Open(testpath, FileMode.Open))
-            using (var gs = new GZipStream(fs, CompressionMode.Decompress))
-            {
-                gs.CopyTo(ms);
-            }
-
-            ms.Seek(0, SeekOrigin.Begin);
-            //RLZ_Decode(ms.ToArray(), buffer);
-            DataEncoding.ByteToDouble_DecodeBytes(ms.ToArray(), buffer);
-        }
-
-
-
-        // bias for coefficients. 127 is neutral, 0 is 100% positive, 255 is 100% negative
-        const int AC_Bias = 127;
-
-        private static void DCOffsetAndPinToRange(double[] buffer, int rounds)
-        {
-            var mid = buffer.Length >> rounds;
-            var end = buffer.Length;
-
-            double max = 0;
-            double min = 0;
-
-            // Find range of DC
-            for (int i = 0; i < mid; i++)
-            {
-                max = Math.Max(max, buffer[i]);
-                min = Math.Min(min, buffer[i]);
-            }
-
-            var baseOffset = (min < 0) ? (-min) : 0;
-            var crush = max + baseOffset;
-            if (crush < 255) crush = 1;
-            else crush = 255 / crush;
-
-            // normalise if out of bounds
-            for (int i = 0; i < mid; i++)
-            {
-                buffer[i] = Saturate((buffer[i] + baseOffset) * crush); // pin to byte range
-            }
-
-            // recentre AC
-            for (int i = mid; i < end; i++)
-            {
-                buffer[i] = Saturate((buffer[i]) + AC_Bias); // pin to byte range
-            }
-        }
-
-        private static void DCRestore(double[] buffer, int rounds)
-        {
-            var mid = buffer.Length >> rounds;
-            var end = buffer.Length;
-            
-            for (int i = 0; i < mid; i++)
-            {
-                buffer[i] = buffer[i] * 1.333;
-            }
-            for (int i = mid; i < end; i++)
-            {
-                buffer[i] = (buffer[i] - AC_Bias) ;
-            }
-        }
 
         private static int Saturate(double value)
         {
@@ -758,13 +676,13 @@ namespace ImageTools
                 // Wavelet decompose
                 for (int y = 0; y < si.Height; y++) // each row
                 {
-                    fwt97(buffer, si.Width, y * si.Width, 1);
+                    Fwt97(buffer, si.Width, y * si.Width, 1);
                 }
                 
                 // Wavelet restore (half image)
                 for (int y = 0; y < si.Height / 2; y++) // each row
                 {
-                    iwt97(buffer, si.Width, y * si.Width, 1);
+                    Iwt97(buffer, si.Width, y * si.Width, 1);
                 }
 
                 // AC to DC
@@ -787,14 +705,14 @@ namespace ImageTools
                 // Wavelet decompose
                 for (int x = 0; x < si.Width; x++) // each column
                 {
-                    fwt97(buffer, si.Height, x, si.Width);
+                    Fwt97(buffer, si.Height, x, si.Width);
                 }
 
                 
                 // Wavelet restore (half image)
                 for (int x = 0; x < si.Width / 2; x++) // each column
                 {
-                    iwt97(buffer, si.Height, x, si.Width);
+                    Iwt97(buffer, si.Height, x, si.Width);
                 }
 
                 // AC to DC
