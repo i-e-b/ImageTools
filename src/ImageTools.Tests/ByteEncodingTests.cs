@@ -11,6 +11,23 @@ namespace ImageTools.Tests
     public class ByteEncodingTests {
 
         [Test]
+        public void signed_to_unsigned () {
+            var input = new[]{ 0,0,-1,1000,-2000,1,0 };
+
+            var result = DataEncoding.SignedToUnsigned(input);
+
+            Assert.That(result.Any(n=>n < 0), Is.False, "Wrong sign");
+            Assert.That(result.Any(n=>n > 5000), Is.False, "Wrong scale");
+
+            var final = DataEncoding.UnsignedToSigned(result);
+
+            Assert.That(final, Is.EqualTo(input));
+        }
+
+        // Fibonacci encoding is a universal code good when you have lots of
+        // small values, and the occasional large value
+
+        [Test]
         public void fibonacci_number_round_trip(){
             uint orig = 123456;
             var enc = DataEncoding.FibEncodeNum(orig, null).ToArray();
@@ -21,9 +38,6 @@ namespace ImageTools.Tests
             
             Assert.That(dec, Is.EqualTo(orig));
         }
-
-        // Fibonacci encoding is a universal code good when you have lots of
-        // small values, and the occasional large value
 
         [Test]
         public void fibonacci_encoding() {

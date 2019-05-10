@@ -240,6 +240,30 @@ namespace ImageTools.Utilities
             if (value > 255) return 255;
             return (int)value;
         }
-        
+
+        /// <summary>
+        /// Lossless convert to positive numbers only
+        /// </summary>
+        public static uint[] SignedToUnsigned(int[] input)
+        {
+            var outp = new uint[input.Length];
+            for (int i = 0; i < input.Length; i++)
+            {
+                if (input[i] >= 0) outp[i] = (uint)(input[i] * 2); // positive becomes even
+                else outp[i] = (uint)(input[i] * -2) - 1;          // negative becomes odd
+            }
+            return outp;
+        }
+
+        public static int[] UnsignedToSigned(uint[] input)
+        {
+            var outp = new int[input.Length];
+            for (int i = 0; i < input.Length; i++)
+            {
+                if ((input[i] % 2) == 0) outp[i] = (int) (input[i] >> 1);
+                else outp[i] = (int) (((input[i] + 1) >> 1) * -1);
+            }
+            return outp;
+        }
     }
 }
