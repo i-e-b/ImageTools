@@ -45,6 +45,14 @@ namespace ImageTools
             return dst;
         }
 
+        public static unsafe Bitmap PlanarReduceImage2(Bitmap src)
+        {
+            var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
+
+            Bitmangle.RunKernel(src, dst, WaveletDecomposePlanar2);
+
+            return dst;
+        }
 
         /**
          *  fwt97 - Forward biorthogonal 9/7 wavelet transform (lifting implementation)
@@ -197,13 +205,7 @@ namespace ImageTools
         static unsafe void WaveletDecomposePlanar(byte* s, byte* d, BitmapData si, BitmapData di)
         {
             // Change color space
-            var pixelBuf = (uint*)(s);
-            var bufferSize = si.Width * si.Height;
-            for (int i = 0; i < bufferSize; i++)
-            {
-                pixelBuf[i] = ColorSpace.RGB32_To_Ycocg32(pixelBuf[i]);
-                // TODO: Chroma from Luma optimisation?
-            }
+            var bufferSize = To_YCxCx_ColorSpace(s, si);
 
 
             int rounds = (int)Math.Log(si.Width, 2) - 1;
@@ -224,11 +226,11 @@ namespace ImageTools
 
 
                 // Test of quantisation:
-                var quality = (ch + 1) ; // bias quality by color channel. Assumes 2=Y
-                //buffer = QuantiseByIndependentRound(si, buffer, ch, rounds, quality);
-                buffer = QuantiseByEnergyBalance(si, buffer, ch, rounds, quality);
+                var quality = (ch + 1) * 2; // bias quality by color channel. Assumes 2=Y
+                buffer = QuantiseByIndependentRound(si, buffer, ch, rounds, quality);
+                //buffer = QuantiseByEnergyBalance(si, buffer, ch, rounds, quality);
 
-                WriteToRLE(buffer, ch, "planar");
+                WriteToRLE_Byte(buffer, ch, "planar");
 
                 
                 // Expand values
@@ -245,11 +247,102 @@ namespace ImageTools
             }
             
             // Restore color space
-            var pixelBuf2 = (uint*)(d);
+            To_RGB_ColorSpace(d, bufferSize);
+        }
+
+        /// <summary>
+        /// This version is a hybrid between Morton (1 set of Coeffs per round) and Planar (3 sets of Coeffs per round)
+        /// </summary>
+        static unsafe void WaveletDecomposePlanar2(byte* s, byte* d, BitmapData si, BitmapData di)
+        {
+            // Change color space
+            var bufferSize = To_YCxCx_ColorSpace(s, si);
+
+            int rounds = (int)Math.Log(si.Width, 2) - 1;
+            Console.WriteLine($"Decomposing with {rounds} rounds");
+
+            for (int ch = 0; ch < 3; ch++)
+            {
+                var buffer = ReadPlane(s, si, ch);
+
+                // DC to AC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
+
+                // Transform
+                for (int i = 0; i < rounds; i++)
+                {
+                    var height = si.Height >> i;
+                    var width = si.Width >> i;
+                    // Wavelet decompose vertical
+                    for (int x = 0; x < width; x++) // each column
+                    {
+                        fwt97(buffer, height, x, si.Width);
+                    }
+
+                    // Wavelet decompose HALF horizontal
+                    for (int y = 0; y < height / 2; y++) // each row
+                    {
+                        fwt97(buffer, width, y * si.Width, 1);
+                    }
+                }
+                
+                
+                //buffer = QuantiseByIndependentRound(si, buffer, ch, rounds, 0);
+                WriteToRLE_Short(buffer, ch, "p_2");
+
+                ReadFromRLE_Short(buffer, ch, "p_2");
+
+                // Restore
+                for (int i = rounds - 1; i >= 0; i--)
+                {
+                    var height = si.Height >> i;
+                    var width = si.Width >> i;
+
+                    // Wavelet restore HALF horizontal
+                    for (int y = 0; y < height / 2; y++) // each row
+                    {
+                        iwt97(buffer, width, y * si.Width, 1);
+                    }
+
+                    // Wavelet restore vertical
+                    for (int x = 0; x < width; x++) // each column
+                    {
+                        iwt97(buffer, height, x, si.Width);
+                    }
+
+                }
+
+                // AC to DC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
+
+                // Write back to image
+                WritePlane(buffer, d, di, ch);
+            }
+            
+            // Restore color space
+            To_RGB_ColorSpace(d, bufferSize);
+        }
+
+        private static unsafe void To_RGB_ColorSpace(byte* d, int bufferSize)
+        {
+            var pixelBuf2 = (uint*) (d);
             for (int i = 0; i < bufferSize; i++)
             {
-                pixelBuf2[i] = ColorSpace.Ycocg32_To_RGB32(pixelBuf2[i]);
+                pixelBuf2[i] = ColorSpace.Ycbcr32_To_RGB32(pixelBuf2[i]);
+                // TODO: Chroma from luma estimation?
             }
+        }
+
+        private static unsafe int To_YCxCx_ColorSpace(byte* s, BitmapData si)
+        {
+            var pixelBuf = (uint*) (s);
+            var bufferSize = si.Width * si.Height;
+            for (int i = 0; i < bufferSize; i++)
+            {
+                pixelBuf[i] = ColorSpace.RGB32_To_Ycbcr32(pixelBuf[i]);
+            }
+
+            return bufferSize;
         }
 
         static unsafe void WaveletDecomposeMortonOrder(byte* s, byte* d, BitmapData si, BitmapData di)
@@ -298,13 +391,13 @@ namespace ImageTools
 
                 // Normalise values and write
                 DCOffsetAndPinToRange(buffer, rounds);
-                WriteToRLE(buffer, ch, "morton");
+                WriteToRLE_Byte(buffer, ch, "morton");
 
                 // prove it's actually working
                 for (int i = 0; i < buffer.Length; i++) { buffer[i] = AC_Bias; }
 
                 // Read
-                ReadFromRLE(buffer, ch, "morton");
+                ReadFromRLE_Byte(buffer, ch, "morton");
                 DCRestore(buffer, rounds);
 
                 // Restore
@@ -431,7 +524,7 @@ namespace ImageTools
             var ranks = new double[]{
             //1,2,3,4,5,6,7,8,9,10,11
             //300,250,240,230,200,128, 64, 32, 16
-                1,  1,  2,  4,  8, 16, 32, 64,128,256
+             0.01,0.1,0.5,  1,  2,  4,  8, 32, 64,128,256
             };
             buffer = ToMortonOrder(buffer, si.Width, si.Height);
             int lower = 4;
@@ -441,13 +534,13 @@ namespace ImageTools
                 var incr = 3 * (int) Math.Pow(4, i);
                 var upper = lower + incr;
 
-                var threshold = ranks[i - 1] / 2; // based on energy?
+                var threshold = ranks[i - 1];
+                if (ch == 2) threshold /= 2;
 
                 Console.WriteLine($"Round {i} at {threshold};");
                 for (int j = lower; j < upper; j++)
                 {
-                    buffer[j] = (int)(buffer[j] / threshold) * threshold;
-                    //if (Math.Abs(buffer[j]) < 0.01) buffer[j] = -1000; // show zeros
+                    if (Math.Abs(buffer[j]) < threshold) buffer[j] = 0;
                 }
 
                 lower = upper;
@@ -515,39 +608,52 @@ namespace ImageTools
             {
                 var height = si.Height >> i;
                 var width = si.Width >> i;
-                // Wavelet decompose vertical
-                for (int x = 0; x < width; x++) // each column
-                {
-                    iwt97(buffer, height, x, si.Width);
-                }
 
-                // Wavelet decompose horizontal
+                // Wavelet restore horizontal
                 for (int y = 0; y < height; y++) // each row
                 {
                     iwt97(buffer, width, y * si.Width, 1);
                 }
+
+                // Wavelet restore vertical
+                for (int x = 0; x < width; x++) // each column
+                {
+                    iwt97(buffer, height, x, si.Width);
+                }
             }
         }
 
-        private static void WriteToRLE(double[] buffer, int ch, string name)
+        
+        private static void WriteToRLE_Short(double[] buffer, int ch, string name)
         {
-            /*
-            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_mlzo_test_"+ch+".dat";
+            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_gzip_test_"+ch+".dat";
             if (File.Exists(testpath)) File.Delete(testpath);
-
-            var inp = ByteEncode(buffer);
-
-            Console.WriteLine("Start "+ch);
             using (var fs = File.Open(testpath, FileMode.Create))
+            using (var gs = new GZipStream(fs, CompressionMode.Compress))
             {
-                LzoCompression.Compress(inp, fs);
+                var buf = ShortEncodeToBytes(buffer);
+                gs.Write(buf, 0, buf.Length);
+                gs.Flush();
                 fs.Flush();
-                fs.Close();
             }
-            */
+        }
+        
+        private static void ReadFromRLE_Short(double[] buffer, int ch, string name)
+        {
+            var ms = new MemoryStream();
+            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_gzip_test_"+ch+".dat";
+            using (var fs = File.Open(testpath, FileMode.Open))
+            using (var gs = new GZipStream(fs, CompressionMode.Decompress))
+            {
+                gs.CopyTo(ms);
+            }
 
-            //File.WriteAllBytes(testpath, outp);
-            
+            ms.Seek(0, SeekOrigin.Begin);
+            ByteDecodeShorts(ms.ToArray(), buffer);
+        }
+
+        private static void WriteToRLE_Byte(double[] buffer, int ch, string name)
+        {
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_gzip_test_"+ch+".dat";
             if (File.Exists(testpath)) File.Delete(testpath);
             using (var fs = File.Open(testpath, FileMode.Create))
@@ -561,7 +667,7 @@ namespace ImageTools
             }
         }
 
-        private static void ReadFromRLE(double[] buffer, int ch, string name)
+        private static void ReadFromRLE_Byte(double[] buffer, int ch, string name)
         {
             // unpack from gzip, expand DC values by run length
             
@@ -657,7 +763,20 @@ namespace ImageTools
             var b = new byte[buffer.Length];
             for (int i = 0; i < buffer.Length; i++)
             {
-                b[i] = (byte)buffer[i];
+                b[i] = (byte)Saturate(buffer[i]);
+            }
+            return b;
+        }
+        
+        private static byte[] ShortEncodeToBytes(double[] buffer)
+        {
+            var b = new byte[buffer.Length * 2];
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                var s = (short)buffer[i];
+                var j = i*2;
+                b[j] = (byte)(s >> 8);
+                b[j+1] = (byte)(s & 0xff);
             }
             return b;
         }
@@ -667,6 +786,16 @@ namespace ImageTools
             for (int i = 0; i < src.Length; i++)
             {
                 buffer[i] = src[i];
+            }
+        }
+
+        private static void ByteDecodeShorts(byte[] src, double[] buffer)
+        {
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                var j = i * 2;
+                short s = (short)((src[j] << 8) | (src[j+1]));
+                buffer[i] = s;
             }
         }
 

@@ -56,11 +56,11 @@ namespace ImageTools.Tests
             {
                 using (var bmp2 = CDF_9_7.MortonReduceImage(bmp))
                 {
-                    bmp2.SaveJpeg("./outputs/Cdf97_Morton_32bpp_3.jpg", quality: 100);
+                    bmp2.SaveBmp("./outputs/Cdf97_Morton_32bpp_3.bmp");
                 }
             }
 
-            Assert.That(Load.FileExists("./outputs/Cdf97_Morton_32bpp_3.jpg"));
+            Assert.That(Load.FileExists("./outputs/Cdf97_Morton_32bpp_3.bmp"));
         }
         
         
@@ -71,11 +71,25 @@ namespace ImageTools.Tests
             {
                 using (var bmp2 = CDF_9_7.PlanarReduceImage(bmp))
                 {
-                    bmp2.SaveJpeg("./outputs/Cdf97_Planar_32bpp_3.jpg", quality: 100);
+                    bmp2.SaveBmp("./outputs/Cdf97_Planar_32bpp_3.bmp");
                 }
             }
 
-            Assert.That(Load.FileExists("./outputs/Cdf97_Planar_32bpp_3.jpg"));
+            Assert.That(Load.FileExists("./outputs/Cdf97_Planar_32bpp_3.bmp"));
+        }
+        
+        [Test]
+        public void cdf97_planar_2_reduce_test()
+        {
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                using (var bmp2 = CDF_9_7.PlanarReduceImage2(bmp))
+                {
+                    bmp2.SaveBmp("./outputs/Cdf97_Planar2_32bpp_3.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_3.bmp"));
         }
 	}
 }

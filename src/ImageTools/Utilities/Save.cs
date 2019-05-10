@@ -24,6 +24,20 @@ namespace ImageTools
 				fs.Close();
 			}
 		}
+        
+        public static void SaveBmp(this Bitmap src, string filePath)
+        {
+            var basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            filePath = Path.Combine(basePath, filePath);
+
+            var p = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(p))
+            {
+                Directory.CreateDirectory(p);
+            }
+            if (File.Exists(filePath)) File.Delete(filePath);
+            src.Save(filePath, ImageFormat.Bmp);
+        }
 
 		public static void JpegStream(this Bitmap src, Stream outputStream, int quality = 95)
 		{
