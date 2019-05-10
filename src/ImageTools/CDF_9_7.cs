@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using ImageTools.Utilities;
 
 namespace ImageTools
@@ -37,16 +38,16 @@ namespace ImageTools
             return dst;
         }
 
-        public static unsafe Bitmap PlanarReduceImage(Bitmap src)
+        public static unsafe Bitmap Planar3ReduceImage(Bitmap src)
         {
             var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
 
-            Bitmangle.RunKernel(src, dst, WaveletDecomposePlanar);
+            Bitmangle.RunKernel(src, dst, WaveletDecomposePlanar3);
 
             return dst;
         }
 
-        public static unsafe Bitmap PlanarReduceImage2(Bitmap src)
+        public static unsafe Bitmap Planar2ReduceImage(Bitmap src)
         {
             var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
 
@@ -55,19 +56,19 @@ namespace ImageTools
             return dst;
         }
 
-         /// <summary>
-         ///  fwt97 - Forward biorthogonal 9/7 wavelet transform (lifting implementation)
-         ///<para></para><list type="bullet">
-         ///  <item><description>x is an input signal, which will be replaced by its output transform.</description></item>
-         ///  <item><description>n is the length of the signal, and must be a power of 2.</description></item>
-         ///  <item><description>s is the stride across the signal (for multi dimensional signals)</description></item>
-         /// </list>
-         ///<para></para>
-         ///  The first half part of the output signal contains the approximation coefficients.
-         ///  The second half part contains the detail coefficients (aka. the wavelets coefficients).
-         ///<para></para>
-         ///  See also iwt97.
-         /// </summary>
+        /// <summary>
+        ///  fwt97 - Forward biorthogonal 9/7 wavelet transform (lifting implementation)
+        ///<para></para><list type="bullet">
+        ///  <item><description>x is an input signal, which will be replaced by its output transform.</description></item>
+        ///  <item><description>n is the length of the signal, and must be a power of 2.</description></item>
+        ///  <item><description>s is the stride across the signal (for multi dimensional signals)</description></item>
+        /// </list>
+        ///<para></para>
+        ///  The first half part of the output signal contains the approximation coefficients.
+        ///  The second half part contains the detail coefficients (aka. the wavelets coefficients).
+        ///<para></para>
+        ///  See also iwt97.
+        /// </summary>
         public static void Fwt97(double[] buf, int n, int offset, int stride)
         {
             double a;
@@ -126,7 +127,7 @@ namespace ImageTools
                 if (i % 2 == 0) tempbank[i / 2] = x[i];
                 else tempbank[n / 2 + i / 2] = x[i];
             }
-            
+
             // pick out stride data
             for (i = 0; i < n; i++) { buf[i * stride + offset] = tempbank[i]; }
         }
@@ -202,9 +203,11 @@ namespace ImageTools
             // pick out stride data
             for (i = 0; i < n; i++) { buf[i * stride + offset] = x[i]; }
         }
-
         
-        static unsafe void WaveletDecomposePlanar(byte* s, byte* d, BitmapData si, BitmapData di)
+        /// <summary>
+        /// Separate scales into 3 sets of coefficients
+        /// </summary>
+        static unsafe void WaveletDecomposePlanar3(byte* s, byte* d, BitmapData si, BitmapData di)
         {
             // Change color space
             var bufferSize = To_YCxCx_ColorSpace(s, si);
@@ -223,20 +226,16 @@ namespace ImageTools
                 // Transform
                 PlanarDecompose(si, buffer, rounds);
 
-                // Reduce values
-                //for (int i = 0; i < buffer.Length; i++) { buffer[i] /= 2; }
-
 
                 // Test of quantisation:
                // var quality = (ch + 1) * 2; // bias quality by color channel. Assumes 2=Y
                 //buffer = QuantiseByIndependentRound(si, buffer, ch, rounds, quality);
                 //buffer = QuantiseByEnergyBalance(si, buffer, ch, rounds, quality);
 
-                WriteToRLE_Short(buffer, ch, "planar");
+                WriteToFileFibonacci(buffer, ch, "planar");
 
                 
-                // Expand values
-                //for (int i = 0; i < buffer.Length; i++) { buffer[i] *= 2; }
+                ReadFromFileFibonacci(buffer, ch, "planar");
 
                 // Restore
                 PlanarRestore(si, buffer, rounds);
@@ -292,10 +291,10 @@ namespace ImageTools
                 //buffer = QuantiseByIndependentRound(si, buffer, ch, rounds, 0);
 
                 // Write output
-                WriteToRLE_Short(buffer, ch, "p_2");
+                WriteToFileFibonacci(buffer, ch, "p_2");
 
                 // read output
-                ReadFromRLE_Short(buffer, ch, "p_2");
+                ReadFromFileFibonacci(buffer, ch, "p_2");
 
                 // Restore
                 for (int i = rounds - 1; i >= 0; i--)
@@ -328,6 +327,9 @@ namespace ImageTools
             To_RGB_ColorSpace(d, bufferSize);
         }
 
+        /// <summary>
+        /// Separate scales into 1 set of coefficients using a spacefilling curve
+        /// </summary>
         static unsafe void WaveletDecomposeMortonOrder(byte* s, byte* d, BitmapData si, BitmapData di)
         {
             // Change color space
@@ -351,10 +353,10 @@ namespace ImageTools
                     Fwt97(buffer, length, 0, 1);
                 }
 
-                WriteToRLE_Short(buffer, ch, "morton");
+                WriteToFileFibonacci(buffer, ch, "morton");
                 
                 // read output
-                ReadFromRLE_Short(buffer, ch, "morton");
+                ReadFromFileFibonacci(buffer, ch, "morton");
 
                 // Restore
                 for (int i = rounds - 1; i >= 0; i--)
@@ -393,6 +395,7 @@ namespace ImageTools
             for (int i = 0; i < bufferSize; i++)
             {
                 pixelBuf[i] = ColorSpace.RGB32_To_Ycbcr32(pixelBuf[i]);
+                // TODO: Chroma from luma estimation?
             }
 
             return bufferSize;
@@ -627,6 +630,44 @@ namespace ImageTools
 
             ms.Seek(0, SeekOrigin.Begin);
             DataEncoding.ShortToDouble_DecodeBytes(ms.ToArray(), buffer);
+        }
+
+
+        private static void ReadFromFileFibonacci(double[] buffer, int ch, string name)
+        {
+            var ms = new MemoryStream();
+            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_fib_test_"+ch+".dat";
+            using (var fs = File.Open(testpath, FileMode.Open))
+            using (var gs = new GZipStream(fs, CompressionMode.Decompress))
+            {
+                gs.CopyTo(ms);
+            }
+
+            ms.Seek(0, SeekOrigin.Begin);
+            var uints = DataEncoding.UnsignedFibDecode(ms.ToArray());
+            var ints = DataEncoding.UnsignedToSigned(uints);
+            Console.WriteLine($"Channel {ch}, expected {buffer.Length} coeffs, got {ints.Length}");
+            // Could do smarter error recovery here.
+            var coeffCount = Math.Min(buffer.Length, ints.Length);
+            for (int i = 0; i < coeffCount; i++)
+            {
+                buffer[i] = ints[i];
+            }
+        }
+
+        private static void WriteToFileFibonacci(double[] buffer, int ch, string name)
+        {
+            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_fib_test_"+ch+".dat";
+            if (File.Exists(testpath)) File.Delete(testpath);
+            using (var fs = File.Open(testpath, FileMode.Create))
+            using (var gs = new GZipStream(fs, CompressionMode.Compress))
+            {
+                var usig = DataEncoding.SignedToUnsigned(buffer.Select(d=>(int)d).ToArray());
+                var bytes = DataEncoding.UnsignedFibEncode(usig);
+                gs.Write(bytes, 0, bytes.Length);
+                gs.Flush();
+                fs.Flush();
+            }
         }
 
 

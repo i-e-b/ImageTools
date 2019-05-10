@@ -69,7 +69,7 @@ namespace ImageTools.Tests
         {
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
-                using (var bmp2 = CDF_9_7.PlanarReduceImage(bmp))
+                using (var bmp2 = CDF_9_7.Planar3ReduceImage(bmp))
                 {
                     bmp2.SaveBmp("./outputs/Cdf97_Planar_32bpp_3.bmp");
                 }
@@ -83,7 +83,7 @@ namespace ImageTools.Tests
         {
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
-                using (var bmp2 = CDF_9_7.PlanarReduceImage2(bmp))
+                using (var bmp2 = CDF_9_7.Planar2ReduceImage(bmp))
                 {
                     bmp2.SaveBmp("./outputs/Cdf97_Planar2_32bpp_3.bmp");
                 }
