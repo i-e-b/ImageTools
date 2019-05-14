@@ -274,6 +274,7 @@ namespace ImageTools
                 {
                     var height = si.Height >> i;
                     var width = si.Width >> i;
+
                     // Wavelet decompose vertical
                     for (int x = 0; x < width; x++) // each column
                     {
@@ -286,11 +287,9 @@ namespace ImageTools
                         Fwt97(buffer, width, y * si.Width, 1);
                     }
                 }
-                
-                
-                //buffer = QuantiseByIndependentRound(si, buffer, ch, rounds, 0);
+
                 QuantisePlanar2(si, buffer, ch, rounds, Quantise.Reduce);
-                
+
                 // Write output
                 WriteToFileFibonacci(buffer, ch, "p_2");
 
@@ -316,7 +315,6 @@ namespace ImageTools
                     {
                         Iwt97(buffer, height, x, si.Width);
                     }
-
                 }
 
                 // AC to DC
@@ -336,20 +334,14 @@ namespace ImageTools
             // vertical and horizontal
 
             // Fibonacci coding strongly prefers small numbers
-            double factor = 0.0;
+            double factor;
 
             for (int r = 0; r < rounds; r++)
             {
-                /*if (ch != 2) // color
-                    factor = 1.0 / ((rounds) - r); // prefer low frequency
-                else
-                    factor = 1.0 / (r + 1); // prefer high frequency
-                    */
-                
-                if (ch!=2)factor = 0.1; // fixed
-                else factor = 0.5;
+                factor = ((rounds) - r); // prefer low frequency
+                factor /= (1+r);
 
-                if (mode == Quantise.Expand) factor = 1 / factor;
+                if (mode == Quantise.Reduce) factor = 1 / factor;
                 var width = si.Width >> r;
                 var height = si.Height >> r;
                 // vertical
