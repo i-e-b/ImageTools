@@ -334,12 +334,22 @@ namespace ImageTools
             // vertical and horizontal
 
             // Fibonacci coding strongly prefers small numbers
-            double factor;
+
+            // pretty good:
+            var fYs = new[]{9, 4, 2.3, 1.5, 1, 1, 1, 1, 1 };
+            var fCs = new[]{15, 10, 2, 1, 1, 1, 1, 1, 1 };
+            
+            // heavily crushed
+            //var fYs = new[]{ 80, 50, 20, 10, 3.5, 1, 1, 1, 1};
+            //var fCs = new[]{200, 100, 50, 10, 3.5, 2, 1, 1, 1};
+
+            // about the same as 100% JPEG
+            //var fYs = new[]{ 1, 1, 1, 1, 1, 1, 1, 1, 1};
+            //var fCs = new[]{10000, 2, 1, 1, 1, 1, 1, 1, 1};
 
             for (int r = 0; r < rounds; r++)
             {
-                factor = ((rounds) - r); // prefer low frequency
-                factor /= (1+r);
+                double factor = (ch == 2) ? fYs[r] : fCs[r];
 
                 if (mode == Quantise.Reduce) factor = 1 / factor;
                 var width = si.Width >> r;
@@ -422,7 +432,8 @@ namespace ImageTools
             var pixelBuf2 = (uint*) (d);
             for (int i = 0; i < bufferSize; i++)
             {
-                pixelBuf2[i] = ColorSpace.Ycbcr32_To_RGB32(pixelBuf2[i]);
+                //pixelBuf2[i] = ColorSpace.Ycbcr32_To_RGB32(pixelBuf2[i]);
+                pixelBuf2[i] = ColorSpace.Ycocg32_To_RGB32(pixelBuf2[i]);
                 // TODO: Chroma from luma estimation?
             }
         }
@@ -433,140 +444,12 @@ namespace ImageTools
             var bufferSize = si.Width * si.Height;
             for (int i = 0; i < bufferSize; i++)
             {
-                pixelBuf[i] = ColorSpace.RGB32_To_Ycbcr32(pixelBuf[i]);
+                //pixelBuf[i] = ColorSpace.RGB32_To_Ycbcr32(pixelBuf[i]);
+                pixelBuf[i] = ColorSpace.RGB32_To_Ycocg32(pixelBuf[i]);
                 // TODO: Chroma from luma estimation?
             }
 
             return bufferSize;
-        }
-
-        private static double[] QuantiseByEnergyBalance(BitmapData si, double[] buffer, int ch, int rounds, double quality)
-        {
-            // idea:
-            // Start with the high frequencies. Areas with lots of high frequency data get their
-            // low frequencies reduced harder.
-
-            // Start with each of the largest quadrants, and reduce by half for each round
-
-            Console.WriteLine($"Quantising channel {ch} ===================");
-
-            // bottom left
-            QuantiseByEnergy_Quadrant(si, buffer, rounds, si.Height / 2, si.Height, 0, si.Width / 2, quality);
-            // bottom right
-            QuantiseByEnergy_Quadrant(si, buffer, rounds, si.Height / 2, si.Height, si.Width / 2, si.Width, quality / 2);
-            // top right
-            QuantiseByEnergy_Quadrant(si, buffer, rounds, 0, si.Height / 2, si.Width / 2, si.Width, quality);
-
-            return buffer;
-        }
-
-        private static void QuantiseByEnergy_Quadrant(BitmapData si, double[] buffer, int rounds, int top, int bottom, int left, int right, double quality)
-        {
-            // set quadrant:
-            int T = top;
-            int B = bottom;
-            int L = left;
-            int R = right;
-
-            var energies = new double[rounds];
-            double totalEnergy = 0.0;
-
-            // read energy
-            for (int r = 0; r < rounds; r++)
-            {
-                double e = 0;
-                double c = 0;
-                for (int y = T; y < B; y++)
-                {
-                    var yo = y * si.Width;
-                    for (int x = L; x < R; x++)
-                    {
-                        e += Math.Abs(buffer[yo + x]);
-                        c++;
-                    }
-                }
-
-                e /= c;
-                //e *= e;
-                totalEnergy += e;
-                energies[r] = e;
-                Console.WriteLine($"Round {r}, e = {e}; c = {c}");
-
-                // next round for this quadrant
-                T >>= 1;
-                B >>= 1;
-                L >>= 1;
-                R >>= 1;
-            }
-
-            Console.WriteLine($"Total = {totalEnergy}");
-
-            // calculate thresholds
-            var threshes = new double[rounds];
-            for (int i = 0; i < rounds; i++)
-            {
-                threshes[i] = (totalEnergy / energies[i]) / quality;
-                //threshes[i] = (energies[i] / totalEnergy) * 64;
-            }
-
-            Console.WriteLine(string.Join(", ", threshes));
-
-
-            // reset quadrant:
-            T = top;
-            B = bottom;
-            L = left;
-            R = right;
-
-            // Apply thresholds
-            for (int r = 0; r < rounds; r++)
-            {
-                for (int y = T; y < B; y++)
-                {
-                    var yo = y * si.Width;
-                    for (int x = L; x < R; x++)
-                    {
-                        if (Math.Abs(buffer[yo + x]) < threshes[r]) buffer[yo + x] = 0;
-                    }
-                }
-
-                // next round for this quadrant
-                T >>= 1;
-                B >>= 1;
-                L >>= 1;
-                R >>= 1;
-            }
-        }
-
-        private static double[] QuantiseByIndependentRound(BitmapData si, double[] buffer, int ch, int rounds, double quality)
-        {
-            var ranks = new double[]{
-            //1,2,3,4,5,6,7,8,9,10,11
-            //300,250,240,230,200,128, 64, 32, 16
-             0.01,0.1,0.5,  1,  2,  4,  8, 32, 64,128,256
-            };
-            buffer = ToMortonOrder(buffer, si.Width, si.Height);
-            int lower = 4;
-            int elim = 0;
-            for (int i = 1; i <= rounds; i++)
-            {
-                var incr = 3 * (int) Math.Pow(4, i);
-                var upper = lower + incr;
-
-                var threshold = ranks[i - 1];
-                if (ch == 2) threshold /= 2;
-
-                Console.WriteLine($"Round {i} at {threshold};");
-                for (int j = lower; j < upper; j++)
-                {
-                    if (Math.Abs(buffer[j]) < threshold) buffer[j] = 0;
-                }
-
-                lower = upper;
-            }
-
-            buffer = FromMortonOrder(buffer, si.Width, si.Height);
-            return buffer;
         }
 
         private static double[] FromMortonOrder(double[] src, int width, int height)
@@ -641,36 +524,6 @@ namespace ImageTools
                 }
             }
         }
-
-        
-        private static void WriteToRLE_Short(double[] buffer, int ch, string name)
-        {
-            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_gzip_test_"+ch+".dat";
-            if (File.Exists(testpath)) File.Delete(testpath);
-            using (var fs = File.Open(testpath, FileMode.Create))
-            using (var gs = new GZipStream(fs, CompressionMode.Compress))
-            {
-                var buf = DataEncoding.DoubleToShort_EncodeBytes(buffer);
-                gs.Write(buf, 0, buf.Length);
-                gs.Flush();
-                fs.Flush();
-            }
-        }
-        
-        private static void ReadFromRLE_Short(double[] buffer, int ch, string name)
-        {
-            var ms = new MemoryStream();
-            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_gzip_test_"+ch+".dat";
-            using (var fs = File.Open(testpath, FileMode.Open))
-            using (var gs = new GZipStream(fs, CompressionMode.Decompress))
-            {
-                gs.CopyTo(ms);
-            }
-
-            ms.Seek(0, SeekOrigin.Begin);
-            DataEncoding.ShortToDouble_DecodeBytes(ms.ToArray(), buffer);
-        }
-
 
         private static void ReadFromFileFibonacci(double[] buffer, int ch, string name)
         {

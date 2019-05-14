@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Reflection;
 using NUnit.Framework;
 
 namespace ImageTools.Tests
@@ -259,5 +260,30 @@ namespace ImageTools.Tests
 			}
 			Console.WriteLine("Go check the build output and ensure that \"/outputs/moire_scaled_np2_2.jpg\" looks ok");
 		}
+
+
+        
+
+        [Test, Explicit("Resizes inputs for other tests")]
+        public void frame_resize()
+        {
+            
+            var basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            var filePath = Path.Combine(basePath, "../../inputs/EasyFrames");
+            var frames = Directory.EnumerateFiles(filePath);
+
+            int f = 0;
+            foreach (var frame in frames)
+            {
+                using (var bmp = Load.FromFile(frame))
+                {
+                    using (var bmp2 = FastScale.DisregardAspect(bmp, 256, 256))
+                    {
+                        bmp2.SaveJpeg($"./outputs/f{f++}.jpg");
+                    }
+                }
+            }
+
+        }
 	}
 }
