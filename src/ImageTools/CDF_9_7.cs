@@ -289,12 +289,15 @@ namespace ImageTools
                 
                 
                 //buffer = QuantiseByIndependentRound(si, buffer, ch, rounds, 0);
-
+                QuantisePlanar2(si, buffer, ch, rounds, Quantise.Reduce);
+                
                 // Write output
                 WriteToFileFibonacci(buffer, ch, "p_2");
 
                 // read output
                 ReadFromFileFibonacci(buffer, ch, "p_2");
+
+                QuantisePlanar2(si, buffer, ch, rounds, Quantise.Expand);
 
                 // Restore
                 for (int i = rounds - 1; i >= 0; i--)
@@ -325,6 +328,50 @@ namespace ImageTools
             
             // Restore color space
             To_RGB_ColorSpace(d, bufferSize);
+        }
+
+        private static void QuantisePlanar2(BitmapData si, double[] buffer, int ch, int rounds, Quantise mode)
+        {
+            // Planar two splits in half, starting with top/bottom, and alternating between
+            // vertical and horizontal
+
+            // Fibonacci coding strongly prefers small numbers
+            double factor = 0.0;
+
+            for (int r = 0; r < rounds; r++)
+            {
+                /*if (ch != 2) // color
+                    factor = 1.0 / ((rounds) - r); // prefer low frequency
+                else
+                    factor = 1.0 / (r + 1); // prefer high frequency
+                    */
+                
+                if (ch!=2)factor = 0.1; // fixed
+                else factor = 0.5;
+
+                if (mode == Quantise.Expand) factor = 1 / factor;
+                var width = si.Width >> r;
+                var height = si.Height >> r;
+                // vertical
+                for (int y = height / 2; y < height; y++)
+                {
+                    var yo = y * si.Width;
+                    for (int x = 0; x < width; x++)
+                    {
+                        buffer[yo+x] *= factor;
+                    }
+                }
+
+                // half-horizontal
+                for (int y = 0; y < height / 2; y++)
+                {
+                    var yo = y * si.Width;
+                    for (int x = width / 2; x < width; x++)
+                    {
+                        buffer[yo+x] *= factor;
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -763,5 +810,11 @@ namespace ImageTools
                 WritePlane(buffer, d, di, ch);
             }
         }
+    }
+
+    internal enum Quantise
+    {
+        Reduce,
+        Expand
     }
 }
