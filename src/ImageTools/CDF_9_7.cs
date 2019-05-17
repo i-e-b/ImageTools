@@ -5,6 +5,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using ImageTools.DataCompression.LZMA;
 using ImageTools.Utilities;
 
 namespace ImageTools
@@ -551,6 +552,13 @@ namespace ImageTools
         {
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_fib_test_"+ch+".dat";
             if (File.Exists(testpath)) File.Delete(testpath);
+
+            
+
+            var lzma = new LzmaEncoder();
+            lzma.Code(instream, outstream, insize, outsize, prog);
+
+
             using (var fs = File.Open(testpath, FileMode.Create))
             using (var gs = new GZipStream(fs, CompressionMode.Compress))
             {
