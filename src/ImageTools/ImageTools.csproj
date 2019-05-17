@@ -41,7 +41,7 @@
     <Compile Include="Blur.cs" />
     <Compile Include="CDF_9_7.cs" />
     <Compile Include="ColorSpace.cs" />
-    <Compile Include="DataCompression\LZMA\LzmaBase.cs" />
+    <Compile Include="DataCompression\LZMA\Lzma.cs" />
     <Compile Include="Haar.cs" />
     <Compile Include="Hilbert.cs" />
     <Compile Include="Utilities\DataEncoding.cs" />

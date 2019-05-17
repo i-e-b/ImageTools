@@ -294,6 +294,9 @@ namespace ImageTools
                 // Write output
                 WriteToFileFibonacci(buffer, ch, "p_2");
 
+                // Prove reading is good:
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0.0; }
+
                 // read output
                 ReadFromFileFibonacci(buffer, ch, "p_2");
 
@@ -530,12 +533,23 @@ namespace ImageTools
         {
             var ms = new MemoryStream();
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_fib_test_"+ch+".dat";
+
+
+            // GZIP
             using (var fs = File.Open(testpath, FileMode.Open))
             using (var gs = new GZipStream(fs, CompressionMode.Decompress))
             {
                 gs.CopyTo(ms);
             }
 
+            // LZMA (slower, slightly better compression)
+            /*var raw = File.ReadAllBytes(testpath.Replace(".dat", ".lzma"));
+            var instream = new MemoryStream(raw);
+            CompressionUtility.Decompress(instream, ms, null);
+            */
+
+
+            // Common unpacking
             ms.Seek(0, SeekOrigin.Begin);
             var uints = DataEncoding.UnsignedFibDecode(ms.ToArray());
             var ints = DataEncoding.UnsignedToSigned(uints);
@@ -553,17 +567,22 @@ namespace ImageTools
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_fib_test_"+ch+".dat";
             if (File.Exists(testpath)) File.Delete(testpath);
 
-            
+            // Common packing
+            var usig = DataEncoding.SignedToUnsigned(buffer.Select(d => (int)d).ToArray());
+            var bytes = DataEncoding.UnsignedFibEncode(usig);
 
-            var lzma = new LzmaEncoder();
-            lzma.Code(instream, outstream, insize, outsize, prog);
+            // LZMA
+            /*var instream = new MemoryStream(bytes);
+            using (var fs2 = File.Open(testpath.Replace(".dat", ".lzma"), FileMode.Create))
+            {
+                CompressionUtility.Compress(instream, fs2, null);
+                fs2.Flush();
+            }*/
 
-
+            // GZIP
             using (var fs = File.Open(testpath, FileMode.Create))
             using (var gs = new GZipStream(fs, CompressionMode.Compress))
             {
-                var usig = DataEncoding.SignedToUnsigned(buffer.Select(d=>(int)d).ToArray());
-                var bytes = DataEncoding.UnsignedFibEncode(usig);
                 gs.Write(bytes, 0, bytes.Length);
                 gs.Flush();
                 fs.Flush();

@@ -1,11 +1,117 @@
 ﻿using System;
+using System.IO;
 
 // Imported from https://github.com/dotnet/cli/tree/rel/1.0.0/src/Microsoft.DotNet.Archive/LZMA
 
 
 namespace ImageTools.DataCompression.LZMA
 {
-    internal abstract class Base
+
+      public static class CompressionUtility
+    {
+        enum MeasureBy
+        {
+            Input,
+            Output
+        }
+
+        private class LzmaProgress : ICodeProgress
+        {
+            private IProgress progress;
+            private long totalSize;
+            private string phase;
+            private MeasureBy measureBy;
+
+            public LzmaProgress(IProgress progress, string phase, long totalSize, MeasureBy measureBy)
+            {
+                this.progress = progress;
+                this.totalSize = totalSize;
+                this.phase = phase;
+                this.measureBy = measureBy;
+            }
+
+            public void SetProgress(long inSize, long outSize)
+            {
+                progress?.Report(phase, measureBy == MeasureBy.Input ? inSize : outSize, totalSize);
+            }
+        }
+
+        public static void Compress(Stream inStream, Stream outStream, IProgress progress)
+        {
+            LzmaEncoder encoder = new LzmaEncoder();
+
+            CoderPropID[] propIDs =
+            {
+                    CoderPropID.DictionarySize,
+                    CoderPropID.PosStateBits,
+                    CoderPropID.LitContextBits,
+                    CoderPropID.LitPosBits,
+                    CoderPropID.Algorithm,
+                    CoderPropID.NumFastBytes,
+                    CoderPropID.MatchFinder,
+                    CoderPropID.EndMarker
+            };
+            object[] properties =
+            {
+                    (Int32)(1 << 26),
+                    (Int32)(1),
+                    (Int32)(8),
+                    (Int32)(0),
+                    (Int32)(2),
+                    (Int32)(96),
+                    "bt4",
+                    false
+             };
+
+            encoder.SetCoderProperties(propIDs, properties);
+            encoder.WriteCoderProperties(outStream);
+
+            Int64 inSize = inStream.Length;
+            for (int i = 0; i < 8; i++)
+            {
+                outStream.WriteByte((Byte)(inSize >> (8 * i)));
+            }
+
+            var lzmaProgress = new LzmaProgress(progress, "Compressing", inSize, MeasureBy.Input);
+            lzmaProgress.SetProgress(0, 0);
+            encoder.Code(inStream, outStream, lzmaProgress);
+            lzmaProgress.SetProgress(inSize, outStream.Length);
+        }
+
+        public static void Decompress(Stream inStream, Stream outStream, IProgress progress)
+        {
+            byte[] properties = new byte[5];
+
+            if (inStream.Read(properties, 0, 5) != 5)
+                throw (new Exception("input .lzma is too short"));
+
+            LzmaDecoder decoder = new LzmaDecoder();
+            decoder.SetDecoderProperties(properties);
+
+            long outSize = 0;
+            for (int i = 0; i < 8; i++)
+            {
+                int v = inStream.ReadByte();
+                if (v < 0)
+                    throw (new Exception("Can't Read 1"));
+                outSize |= ((long)(byte)v) << (8 * i);
+            }
+
+            long compressedSize = inStream.Length - inStream.Position;
+            var lzmaProgress = new LzmaProgress(progress, "Decompressing", outSize, MeasureBy.Output);
+            lzmaProgress.SetProgress(0, 0);
+            decoder.Code(inStream, outStream, compressedSize, outSize, lzmaProgress);
+            lzmaProgress.SetProgress(inStream.Length, outSize);
+        }
+    }
+
+      public interface IProgress
+      {
+          void Report(string phase, long outSize, long totalSize);
+      }
+
+
+      internal abstract class Base
     {
         public const uint kNumRepDistances = 4;
         public const uint kNumStates = 12;
@@ -1318,8 +1424,7 @@ namespace ImageTools.DataCompression.LZMA
 			ReleaseOutStream();
 		}
 
-		void SetStreams(System.IO.Stream inStream, System.IO.Stream outStream,
-				Int64 inSize, Int64 outSize)
+		void SetStreams(System.IO.Stream inStream, System.IO.Stream outStream)
 		{
 			_inStream = inStream;
 			_finished = false;
@@ -1342,13 +1447,12 @@ namespace ImageTools.DataCompression.LZMA
 		}
 
 
-		public void Code(System.IO.Stream inStream, System.IO.Stream outStream,
-			Int64 inSize, Int64 outSize, ICodeProgress progress)
+		public void Code(System.IO.Stream inStream, System.IO.Stream outStream, ICodeProgress progress)
 		{
 			_needReleaseMFStream = false;
 			try
 			{
-				SetStreams(inStream, outStream, inSize, outSize);
+				SetStreams(inStream, outStream);
 				while (true)
 				{
 					Int64 processedInSize;
@@ -1730,8 +1834,14 @@ namespace ImageTools.DataCompression.LZMA
 					m_Coders[i].Create();
 			}
 
+            // Copied from the encoder
+            int _numLiteralPosStateBits = 0;
+            int _numLiteralContextBits = 3;
+
 			public void Init()
 			{
+                if (m_Coders == null) Create(_numLiteralPosStateBits, _numLiteralContextBits);
+
 				uint numStates = (uint)1 << (m_NumPrevBits + m_NumPosBits);
 				for (uint i = 0; i < numStates; i++)
 					m_Coders[i].Init();
@@ -1864,7 +1974,7 @@ namespace ImageTools.DataCompression.LZMA
 			}
 			while (nowPos64 < outSize64)
 			{
-                progress.SetProgress(inStream.Position, (long)nowPos64);
+                progress?.SetProgress(inStream.Position, (long)nowPos64);
 				// UInt64 next = Math.Min(nowPos64 + (1 << 18), outSize64);
 					// while(nowPos64 < next)
 				{
@@ -1948,8 +2058,7 @@ namespace ImageTools.DataCompression.LZMA
 						}
 						if (rep0 >= m_OutWindow.TrainSize + nowPos64 || rep0 >= m_DictionarySizeCheck)
 						{
-							if (rep0 == 0xFFFFFFFF)
-								break;
+							if (rep0 == 0xFFFFFFFF) break;
 							throw new DataErrorException();
 						}
 						m_OutWindow.CopyBlock(rep0, len);
@@ -1986,30 +2095,6 @@ namespace ImageTools.DataCompression.LZMA
 			return m_OutWindow.Train(stream);
 		}
 
-		/*
-		public override bool CanRead { get { return true; }}
-		public override bool CanWrite { get { return true; }}
-		public override bool CanSeek { get { return true; }}
-		public override long Length { get { return 0; }}
-		public override long Position
-		{
-			get { return 0;	}
-			set { }
-		}
-		public override void Flush() { }
-		public override int Read(byte[] buffer, int offset, int count) 
-		{
-			return 0;
-		}
-		public override void Write(byte[] buffer, int offset, int count)
-		{
-		}
-		public override long Seek(long offset, System.IO.SeekOrigin origin)
-		{
-			return 0;
-		}
-		public override void SetLength(long value) {}
-		*/
 	}
 
     public interface ICodeProgress
@@ -3072,7 +3157,7 @@ namespace ImageTools.DataCompression.LZMA
 
 		public void Create(uint windowSize)
 		{
-			if (_windowSize != windowSize)
+			if (_windowSize != windowSize || _buffer == null)
 			{
 				// System.GC.Collect();
 				_buffer = new byte[windowSize];
@@ -3084,6 +3169,7 @@ namespace ImageTools.DataCompression.LZMA
 
 		public void Init(System.IO.Stream stream, bool solid)
 		{
+            if (_buffer == null) Create(1024*1024);
 			ReleaseStream();
 			_stream = stream;
 			if (!solid)
