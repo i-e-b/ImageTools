@@ -126,6 +126,7 @@ namespace ImageTools
             
             return (uint)((clip(Y) << 16) + (clip(Co) << 8) + (clip(Cg)));
         }
+        
 
         /// <summary>
         /// Lossy conversion from YCoCg to RGB (both 24 bit, stored as 32).
@@ -144,6 +145,62 @@ namespace ImageTools
             var G   = Cg + tmp;
             var B   = tmp - (Co >> 1);
             var R   = B + Co;
+
+            return (uint)((clip(R) << 16) + (clip(G) << 8) + clip(B));
+        }
+        
+        /// <summary>
+        /// Lossy conversion from RGB to YCoCg (both 24 bit, stored as 32).
+        /// This is a (luma + blue/orange + purple/green) space
+        /// </summary>
+        public static void RGB32_To_Ycocg(uint c, out int Y, out int Co, out int Cg)
+        {
+            int R = (int) ((c >> 16) & 0xff);
+            int G = (int) ((c >>  8) & 0xff);
+            int B = (int) ((c      ) & 0xff);
+
+            Co  = R - B;
+            var tmp = B + (Co >> 1);
+            Cg  = G - tmp;
+            Y   = tmp + (Cg >> 1);
+
+            // if you don't do this step, it's a lossless transform,
+            // but you need 2 extra bits to store the color data
+            Co = (Co >> 1) + 127;
+            Cg = (Cg >> 1) + 127;
+        }
+        
+        /// <summary>
+        /// Lossy conversion from YCoCg to RGB (both 24 bit, stored as 32).
+        /// This is a (luma + blue/orange + purple/green) space
+        /// </summary>
+        public static uint Ycocg_To_RGB32(int Y, int Co, int Cg)
+        {
+            Co = (Co - 127) << 1;
+            Cg = (Cg - 127) << 1;
+
+            var tmp = Y - (Cg >> 1);
+            var G   = Cg + tmp;
+            var B   = tmp - (Co >> 1);
+            var R   = B + Co;
+
+            return (uint)((clip(R) << 16) + (clip(G) << 8) + clip(B));
+        }
+        
+        /// <summary>
+        /// Lossy conversion from YCoCg to RGB (both 24 bit, stored as 32).
+        /// This is a (luma + blue/orange + purple/green) space
+        /// </summary>
+        public static uint Ycocg_To_RGB32(double Y, double Co, double Cg)
+        {
+            var vY = clip(Y);
+            var vCo = clip(Co - 127) << 1;
+            var vCg = clip(Cg - 127) << 1;
+
+            var tmp = vY - (vCg >> 1);
+            var G   = vCg + tmp;
+            var B   = tmp - (vCo >> 1);
+            var R   = B + vCo;
 
             return (uint)((clip(R) << 16) + (clip(G) << 8) + clip(B));
         }

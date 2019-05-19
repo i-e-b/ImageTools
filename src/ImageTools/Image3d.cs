@@ -33,20 +33,12 @@ namespace ImageTools
                 {
                     if (Y == null) { InitPlanes(bmp, frameCount); }
 
-                    // data order is X,Y,Z; (data from 2nd image is entirely after first)
-                    for (int y = 0; y < bmp.Height; y++)
+                    Bitmangle.ArgbImageToYCoCgPlanes(bmp, out var srcY, out var srcCo, out var srcCg);
+                    for (int i = 0; i < srcY.Length; i++)
                     {
-                        var yo = y * yspan;
-                        for (int x = 0; x < bmp.Width; x++)
-                        {
-                            var c = bmp.GetPixel(x,y);
-                            ColorSpace.CompoundToComponent(ColorSpace.RGB32_To_Ycocg32((uint) c.ToArgb()),
-                                out _,  out var yv, out var cov, out var cgv);
-                            var px = yo+x+zo;
-                            Y[px] = yv;
-                            Co[px] = cov;
-                            Cg[px] = cgv;
-                        }
+                        Y[zo+i] = srcY[i];
+                        Co[zo+i] = srcCo[i];
+                        Cg[zo+i] = srcCg[i];
                     }
                 }
                 zo += zspan;
@@ -62,19 +54,8 @@ namespace ImageTools
             var dst = new Bitmap(Width, Height, PixelFormat.Format32bppArgb);
             var zo = z * zspan;
 
-            for (int y = 0; y < Height; y++)
-            {
-                var yo = y * yspan;
-                for (int x = 0; x < Width; x++)
-                {
-                    var px = yo + x + zo;
+            Bitmangle.YCoCgPlanes_To_ArgbImage(dst, zo, Y, Co, Cg);
 
-                    var ycc = ColorSpace.ComponentToCompound(255.0, Y[px], Co[px], Cg[px]);
-                    var rgb = ColorSpace.Ycocg32_To_RGB32(ycc);
-
-                    dst.SetPixel(x,y, Color.FromArgb((int)rgb));
-                }
-            }
             return dst;
         }
 
