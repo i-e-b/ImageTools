@@ -753,7 +753,9 @@ namespace ImageTools
             // GZIP
             using (var fs = File.Open(testpath, FileMode.Open))
             {
-                var trunc_sim = new TruncatedStream(fs, (int)(fs.Length * 0.5));
+                // switch comment to demonstrate shortened files
+                //var trunc_sim = new TruncatedStream(fs, (int)(fs.Length * 0.5));
+                var trunc_sim = fs;
                 using (var gs = new DeflateStream(trunc_sim, CompressionMode.Decompress))
                 {
                     gs.CopyTo(ms);

@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.572
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImageTools.Tests", "src\ImageTools.Tests\ImageTools.Tests.csproj", "{F4DFAF51-9AF9-468F-97BF-AC795FDBD481}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImageTools", "src\ImageTools\ImageTools.csproj", "{93FAD718-F07F-4210-9AEA-F8BE82BB58A6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProfileApp", "src\ProfileApp\ProfileApp.csproj", "{7E0E5301-84B3-4CDB-AD38-717F8CC90D4B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,8 +23,15 @@ Global
 		{93FAD718-F07F-4210-9AEA-F8BE82BB58A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{93FAD718-F07F-4210-9AEA-F8BE82BB58A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{93FAD718-F07F-4210-9AEA-F8BE82BB58A6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7E0E5301-84B3-4CDB-AD38-717F8CC90D4B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7E0E5301-84B3-4CDB-AD38-717F8CC90D4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7E0E5301-84B3-4CDB-AD38-717F8CC90D4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7E0E5301-84B3-4CDB-AD38-717F8CC90D4B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4DCE634C-19E2-4450-8C09-171793E83A75}
 	EndGlobalSection
 EndGlobal
