@@ -65,127 +65,116 @@ namespace ImageTools
             // Morton order requires cubic images, so we ignore it for now.
             // This is doing overlapping coefficients (like planar-3 in 2D, but this results in 6 sets of coefficients per round)
 
-            // Only operating on Y to begin with...
+            // DC to AC
             for (int i = 0; i < img3d.Y.Length; i++)
             {
-                img3d.Y[i] -= 127.5; // DC to AC
-                //img3d.Y[i] /= 127.5; // -1..+1
-
-                img3d.Cg[i] = 127; // clear color data
-                img3d.Co[i] = 127;
+                img3d.Y[i] -= 127.5;
+                img3d.Cg[i] -= 127.5;
+                img3d.Co[i] -= 127.5;
             }
 
-            var buffer = img3d.Y;
-            var rounds = 1;
-
-            // Decompose Transform
-            for (int i = 0; i < rounds; i++)
+            for (int ch = 0; ch < 3; ch++)
             {
-                var height = img3d.Height >> i;
-                var width = img3d.Width >> i;
-                var depth = img3d.Depth >> i;
+                double[] buffer = null;
+                switch(ch) {
+                    case 0: buffer = img3d.Y; break;
+                    case 1: buffer = img3d.Co; break;
+                    case 2: buffer = img3d.Cg; break;
+                }
+                var rounds = 6; // this should be log2 of the minimum dimension
 
-                // Try different orderings of XY and Z once compressed output is going
-
-                // decompose through depth
-                var dz = img3d.zspan;
-                for (int xy = 0; xy < img3d.zspan; xy++)
+                // Decompose Transform
+                for (int i = 0; i < rounds; i++)
                 {
-                    Fwt97(buffer, depth, xy, dz);
+                    var height = img3d.Height >> i;
+                    var width = img3d.Width >> i;
+                    var depth = img3d.Depth >> i;
+
+                    // Try different orderings of XY and Z once compressed output is going
+
+                    // decompose through depth
+                    for (int xy = 0; xy < img3d.zspan; xy++)
+                    {
+                        Fwt97(buffer, depth, xy, img3d.zspan);
+                    }
+
+                    // Reduce each plane independently
+                    for (int z = 0; z < depth; z++)
+                    {
+                        var zo = z * img3d.zspan;
+
+                        // Wavelet decompose vertical
+                        for (int x = 0; x < width; x++) // each column
+                        {
+                            Fwt97(buffer, height, zo + x, img3d.Width);
+                        }
+
+                        // Wavelet decompose horizontal
+                        for (int y = 0; y < height; y++) // each row
+                        {
+                            var yo = (y * img3d.Width);
+                            Fwt97(buffer, width, zo + yo, 1);
+                        }
+                    }
                 }
 
-                // Reduce each plane independently
-                /*for (int z = 0; z < depth; z++)
+                // TODO HERE: quantise, compress etc
+                var q = 8;
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] = (int)(buffer[i] / q); }
+
+
+                WriteToFileFibonacci(buffer, ch, "3D");
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0; }
+                ReadFromFileFibonacci(buffer, ch, "3D");
+
+                // De-quantise
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] *= q; }
+
+
+                // Restore
+                for (int i = rounds - 1; i >= 0; i--)
                 {
-                    var zo = z * img3d.zspan;
+                    var height = img3d.Height >> i;
+                    var width = img3d.Width >> i;
+                    var depth = img3d.Depth >> i;
 
-                    // Wavelet decompose vertical
-                    for (int x = 0; x < width; x++) // each column
+                    // Order here must be exact reverse of above
+
+                    // Restore each plane independently
+                    for (int z = 0; z < depth; z++)
                     {
-                        Fwt97(buffer, height, zo + x, img3d.Width);
+                        var zo = z * img3d.zspan;
+
+                        // Wavelet restore horizontal
+                        for (int y = 0; y < height; y++) // each row
+                        {
+                            var yo = (y * img3d.Width);
+                            Iwt97(buffer, width, zo + yo, 1);
+                        }
+
+                        // Wavelet restore vertical
+                        for (int x = 0; x < width; x++) // each column
+                        {
+                            Iwt97(buffer, height, zo + x, img3d.Width);
+                        }
                     }
 
-                    // Wavelet decompose horizontal
-                    for (int y = 0; y < height; y++) // each row
+                    // restore through depth
+                    var dz = img3d.zspan;
+                    for (int xy = 0; xy < img3d.zspan; xy++)
                     {
-                        var yo = (y * img3d.Width);
-                        Fwt97(buffer, width, zo + yo, 1);
+                        Iwt97(buffer, depth, xy, dz);
                     }
-                }*/
+                }
             }
 
-            // TODO HERE: quantise, compress etc
-            for (int i = buffer.Length >> 1; i < buffer.Length; i++)
-            {
-                img3d.Y[i] = (int)img3d.Y[i];
-            }
-
-
-            // Restore
-            for (int i = rounds - 1; i >= 0; i--)
-            {
-                
-                var height = img3d.Height >> i;
-                var width = img3d.Width >> i;
-                var depth = img3d.Depth >> i;
-
-                // Order here must be exact reverse of above
-
-                // Restore each plane independently
-                /*for (int z = 0; z < depth; z++)
-                {
-                    var zo = z * img3d.zspan;
-
-                    // Wavelet restore horizontal
-                    for (int y = 0; y < height; y++) // each row
-                    {
-                        var yo = (y * img3d.Width);
-                        Iwt97(buffer, width, zo + yo, 1);
-                    }
-
-                    // Wavelet restore vertical
-                    for (int x = 0; x < width; x++) // each column
-                    {
-                        Iwt97(buffer, height, zo + x, img3d.Width);
-                    }
-                }*/
-
-                // restore through depth
-                /*var dz = img3d.zspan;
-                for (int xy = 0; xy < img3d.zspan; xy++)
-                {
-                    Iwt97(buffer, depth, xy, dz);
-                }*/
-            }
-
-            var max = 0.0;
-            var min = 0.0;
-            
+            // AC to DC
             for (int i = 0; i < img3d.Y.Length; i++)
             {
-                max = Math.Max(max, img3d.Y[i]);
-                min = Math.Min(min, img3d.Y[i]);
+                img3d.Y[i] += 127.5;
+                img3d.Cg[i] += 127.5;
+                img3d.Co[i] += 127.5;
             }
-            Console.WriteLine($"Max val = {max}; Min val = {min}");
-
-            var ddif = 255 / (max - min);
-            for (int i = 0; i < img3d.Y.Length; i++)
-            {
-                img3d.Y[i] += 127.5; // AC to DC
-                //img3d.Y[i] -= min; // AC to DC
-                //img3d.Y[i] *= ddif; // scale
-            }
-
-            
-            max = 0.0;
-            min = 0.0;
-            
-            for (int i = 0; i < img3d.Y.Length; i++)
-            {
-                max = Math.Max(max, img3d.Y[i]);
-                min = Math.Min(min, img3d.Y[i]);
-            }
-            Console.WriteLine($"Output Max val = {max}; Min val = {min}");
         }
 
         /// <summary>
