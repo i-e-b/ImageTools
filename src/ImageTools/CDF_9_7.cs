@@ -752,9 +752,12 @@ namespace ImageTools
 
             // GZIP
             using (var fs = File.Open(testpath, FileMode.Open))
-            using (var gs = new DeflateStream(fs, CompressionMode.Decompress))
             {
-                gs.CopyTo(ms);
+                var trunc_sim = new TruncatedStream(fs, (int)(fs.Length * 0.5));
+                using (var gs = new DeflateStream(trunc_sim, CompressionMode.Decompress))
+                {
+                    gs.CopyTo(ms);
+                }
             }
 
             // LZMA (slower, slightly better compression)
@@ -767,8 +770,7 @@ namespace ImageTools
             // Common unpacking
             ms.Seek(0, SeekOrigin.Begin);
             var data = ms.ToArray();
-            var chopped_data = data.Take((int)(data.Length * 0.01)).ToArray(); // simulate truncation
-            var uints = DataEncoding.UnsignedFibDecode(chopped_data);
+            var uints = DataEncoding.UnsignedFibDecode(data);
             var ints = DataEncoding.UnsignedToSigned(uints);
             Console.WriteLine($"Channel {ch}, expected {buffer.Length} coeffs, got {ints.Length}");
             // Could do smarter error recovery here.

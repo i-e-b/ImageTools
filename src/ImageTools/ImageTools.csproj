@@ -46,6 +46,7 @@
     <Compile Include="Hilbert.cs" />
     <Compile Include="Image3d.cs" />
     <Compile Include="QuantiseType.cs" />
+    <Compile Include="TruncatedStream.cs" />
     <Compile Include="Utilities\DataEncoding.cs" />
     <Compile Include="Utilities\Load.cs" />
     <Compile Include="DataCompression\LzoCompression.cs" />
