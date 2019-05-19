@@ -174,6 +174,16 @@ namespace ImageTools
         {
             return (uint)((clip(B) << 24) | (clip(B) << 16) | (clip(C) << 8) | clip(D));
         }
+
+        
+        /// <summary>
+        /// Clip and convert 4 channels of 0..255
+        /// to a packed 32 bit int
+        /// </summary>
+        public static uint ComponentToCompound(double A, double B, double C, double D)
+        {
+            return (uint)((clip(B) << 24) | (clip(B) << 16) | (clip(C) << 8) | clip(D));
+        }
         
         /// <summary>
         /// Convert a packed 32 bit int

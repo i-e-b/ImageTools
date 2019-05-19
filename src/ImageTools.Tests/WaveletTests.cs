@@ -1,4 +1,8 @@
-﻿using NUnit.Framework;
+﻿using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using NUnit.Framework;
 
 namespace ImageTools.Tests
 {
@@ -90,6 +94,35 @@ namespace ImageTools.Tests
             }
 
             Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_3.bmp"));
+        }
+
+
+        [Test]
+        public void wavelet_3d_image_reduction()
+        {
+            // STEP 1: Load frames
+            var basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            var filePath = Path.Combine(basePath, "../../inputs/EasyFrames");
+            var frames = Directory.EnumerateFiles(filePath)
+                .OrderBy(f => int.Parse(Path.GetFileNameWithoutExtension(f)?.Substring(1) ?? "0"))
+                .ToArray();
+
+            Assert.That(frames.Length, Is.GreaterThan(5), "Not enough frames");
+            var img3d = new Image3d(frames);
+
+            Assert.That(img3d.Y.LongLength, Is.EqualTo(256*256*64)); // every dimension must be a power of 2, but not the same one
+
+
+            // STEP 2: Do the decomposition
+            CDF_9_7.ReduceImage3D(img3d);
+
+            // STEP 3: output frames for inspection
+            for (int z = 0; z < frames.Length; z++)
+            {
+                using (Bitmap f = img3d.ReadSlice(z)) {
+                    f.SaveJpeg($"./outputs/Cdf97_3d_f{z}.jpg", quality: 90);
+                }
+            }
         }
 	}
 }

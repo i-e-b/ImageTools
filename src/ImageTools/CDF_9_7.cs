@@ -57,6 +57,59 @@ namespace ImageTools
             return dst;
         }
 
+
+        public static void ReduceImage3D(Image3d img3d)
+        {
+            // Step 1: Do a first reduction in 3 dimensions
+            // We could use morton order, or 3D-planar.
+
+            // Only operating on Y to begin with...
+            for (int i = 0; i < img3d.Y.Length; i++)
+            {
+                img3d.Y[i] -= 127.5; // DC to AC
+                img3d.Cg[i] = 127; // clear
+                img3d.Co[i] = 127;
+            }
+
+
+            // To 3D Morton order (less compression, but easier?)
+            var mz = img3d.Depth;
+            var mx = img3d.Width;
+            var my = img3d.Height;
+
+            var limit = (int)Math.Pow(img3d.MaxDimension, 3); // count of points in the cube that contains the image
+            var dst = new double[limit];
+            for (uint i = 0; i < limit; i++)
+            {
+                Morton.DecodeMorton3(i, out var x, out var y, out var z);
+                if (z >= mz || x >= mx || y >= my) dst[i] = 0.0;
+                else
+                {
+                    var zo = z * img3d.zspan;
+                    var yo = y * img3d.yspan;
+                    dst[i] = img3d.Y[zo + yo + x];
+                }
+            }
+            
+            // Now reduce with CDF 9/7
+            int rounds = (int)Math.Log(dst.Length, 2) - 1;
+            for (int i = 0; i < rounds; i++)
+            {
+                var len = dst.Length >> i;
+                Fwt97(dst, len, 0, 1);
+            }
+
+            // Read back out into planar order (back into the source image)
+            for (uint i = 0; i < limit; i++)
+            {
+                Morton.DecodeMorton3(i, out var x, out var y, out var z);
+                if (z >= mz || x >= mx || y >= my) continue;
+                var zo = z * img3d.zspan;
+                var yo = y * img3d.yspan;
+                img3d.Y[zo + yo + x] = dst[i] + 127.5; // AC to DC
+            }
+        }
+
         /// <summary>
         ///  fwt97 - Forward biorthogonal 9/7 wavelet transform (lifting implementation)
         ///<para></para><list type="bullet">
@@ -289,7 +342,8 @@ namespace ImageTools
                     }
                 }
 
-                QuantisePlanar2(si, buffer, ch, rounds, Quantise.Reduce);
+                // Quantise and reduce co-efficients
+                QuantisePlanar2(si, buffer, ch, rounds, QuantiseType.Reduce);
 
                 // Write output
                 WriteToFileFibonacci(buffer, ch, "p_2");
@@ -300,7 +354,8 @@ namespace ImageTools
                 // read output
                 ReadFromFileFibonacci(buffer, ch, "p_2");
 
-                QuantisePlanar2(si, buffer, ch, rounds, Quantise.Expand);
+                // Re-expand co-efficients
+                QuantisePlanar2(si, buffer, ch, rounds, QuantiseType.Expand);
 
                 // Restore
                 for (int i = rounds - 1; i >= 0; i--)
@@ -332,7 +387,7 @@ namespace ImageTools
             To_RGB_ColorSpace(d, bufferSize);
         }
 
-        private static void QuantisePlanar2(BitmapData si, double[] buffer, int ch, int rounds, Quantise mode)
+        private static void QuantisePlanar2(BitmapData si, double[] buffer, int ch, int rounds, QuantiseType mode)
         {
             // Planar two splits in half, starting with top/bottom, and alternating between
             // vertical and horizontal
@@ -355,7 +410,7 @@ namespace ImageTools
             {
                 double factor = (ch == 2) ? fYs[r] : fCs[r];
 
-                if (mode == Quantise.Reduce) factor = 1 / factor;
+                if (mode == QuantiseType.Reduce) factor = 1 / factor;
                 var width = si.Width >> r;
                 var height = si.Height >> r;
                 // vertical
@@ -682,11 +737,6 @@ namespace ImageTools
                 WritePlane(buffer, d, di, ch);
             }
         }
-    }
 
-    internal enum Quantise
-    {
-        Reduce,
-        Expand
     }
 }

@@ -44,6 +44,8 @@
     <Compile Include="DataCompression\LZMA\Lzma.cs" />
     <Compile Include="Haar.cs" />
     <Compile Include="Hilbert.cs" />
+    <Compile Include="Image3d.cs" />
+    <Compile Include="QuantiseType.cs" />
     <Compile Include="Utilities\DataEncoding.cs" />
     <Compile Include="Utilities\Load.cs" />
     <Compile Include="DataCompression\LzoCompression.cs" />
