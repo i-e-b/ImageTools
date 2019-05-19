@@ -120,7 +120,7 @@ namespace ImageTools.Tests
             for (int z = 0; z < frames.Length; z++)
             {
                 using (Bitmap f = img3d.ReadSlice(z)) {
-                    f.SaveJpeg($"./outputs/Cdf97_3d_f{z}.jpg", quality: 90);
+                    f.SaveBmp($"./outputs/Cdf97_3d_f{z}.bmp");
                 }
             }
         }

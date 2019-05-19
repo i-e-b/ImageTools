@@ -62,52 +62,130 @@ namespace ImageTools
         {
             // Step 1: Do a first reduction in 3 dimensions
             // We could use morton order, or 3D-planar.
+            // Morton order requires cubic images, so we ignore it for now.
+            // This is doing overlapping coefficients (like planar-3 in 2D, but this results in 6 sets of coefficients per round)
 
             // Only operating on Y to begin with...
             for (int i = 0; i < img3d.Y.Length; i++)
             {
                 img3d.Y[i] -= 127.5; // DC to AC
-                img3d.Cg[i] = 127; // clear
+                //img3d.Y[i] /= 127.5; // -1..+1
+
+                img3d.Cg[i] = 127; // clear color data
                 img3d.Co[i] = 127;
             }
 
+            var buffer = img3d.Y;
+            var rounds = 1;
 
-            // To 3D Morton order (less compression, but easier?)
-            var mz = img3d.Depth;
-            var mx = img3d.Width;
-            var my = img3d.Height;
-
-            var limit = (int)Math.Pow(img3d.MaxDimension, 3); // count of points in the cube that contains the image
-            var dst = new double[limit];
-            for (uint i = 0; i < limit; i++)
-            {
-                Morton.DecodeMorton3(i, out var x, out var y, out var z);
-                if (z >= mz || x >= mx || y >= my) dst[i] = 0.0;
-                else
-                {
-                    var zo = z * img3d.zspan;
-                    var yo = y * img3d.yspan;
-                    dst[i] = img3d.Y[zo + yo + x];
-                }
-            }
-            
-            // Now reduce with CDF 9/7
-            int rounds = (int)Math.Log(dst.Length, 2) - 1;
+            // Decompose Transform
             for (int i = 0; i < rounds; i++)
             {
-                var len = dst.Length >> i;
-                Fwt97(dst, len, 0, 1);
+                var height = img3d.Height >> i;
+                var width = img3d.Width >> i;
+                var depth = img3d.Depth >> i;
+
+                // Try different orderings of XY and Z once compressed output is going
+
+                // decompose through depth
+                var dz = img3d.zspan;
+                for (int xy = 0; xy < img3d.zspan; xy++)
+                {
+                    Fwt97(buffer, depth, xy, dz);
+                }
+
+                // Reduce each plane independently
+                /*for (int z = 0; z < depth; z++)
+                {
+                    var zo = z * img3d.zspan;
+
+                    // Wavelet decompose vertical
+                    for (int x = 0; x < width; x++) // each column
+                    {
+                        Fwt97(buffer, height, zo + x, img3d.Width);
+                    }
+
+                    // Wavelet decompose horizontal
+                    for (int y = 0; y < height; y++) // each row
+                    {
+                        var yo = (y * img3d.Width);
+                        Fwt97(buffer, width, zo + yo, 1);
+                    }
+                }*/
             }
 
-            // Read back out into planar order (back into the source image)
-            for (uint i = 0; i < limit; i++)
+            // TODO HERE: quantise, compress etc
+            for (int i = buffer.Length >> 1; i < buffer.Length; i++)
             {
-                Morton.DecodeMorton3(i, out var x, out var y, out var z);
-                if (z >= mz || x >= mx || y >= my) continue;
-                var zo = z * img3d.zspan;
-                var yo = y * img3d.yspan;
-                img3d.Y[zo + yo + x] = dst[i] + 127.5; // AC to DC
+                img3d.Y[i] = (int)img3d.Y[i];
             }
+
+
+            // Restore
+            for (int i = rounds - 1; i >= 0; i--)
+            {
+                
+                var height = img3d.Height >> i;
+                var width = img3d.Width >> i;
+                var depth = img3d.Depth >> i;
+
+                // Order here must be exact reverse of above
+
+                // Restore each plane independently
+                /*for (int z = 0; z < depth; z++)
+                {
+                    var zo = z * img3d.zspan;
+
+                    // Wavelet restore horizontal
+                    for (int y = 0; y < height; y++) // each row
+                    {
+                        var yo = (y * img3d.Width);
+                        Iwt97(buffer, width, zo + yo, 1);
+                    }
+
+                    // Wavelet restore vertical
+                    for (int x = 0; x < width; x++) // each column
+                    {
+                        Iwt97(buffer, height, zo + x, img3d.Width);
+                    }
+                }*/
+
+                // restore through depth
+                /*var dz = img3d.zspan;
+                for (int xy = 0; xy < img3d.zspan; xy++)
+                {
+                    Iwt97(buffer, depth, xy, dz);
+                }*/
+            }
+
+            var max = 0.0;
+            var min = 0.0;
+            
+            for (int i = 0; i < img3d.Y.Length; i++)
+            {
+                max = Math.Max(max, img3d.Y[i]);
+                min = Math.Min(min, img3d.Y[i]);
+            }
+            Console.WriteLine($"Max val = {max}; Min val = {min}");
+
+            var ddif = 255 / (max - min);
+            for (int i = 0; i < img3d.Y.Length; i++)
+            {
+                img3d.Y[i] += 127.5; // AC to DC
+                //img3d.Y[i] -= min; // AC to DC
+                //img3d.Y[i] *= ddif; // scale
+            }
+
+            
+            max = 0.0;
+            min = 0.0;
+            
+            for (int i = 0; i < img3d.Y.Length; i++)
+            {
+                max = Math.Max(max, img3d.Y[i]);
+                min = Math.Min(min, img3d.Y[i]);
+            }
+            Console.WriteLine($"Output Max val = {max}; Min val = {min}");
         }
 
         /// <summary>
