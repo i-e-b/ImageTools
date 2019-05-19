@@ -73,13 +73,15 @@ namespace ImageTools
                 img3d.Co[i] -= 127.5;
             }
 
+            var quantise = 1.0;
+
             for (int ch = 0; ch < 3; ch++)
             {
                 double[] buffer = null;
                 switch(ch) {
-                    case 0: buffer = img3d.Y; break;
-                    case 1: buffer = img3d.Co; break;
-                    case 2: buffer = img3d.Cg; break;
+                    case 0: buffer = img3d.Y; quantise = 5; break;
+                    case 1: buffer = img3d.Co; quantise = 10; break;
+                    case 2: buffer = img3d.Cg; quantise = 16; break;
                 }
                 var rounds = 6; // this should be log2 of the minimum dimension
 
@@ -91,12 +93,13 @@ namespace ImageTools
                     var depth = img3d.Depth >> i;
 
                     // Try different orderings of XY and Z once compressed output is going
-
-                    // decompose through depth
-                    for (int xy = 0; xy < img3d.zspan; xy++)
-                    {
-                        Fwt97(buffer, depth, xy, img3d.zspan);
-                    }
+                    //  Z,Y,X = 218(@7); = 11.8(@64)     
+                    //  Y,X,Z = 218    ; = 11.8(@64)
+                    // Looks like there's nothing much in it in 6-Planar
+                    // Trying 4-planar (2-planar, plus z across all)
+                    //  Z,Y,X = 204(@7); = 12.1(@64)
+                    //  Y,X,Z = 204    ; = 12.1
+                    // 4-planar it is. Choosing Y,X,Z for personal preference
 
                     // Reduce each plane independently
                     for (int z = 0; z < depth; z++)
@@ -110,17 +113,22 @@ namespace ImageTools
                         }
 
                         // Wavelet decompose horizontal
-                        for (int y = 0; y < height; y++) // each row
+                        for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
                             Fwt97(buffer, width, zo + yo, 1);
                         }
                     }
+
+                    // decompose through depth
+                    for (int xy = 0; xy < img3d.zspan; xy++)
+                    {
+                        Fwt97(buffer, depth, xy, img3d.zspan);
+                    }
                 }
 
                 // TODO HERE: quantise, compress etc
-                var q = 8;
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] = (int)(buffer[i] / q); }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] = (int)(buffer[i] / quantise); }
 
 
                 WriteToFileFibonacci(buffer, ch, "3D");
@@ -128,7 +136,7 @@ namespace ImageTools
                 ReadFromFileFibonacci(buffer, ch, "3D");
 
                 // De-quantise
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] *= q; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] *= quantise; }
 
 
                 // Restore
@@ -140,13 +148,20 @@ namespace ImageTools
 
                     // Order here must be exact reverse of above
 
+                    // restore through depth
+                    var dz = img3d.zspan;
+                    for (int xy = 0; xy < img3d.zspan; xy++)
+                    {
+                        Iwt97(buffer, depth, xy, dz);
+                    }
+
                     // Restore each plane independently
                     for (int z = 0; z < depth; z++)
                     {
                         var zo = z * img3d.zspan;
 
                         // Wavelet restore horizontal
-                        for (int y = 0; y < height; y++) // each row
+                        for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
                             Iwt97(buffer, width, zo + yo, 1);
@@ -157,13 +172,6 @@ namespace ImageTools
                         {
                             Iwt97(buffer, height, zo + x, img3d.Width);
                         }
-                    }
-
-                    // restore through depth
-                    var dz = img3d.zspan;
-                    for (int xy = 0; xy < img3d.zspan; xy++)
-                    {
-                        Iwt97(buffer, depth, xy, dz);
                     }
                 }
             }

@@ -1,4 +1,6 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -114,7 +116,11 @@ namespace ImageTools.Tests
 
 
             // STEP 2: Do the decomposition
+            var sw = new Stopwatch();
+            sw.Start();
             CDF_9_7.ReduceImage3D(img3d);
+            sw.Stop();
+            Console.WriteLine($"Core transform took {sw.Elapsed}");
 
             // STEP 3: output frames for inspection
             for (int z = 0; z < frames.Length; z++)
