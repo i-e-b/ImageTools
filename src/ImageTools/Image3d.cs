@@ -18,6 +18,7 @@ namespace ImageTools
         public int Width, Depth, Height;
 
         public int MaxDimension;
+        public int MinDimension;
 
         /// <summary>
         /// Assumes every frame is the same size as the first
@@ -66,6 +67,7 @@ namespace ImageTools
             Depth = frameCount;
 
             MaxDimension = Math.Max(Width, Math.Max(Height, Depth));
+            MinDimension = Math.Min(Width, Math.Min(Height, Depth));
 
             var total = bmp.Width * bmp.Height * frameCount;
             yspan = bmp.Width; // planar image

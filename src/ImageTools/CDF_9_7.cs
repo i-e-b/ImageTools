@@ -79,11 +79,11 @@ namespace ImageTools
             {
                 double[] buffer = null;
                 switch(ch) {
-                    case 0: buffer = img3d.Y; quantise = 5; break;
-                    case 1: buffer = img3d.Co; quantise = 10; break;
-                    case 2: buffer = img3d.Cg; quantise = 16; break;
+                    case 0: buffer = img3d.Y; break;
+                    case 1: buffer = img3d.Co; break; // not entirely sure if orange or green deserves more bits
+                    case 2: buffer = img3d.Cg; break;
                 }
-                var rounds = 6; // this should be log2 of the minimum dimension
+                int rounds = (int)Math.Log(img3d.MinDimension, 2);
 
                 // Decompose Transform
                 for (int i = 0; i < rounds; i++)
@@ -127,16 +127,19 @@ namespace ImageTools
                     }
                 }
 
-                // TODO HERE: quantise, compress etc
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] = (int)(buffer[i] / quantise); }
-
+                // Quantise, compress, write
+                var tmp = ToMortonOrder3D(buffer, img3d);
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] = tmp[i]; }
+                Quantise3D(buffer, QuantiseType.Reduce, rounds, ch);
 
                 WriteToFileFibonacci(buffer, ch, "3D");
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0; } // prove we're reading from the file
                 ReadFromFileFibonacci(buffer, ch, "3D");
 
                 // De-quantise
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] *= quantise; }
+                Quantise3D(buffer, QuantiseType.Expand, rounds, ch);
+                tmp = FromMortonOrder3D(buffer, img3d);
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] = tmp[i]; }
 
 
                 // Restore
@@ -183,6 +186,48 @@ namespace ImageTools
                 img3d.Cg[i] += 127.5;
                 img3d.Co[i] += 127.5;
             }
+        }
+
+        private static double[] FromMortonOrder3D(double[] buffer, Image3d img3d)
+        {
+            var limit = (int)Math.Pow(img3d.MaxDimension, 3);
+            var mx = img3d.Width - 1;
+            var my = img3d.Height - 1;
+            var mz = img3d.Depth - 1;
+
+            var swap = new double[buffer.Length];
+            int o = 0;
+
+            for (uint i = 0; i < limit; i++)
+            {
+                Morton.DecodeMorton3(i, out var x, out var y, out var z);
+                if (x > mx || y > my || z > mz) continue;
+
+                var si = x + (y * img3d.yspan) + (z * img3d.zspan);
+                swap[si] = buffer[o++];
+            }
+            return swap;
+        }
+
+        private static double[] ToMortonOrder3D(double[] buffer, Image3d img3d)
+        {
+            var limit = (int)Math.Pow(img3d.MaxDimension, 3);
+            var mx = img3d.Width - 1;
+            var my = img3d.Height - 1;
+            var mz = img3d.Depth - 1;
+
+            var swap = new double[buffer.Length];
+            int o = 0;
+
+            for (uint i = 0; i < limit; i++)
+            {
+                Morton.DecodeMorton3(i, out var x, out var y, out var z);
+                if (x > mx || y > my || z > mz) continue;
+
+                var si = x + (y * img3d.yspan) + (z * img3d.zspan);
+                swap[o++] = buffer[si];
+            }
+            return swap;
         }
 
         /// <summary>
@@ -462,6 +507,46 @@ namespace ImageTools
             To_RGB_ColorSpace(d, bufferSize);
         }
 
+        private static void Quantise3D(double[] buffer, QuantiseType mode, int rounds, int ch)
+        {
+            // ReSharper disable JoinDeclarationAndInitializer
+            double[] fYs, fCs;   
+            // ReSharper restore JoinDeclarationAndInitializer
+
+            //              |< spacial blur
+            //                               motion blur >|
+
+            // Test MJPEG = 1,864kb
+
+            // Good quality (test = 529kb) (morton = 517kb)
+            //fYs = new double[]{  5,  4,  3, 2, 1, 1, 1 };
+            //fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
+
+            // Normal compression (test = 224kb) (morton = 195kb)
+            fYs = new double[]{ 24, 12, 7,  5, 3, 2, 1 };
+            fCs = new double[]{ 50, 24, 12, 7, 5, 3, 2 };
+
+            // Strong compression (test = 145kb) (morton = 124kb)
+            //fYs = new double[]{ 50,  35, 17, 10, 5, 3, 1 };
+            //fCs = new double[]{200, 100, 50, 10, 5, 3, 2 };
+            
+            // Very strong compression (test = 95.3kb) (morton = 81.4kb)
+            //fYs = new double[]{200,  80,  60,  40, 10,  5,  4 };
+            //fCs = new double[]{999, 999, 400, 200, 80, 40, 20 };
+            
+            for (int r = 0; r < rounds; r++)
+            {
+                double factor = (ch == 0) ? fYs[r] : fCs[r];
+                if (mode == QuantiseType.Reduce) factor = 1 / factor;
+
+                var len = buffer.Length >> r;
+                for (int i = len / 2; i < len; i++)
+                {
+                    buffer[i] *= factor;
+                }
+            }
+        }
+
         private static void QuantisePlanar2(BitmapData si, double[] buffer, int ch, int rounds, QuantiseType mode)
         {
             // Planar two splits in half, starting with top/bottom, and alternating between
@@ -667,7 +752,7 @@ namespace ImageTools
 
             // GZIP
             using (var fs = File.Open(testpath, FileMode.Open))
-            using (var gs = new GZipStream(fs, CompressionMode.Decompress))
+            using (var gs = new DeflateStream(fs, CompressionMode.Decompress))
             {
                 gs.CopyTo(ms);
             }
@@ -681,7 +766,9 @@ namespace ImageTools
 
             // Common unpacking
             ms.Seek(0, SeekOrigin.Begin);
-            var uints = DataEncoding.UnsignedFibDecode(ms.ToArray());
+            var data = ms.ToArray();
+            var chopped_data = data.Take((int)(data.Length * 0.01)).ToArray(); // simulate truncation
+            var uints = DataEncoding.UnsignedFibDecode(chopped_data);
             var ints = DataEncoding.UnsignedToSigned(uints);
             Console.WriteLine($"Channel {ch}, expected {buffer.Length} coeffs, got {ints.Length}");
             // Could do smarter error recovery here.
@@ -701,7 +788,7 @@ namespace ImageTools
             var usig = DataEncoding.SignedToUnsigned(buffer.Select(d => (int)d).ToArray());
             var bytes = DataEncoding.UnsignedFibEncode(usig);
 
-            // LZMA
+            // LZMA (better compression, but a lot slower)
             /*var instream = new MemoryStream(bytes);
             using (var fs2 = File.Open(testpath.Replace(".dat", ".lzma"), FileMode.Create))
             {
@@ -711,7 +798,7 @@ namespace ImageTools
 
             // GZIP
             using (var fs = File.Open(testpath, FileMode.Create))
-            using (var gs = new GZipStream(fs, CompressionMode.Compress))
+            using (var gs = new DeflateStream(fs, CompressionMode.Compress))
             {
                 gs.Write(bytes, 0, bytes.Length);
                 gs.Flush();

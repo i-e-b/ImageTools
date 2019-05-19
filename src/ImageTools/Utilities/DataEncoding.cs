@@ -125,11 +125,13 @@ namespace ImageTools.Utilities
 
         /// <summary>
         /// Reverse UnsignedFibEncode()
+        /// If byteLimit > 0, a limited amount of data will be loaded
         /// </summary>
         public static uint[] UnsignedFibDecode(byte[] data) {
             //  Make a bit queue from the byte data
             var q = new Queue<byte>(data.Length * 8);
-            for (int Byte = 0; Byte < data.Length; Byte++)
+
+            for (int Byte = data.Length - 1; Byte >= 0; Byte--)
             {
                 for (int bit = 0; bit < 8; bit++)
                 {
@@ -158,7 +160,7 @@ namespace ImageTools.Utilities
 
             var result = new byte[(q.Count / 8) + 1];
 
-            int bit = 0, Byte = 0;
+            int bit = 0, Byte = result.Length - 1;
 
             while (q.Count > 0) {
                 var v = q.Pop();
@@ -166,11 +168,9 @@ namespace ImageTools.Utilities
                 bit++;
                 if (bit > 7) {
                     bit = 0;
-                    Byte++;
+                    Byte--;
                 }
             }
-
-            // TODO: write all 1s to the end of the last byte
 
             return result;
         }
