@@ -754,19 +754,19 @@ namespace ImageTools
             using (var fs = File.Open(testpath, FileMode.Open))
             {
                 // switch comment to demonstrate shortened files
-                //var trunc_sim = new TruncatedStream(fs, (int)(fs.Length * 0.5));
+                //var trunc_sim = new TruncatedStream(fs, (int)(fs.Length * 0.1));
                 var trunc_sim = fs;
                 using (var gs = new DeflateStream(trunc_sim, CompressionMode.Decompress))
                 {
                     var newBuf = DataEncoding.FibonacciDecode(gs);
                     Console.WriteLine($"Channel {ch}, expected {buffer.Length} coeffs, got {newBuf.Length}");
+
                     // Could do smarter error recovery here.
                     var coeffCount = Math.Min(buffer.Length, newBuf.Length);
                     for (int i = 0; i < coeffCount; i++)
                     {
                         buffer[i] = newBuf[i];
                     }
-                    //gs.CopyTo(ms);
                 }
             }
 
@@ -783,8 +783,8 @@ namespace ImageTools
             if (File.Exists(testpath)) File.Delete(testpath);
 
             // Common packing
-            var usig = DataEncoding.SignedToUnsigned(buffer.Select(d => (int)d).ToArray());
-            var bytes = DataEncoding.UnsignedFibEncode(usig);
+            //var usig = DataEncoding.SignedToUnsigned(buffer.Select(d => (int)d).ToArray());
+            //var bytes = DataEncoding.UnsignedFibEncode(usig);
 
             // LZMA (better compression, but a lot slower)
             /*var instream = new MemoryStream(bytes);
@@ -800,7 +800,6 @@ namespace ImageTools
             using (var gs = new DeflateStream(fs, CompressionMode.Compress))
             {
                 DataEncoding.FibonacciEncode(buffer, gs);
-                //gs.Write(bytes, 0, bytes.Length);
                 gs.Flush();
                 fs.Flush();
             }

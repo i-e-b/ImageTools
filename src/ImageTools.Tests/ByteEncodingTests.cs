@@ -55,28 +55,30 @@ namespace ImageTools.Tests
         [Test]
         public void fibonacci_streaming() {
             var rnd = new Random();
-            var data_length = (int)(rnd.NextDouble() * 1000);
+            var data_length = 100;//(int)(rnd.NextDouble() * 100);
             var input = new double[data_length];
-            var expected = new double[data_length];
             for (int i = 0; i < data_length; i++)
             {
-                input[i] = (rnd.NextDouble() - 0.5) * (1.0 / rnd.NextDouble());
-                expected[i] = (int)input[i];
+                input[i] = ( (rnd.NextDouble() - 0.5) * (1.0 / rnd.NextDouble()));
             }
 
-
-
-
             var ms = new MemoryStream();
-            //var input = new double[] { 0, 1, -1, 1000, -2000, 0, 1 };
+            //var input = new double[] { 0, 1, -1, 1000.1, -2000.9, 0.9, 1.1 };
             //var input = new double[] { 1,2,3,4,5,6,7,8,9,10};
+            //var input = new double[] { 0,0,0,0,1,1,1,1,-1,-1,0,0,0,0};
+
+
+            Console.WriteLine(string.Join(" ", input));
+            var expected = new double[input.Length];
+            for (int i = 0; i < input.Length; i++)
+            {
+                expected[i] = (int)input[i];
+            }
             
-            Console.WriteLine();
             DataEncoding.FibonacciEncode(input, ms);
 
             ms.Seek(0, SeekOrigin.Begin);
             var output = ms.ToArray();
-            Console.WriteLine();
 
             
             var final = DataEncoding.FibonacciDecode(ms);

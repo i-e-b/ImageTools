@@ -197,7 +197,8 @@ namespace ImageTools.Utilities
             foreach (var inValue in buffer)
             {
                 // Signed to unsigned
-                int n = (inValue >= 0) ? ((int)inValue * 2) : ((int)inValue * -2) - 1; // value to be encoded
+                int n = (int)inValue;
+                n = (n >= 0) ? (n * 2) : (n * -2) - 1; // value to be encoded
                 n += 1; // always greater than zero
 
                 // Fibonacci encode
