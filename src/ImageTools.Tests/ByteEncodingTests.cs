@@ -53,21 +53,6 @@ namespace ImageTools.Tests
         }
 
         [Test]
-        public void fib_enc_2() {
-            for (uint i = 1; i <= 15; i++)
-            {
-                Console.WriteLine();
-                var x = DataEncoding.fibonacciEncodingTest(i, out var midx);
-                Console.Write($"{i:X2} -> ");
-                for (int b = 0; b < 64; b++)
-                {
-                    Console.Write( (x>>b)&1 );
-                }
-                Console.Write($";  {midx} bits");
-            }
-        }
-
-        [Test]
         public void fibonacci_streaming() {
             
             var ms = new MemoryStream();

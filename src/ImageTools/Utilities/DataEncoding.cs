@@ -146,18 +146,15 @@ namespace ImageTools.Utilities
 
                 while (bytePos++ < 8) {
                     uint f = (uint)((bv >> (8 - bytePos)) & 0x01);
-                    Console.Write(f);
+
                     if (f > 0) {
                         if (lastWas1) {
                             // convert back to signed, add to list
                             if (accum > 0) {
-                                //Console.Write($"!{accum};");
-                                Console.Write(".");
-                                //long n = accum - 1L;
-                                //if ((n % 2) == 0) output.Add((int)(n >> 1));
-                                //else output.Add((int)(((n + 1) >> 1) * -1));
-                                output.Add(accum);
-                            } else Console.Write("?");
+                                long n = accum - 1L;
+                                if ((n % 2) == 0) output.Add((int)(n >> 1));
+                                else output.Add((int)(((n + 1) >> 1) * -1));
+                            } // else damaged data
                             // `b11`; reset, move to next number
                             accum = 0;
                             pos = 0;
@@ -167,11 +164,10 @@ namespace ImageTools.Utilities
                         lastWas1 = true;
                     } else lastWas1 = false;
 
-                    accum += f * fseq[pos + 1];
+                    accum += f * fseq[pos + 2];
                     pos++;
                 }
                 
-                Console.Write(",");
                 bytePos = 0;
             }
 
@@ -192,7 +188,6 @@ namespace ImageTools.Utilities
             var bf = new byte[8]; // if each bit is set. Value is 0xFF or 0x00
             var v = new byte[]{ 1<<7, 1<<6, 1<<5, 1<<4, 1<<3, 1<<2, 1<<1, 1 }; // values of the flag
             var bytePos = 0;
-            var termBits = 0;
 
             // for each number, build up the fib code.
             // any time we exceed a byte we write it out and reset
@@ -202,16 +197,18 @@ namespace ImageTools.Utilities
             foreach (var inValue in buffer)
             {
                 // Signed to unsigned
-                var n = (long)inValue;//(inValue >= 0) ? (uint)(inValue * 2) : (uint)(inValue * -2) - 1; // value to be encoded
-                //n += 1; // always greater than zero
+                int n = (inValue >= 0) ? (int)(inValue * 2) : (int)(inValue * -2) - 1; // value to be encoded
+                n += 1; // always greater than zero
 
                 // Fibonacci encode
                 ulong res = 0UL;
                 var maxidx = -1;
 
+                // find starting position
                 var i = 2;
                 while (fseq[i] < n) i++;
 
+                // scan backwards marking value bits
                 while (n > 0)
                 {
                     if (fseq[i] <= n)
@@ -246,7 +243,6 @@ namespace ImageTools.Utilities
             if (bytePos != 0) { // completed a byte (slightly different to the others above)
                 int bv = (bf[0] & v[0]) | (bf[1] & v[1]) | (bf[2] & v[2]) | (bf[3] & v[3]) | (bf[4] & v[4]) | (bf[5] & v[5]) | (bf[6] & v[6]) | (bf[7] & v[7]);
                 output.WriteByte((byte)bv);
-                Console.Write(",");
             }
         }
 
