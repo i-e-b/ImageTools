@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 
 namespace ImageTools.Utilities
 {
@@ -179,6 +180,7 @@ namespace ImageTools.Utilities
         
         private static readonly uint[] fseq = {0,1,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,1597,2584,4181,6765,10946,17711,28657,46368,75025,121393,196418 };
 
+
         /// <summary>
         /// Encode an array of integer values into a byte stream.
         /// The input of double values are truncated during encoding.
@@ -199,44 +201,35 @@ namespace ImageTools.Utilities
 
             foreach (var inValue in buffer)
             {
-                var n = (uint)inValue;//(inValue >= 0) ? (uint)(inValue * 2) : (uint)(inValue * -2) - 1; // value to be encoded
-                n += 1; // always greater than zero
-                var diag = n;
+                // Signed to unsigned
+                var n = (long)inValue;//(inValue >= 0) ? (uint)(inValue * 2) : (uint)(inValue * -2) - 1; // value to be encoded
+                //n += 1; // always greater than zero
 
+                // Fibonacci encode
+                ulong res = 0UL;
+                var maxidx = -1;
 
-                // find the smallest fibonacci number greater than `n`
-                uint f = 1, k = 1;
-                while (f <= n) { f = fseq[++k]; }
+                var i = 2;
+                while (fseq[i] < n) i++;
 
-                // f is now a fib num > n
-                // k is 1 more than the index of that number
-                
-                // decompose back through the sequence
-                while(k-- > 1) {
-                    f = fseq[k];
-                    if (f <= n) {
-                        bf[bytePos++] = 0xFF;
-                        Console.Write("1");
-                        n -= f;
-                        termBits = 1;
-                    } else {
-                        bf[bytePos++] = 0x00;
-                        Console.Write("0");
-                        termBits = 2;
+                while (n > 0)
+                {
+                    if (fseq[i] <= n)
+                    {
+                        res |= 1UL << (i - 2);
+                        n -= (int)fseq[i];
+                        if (maxidx < i) maxidx = i;
                     }
-
-                    if (bytePos > 7) { // completed a byte (same as below)
-                        int bv = (bf[0] & v[0]) | (bf[1] & v[1]) | (bf[2] & v[2]) | (bf[3] & v[3]) | (bf[4] & v[4]) | (bf[5] & v[5]) | (bf[6] & v[6]) | (bf[7] & v[7]);
-                        output.WriteByte((byte)bv);
-                        bf[0] = bf[1] = bf[2] = bf[3] = bf[4] = bf[5] = bf[6] = bf[7] = 0;
-                        bytePos = 0;
-                        Console.Write(",");
-                    }
+                    i--;
                 }
+                res |= 1UL << (maxidx - 1);
 
-                while (termBits-- > 0) {
-                    bf[bytePos++] = 0xFF; // value termination
-                    Console.Write("1");
+                // output to stream
+                for (int boc = 0; boc < maxidx; boc++)
+                {
+                    bf[bytePos] = (byte)(0xFF * ((res >> (boc)) & 1));
+                    Console.Write(bf[bytePos]&1);
+                    bytePos++;
 
                     if (bytePos > 7)
                     { // completed a byte (same as above)
@@ -247,13 +240,9 @@ namespace ImageTools.Utilities
                         Console.Write(",");
                     }
                 }
-                
-                //Console.Write($"!{diag};");
-                Console.Write(".");
             }
 
             // If we didn't land on a byte boundary, push the last one out here
-            
             if (bytePos != 0) { // completed a byte (slightly different to the others above)
                 int bv = (bf[0] & v[0]) | (bf[1] & v[1]) | (bf[2] & v[2]) | (bf[3] & v[3]) | (bf[4] & v[4]) | (bf[5] & v[5]) | (bf[6] & v[6]) | (bf[7] & v[7]);
                 output.WriteByte((byte)bv);
