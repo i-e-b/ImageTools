@@ -758,7 +758,15 @@ namespace ImageTools
                 var trunc_sim = fs;
                 using (var gs = new DeflateStream(trunc_sim, CompressionMode.Decompress))
                 {
-                    gs.CopyTo(ms);
+                    var newBuf = DataEncoding.FibonacciDecode(gs);
+                    Console.WriteLine($"Channel {ch}, expected {buffer.Length} coeffs, got {newBuf.Length}");
+                    // Could do smarter error recovery here.
+                    var coeffCount = Math.Min(buffer.Length, newBuf.Length);
+                    for (int i = 0; i < coeffCount; i++)
+                    {
+                        buffer[i] = newBuf[i];
+                    }
+                    //gs.CopyTo(ms);
                 }
             }
 
@@ -767,20 +775,6 @@ namespace ImageTools
             var instream = new MemoryStream(raw);
             CompressionUtility.Decompress(instream, ms, null);
             */
-
-
-            // Common unpacking
-            ms.Seek(0, SeekOrigin.Begin);
-            var data = ms.ToArray();
-            var uints = DataEncoding.UnsignedFibDecode(data);
-            var ints = DataEncoding.UnsignedToSigned(uints);
-            Console.WriteLine($"Channel {ch}, expected {buffer.Length} coeffs, got {ints.Length}");
-            // Could do smarter error recovery here.
-            var coeffCount = Math.Min(buffer.Length, ints.Length);
-            for (int i = 0; i < coeffCount; i++)
-            {
-                buffer[i] = ints[i];
-            }
         }
 
         private static void WriteToFileFibonacci(double[] buffer, int ch, string name)
@@ -800,11 +794,13 @@ namespace ImageTools
                 fs2.Flush();
             }*/
 
+
             // GZIP
             using (var fs = File.Open(testpath, FileMode.Create))
             using (var gs = new DeflateStream(fs, CompressionMode.Compress))
             {
-                gs.Write(bytes, 0, bytes.Length);
+                DataEncoding.FibonacciEncode(buffer, gs);
+                //gs.Write(bytes, 0, bytes.Length);
                 gs.Flush();
                 fs.Flush();
             }

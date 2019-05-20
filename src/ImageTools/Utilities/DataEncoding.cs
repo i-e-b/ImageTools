@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 
 namespace ImageTools.Utilities
 {
@@ -174,7 +173,8 @@ namespace ImageTools.Utilities
             return output.ToArray();
         }
         
-        private static readonly uint[] fseq = {0,1,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,1597,2584,4181,6765,10946,17711,28657,46368,75025,121393,196418 };
+        private static readonly uint[] fseq = {0,1,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,1597,
+            2584,4181,6765,10946,17711,28657,46368,75025,121393,196418,317811,514229  };
 
 
         /// <summary>
@@ -197,7 +197,7 @@ namespace ImageTools.Utilities
             foreach (var inValue in buffer)
             {
                 // Signed to unsigned
-                int n = (inValue >= 0) ? (int)(inValue * 2) : (int)(inValue * -2) - 1; // value to be encoded
+                int n = (inValue >= 0) ? ((int)inValue * 2) : ((int)inValue * -2) - 1; // value to be encoded
                 n += 1; // always greater than zero
 
                 // Fibonacci encode
@@ -225,7 +225,6 @@ namespace ImageTools.Utilities
                 for (int boc = 0; boc < maxidx; boc++)
                 {
                     bf[bytePos] = (byte)(0xFF * ((res >> (boc)) & 1));
-                    Console.Write(bf[bytePos]&1);
                     bytePos++;
 
                     if (bytePos > 7)
@@ -234,7 +233,6 @@ namespace ImageTools.Utilities
                         output.WriteByte((byte)bv);
                         bf[0] = bf[1] = bf[2] = bf[3] = bf[4] = bf[5] = bf[6] = bf[7] = 0;
                         bytePos = 0;
-                        Console.Write(",");
                     }
                 }
             }
