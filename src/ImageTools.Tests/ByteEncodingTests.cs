@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using ImageTools.Utilities;
 using NUnit.Framework;
@@ -29,14 +30,17 @@ namespace ImageTools.Tests
 
         [Test]
         public void fibonacci_number_round_trip(){
-            uint orig = 123456;
-            var enc = DataEncoding.FibEncodeNum(orig, null).ToArray();
-            
-            Console.WriteLine(string.Join(" ", enc.Select(b=>b.ToString())));
-            
-            var dec = DataEncoding.FibDecodeNum(new Queue<byte>(enc));
-            
-            Assert.That(dec, Is.EqualTo(orig));
+            for (uint i = 1; i <= 10; i++)
+            {
+                uint orig = i;
+                var enc = DataEncoding.FibEncodeNum(orig, null).ToArray();
+
+                Console.WriteLine(i.ToString("X2") + " -> " + string.Join("", enc.Select(b => b.ToString())));
+
+                var dec = DataEncoding.FibDecodeNum(new Queue<byte>(enc));
+
+                Assert.That(dec, Is.EqualTo(orig));
+            }
         }
 
         [Test]
@@ -46,6 +50,31 @@ namespace ImageTools.Tests
 
             Console.WriteLine($"{input.Length * 2} bytes in, {output.Length} bytes out");
             Console.WriteLine(string.Join(" ", output.Select(b=>b.ToString("X2"))));
+        }
+
+        [Test]
+        public void fibonacci_streaming() {
+            
+            var ms = new MemoryStream();
+            //var input = new[] { 0, 0.5, -1.1, 1000.01, -2000.9, 1, 0.9 };
+            var input = new double[] { 1,2,3,4,5,6,7,8,9,10};
+            
+            Console.WriteLine();
+            DataEncoding.FibonacciEncode(input, ms);
+
+            ms.Seek(0, SeekOrigin.Begin);
+            var output = ms.ToArray();
+            Console.WriteLine();
+
+            
+            var final = DataEncoding.FibonacciDecode(ms);
+            Console.WriteLine();
+
+            Console.WriteLine($"{input.Length * 2} bytes in, {output.Length} bytes out.");
+            Console.WriteLine(string.Join(" ", output.Select(b=>b.ToString("X2"))));
+            Console.WriteLine(string.Join(" ", final));
+            
+            Assert.That(final, Is.EqualTo(input));
         }
         
         [Test]
