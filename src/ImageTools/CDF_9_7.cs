@@ -758,15 +758,7 @@ namespace ImageTools
                 var trunc_sim = fs;
                 using (var gs = new DeflateStream(trunc_sim, CompressionMode.Decompress))
                 {
-                    var newBuf = DataEncoding.FibonacciDecode(gs);
-                    Console.WriteLine($"Channel {ch}, expected {buffer.Length} coeffs, got {newBuf.Length}");
-
-                    // Could do smarter error recovery here.
-                    var coeffCount = Math.Min(buffer.Length, newBuf.Length);
-                    for (int i = 0; i < coeffCount; i++)
-                    {
-                        buffer[i] = newBuf[i];
-                    }
+                    DataEncoding.FibonacciDecode(gs, buffer);
                 }
             }
 

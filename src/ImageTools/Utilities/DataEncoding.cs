@@ -125,7 +125,7 @@ namespace ImageTools.Utilities
         }
 
         /// <summary>
-        /// Decode a stream of byte values into an array of doubles
+        /// Decode a stream of byte values into a new array of doubles
         /// </summary>
         /// <param name="input">Readable stream for input</param>
         public static double[] FibonacciDecode(Stream input)
@@ -171,6 +171,58 @@ namespace ImageTools.Utilities
             }
 
             return output.ToArray();
+        }
+
+
+        /// <summary>
+        /// Decode a stream of byte values into an existing array of doubles
+        /// </summary>
+        /// <param name="input">Readable stream for input</param>
+        /// <param name="output">An existing value buffer. If there is more input
+        /// than buffer space, the end of the input will be truncated</param>
+        public static void FibonacciDecode(Stream input, double[] output)
+        {
+            // Read a byte, scan through bits building up a number until we hit `b11`
+            // Then move on to the next
+
+            int bv;
+
+            bool lastWas1 = false;
+            uint accum = 0;
+            uint pos = 0;
+            var bytePos = 0;
+            int outidx = 0;
+            int outlimit = output.Length;
+
+            while ((bv = input.ReadByte()) >= 0) {
+
+                while (bytePos++ < 8) {
+                    if (outidx >= outlimit) return; // end of buffer
+                    uint f = (uint)((bv >> (8 - bytePos)) & 0x01);
+
+                    if (f > 0) {
+                        if (lastWas1) {
+                            // convert back to signed, add to list
+                            if (accum > 0) {
+                                long n = accum - 1L;
+                                if ((n % 2) == 0) output[outidx++] = ((int)(n >> 1));
+                                else output[outidx++] = ((int)(((n + 1) >> 1) * -1));
+                            } // else damaged data
+                            // `b11`; reset, move to next number
+                            accum = 0;
+                            pos = 0;
+                            lastWas1 = false;
+                            continue;
+                        }
+                        lastWas1 = true;
+                    } else lastWas1 = false;
+
+                    accum += f * fseq[pos + 2];
+                    pos++;
+                }
+                
+                bytePos = 0;
+            }
         }
         
         private static readonly uint[] fseq = {0,1,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,1597,
