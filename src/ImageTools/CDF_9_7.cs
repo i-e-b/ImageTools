@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using ImageTools.DataCompression.LZMA;
 using ImageTools.Utilities;
 
@@ -518,19 +516,19 @@ namespace ImageTools
 
             // Test MJPEG = 1,864kb
 
-            // Good quality (test = 529kb) (morton = 517kb)
+            // Good quality (test = 529kb) (morton = 477kb)
             //fYs = new double[]{  5,  4,  3, 2, 1, 1, 1 };
             //fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
 
-            // Normal compression (test = 224kb) (morton = 195kb)
+            // Normal compression (test = 224kb) (morton = 177kb)
             fYs = new double[]{ 24, 12, 7,  5, 3, 2, 1 };
             fCs = new double[]{ 50, 24, 12, 7, 5, 3, 2 };
 
-            // Strong compression (test = 145kb) (morton = 124kb)
+            // Strong compression (test = 145kb) (morton = 113kb)
             //fYs = new double[]{ 50,  35, 17, 10, 5, 3, 1 };
             //fCs = new double[]{200, 100, 50, 10, 5, 3, 2 };
             
-            // Very strong compression (test = 95.3kb) (morton = 81.4kb)
+            // Very strong compression (test = 95.3kb) (morton = 72.4kb)
             //fYs = new double[]{200,  80,  60,  40, 10,  5,  4 };
             //fCs = new double[]{999, 999, 400, 200, 80, 40, 20 };
             
@@ -746,7 +744,6 @@ namespace ImageTools
 
         private static void ReadFromFileFibonacci(double[] buffer, int ch, string name)
         {
-            var ms = new MemoryStream();
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_fib_test_"+ch+".dat";
 
 
@@ -786,14 +783,20 @@ namespace ImageTools
                 fs2.Flush();
             }*/
 
-
-            // GZIP
-            using (var fs = File.Open(testpath, FileMode.Create))
-            using (var gs = new DeflateStream(fs, CompressionMode.Compress))
+            using (var ms = new MemoryStream())
             {
-                DataEncoding.FibonacciEncode(buffer, gs);
-                gs.Flush();
-                fs.Flush();
+                DataEncoding.FibonacciEncode(buffer, ms);
+                ms.Seek(0, SeekOrigin.Begin);
+
+                // GZIP
+                using (var fs = File.Open(testpath, FileMode.Create))
+                using (var gs = new DeflateStream(fs, CompressionMode.Compress))
+                {
+                    //DataEncoding.FibonacciEncode(buffer, gs);
+                    ms.CopyTo(gs);
+                    gs.Flush();
+                    fs.Flush();
+                }
             }
         }
 
