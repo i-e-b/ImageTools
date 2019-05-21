@@ -56,6 +56,7 @@ namespace ImageTools
         }
 
 
+        // Reducing image by equal rounds
         public static void ReduceImage3D(Image3d img3d)
         {
             // Step 1: Do a first reduction in 3 dimensions
@@ -126,18 +127,16 @@ namespace ImageTools
                 }
 
                 // Quantise, compress, write
-                var tmp = ToMortonOrder3D(buffer, img3d);
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] = tmp[i]; }
-                Quantise3D(buffer, QuantiseType.Reduce, rounds, ch);
+                var storage = ToMortonOrder3D(buffer, img3d);
+                Quantise3D(storage, QuantiseType.Reduce, rounds, ch);
 
-                WriteToFileFibonacci(buffer, ch, "3D");
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0; } // prove we're reading from the file
-                ReadFromFileFibonacci(buffer, ch, "3D");
+                WriteToFileFibonacci(storage, ch, "3D");
+
+                ReadFromFileFibonacci(storage, ch, "3D");
 
                 // De-quantise
-                Quantise3D(buffer, QuantiseType.Expand, rounds, ch);
-                tmp = FromMortonOrder3D(buffer, img3d);
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] = tmp[i]; }
+                Quantise3D(storage, QuantiseType.Expand, rounds, ch);
+                FromMortonOrder3D(storage, buffer, img3d);
 
 
                 // Restore
@@ -186,14 +185,141 @@ namespace ImageTools
             }
         }
 
-        private static double[] FromMortonOrder3D(double[] buffer, Image3d img3d)
+        
+        // Reducing image in XY first then by Z
+        public static void ReduceImage3D_2(Image3d img3d)
+        {
+            // DC to AC
+            for (int i = 0; i < img3d.Y.Length; i++)
+            {
+                img3d.Y[i] -= 127.5;
+                img3d.V[i] -= 127.5;
+                img3d.U[i] -= 127.5;
+            }
+
+            var quantise = 1.0;
+            int rounds;
+
+            for (int ch = 0; ch < 3; ch++)
+            {
+                double[] buffer = null;
+                switch(ch) {
+                    case 0: buffer = img3d.Y; break;
+                    case 1: buffer = img3d.U; break; // not entirely sure if orange or green deserves more bits
+                    case 2: buffer = img3d.V; break;
+                }
+
+                // Reduce each plane independently
+                rounds = (int)Math.Log(img3d.Width, 2);
+                for (int i = 0; i < rounds; i++)
+                {
+                    var height = img3d.Height >> i;
+                    var width = img3d.Width >> i;
+                    var depth = img3d.Depth;// >> i;
+
+                    for (int z = 0; z < depth; z++)
+                    {
+                        var zo = z * img3d.zspan;
+
+                        // Wavelet decompose vertical
+                        for (int x = 0; x < width; x++) // each column
+                        {
+                            Fwt97(buffer, height, zo + x, img3d.Width);
+                        }
+
+                        // Wavelet decompose horizontal
+                        for (int y = 0; y < height >> 1; y++) // each row
+                        {
+                            var yo = (y * img3d.Width);
+                            Fwt97(buffer, width, zo + yo, 1);
+                        }
+                    }
+                }
+                // decompose through depth
+                rounds = (int)Math.Log(img3d.Depth, 2);
+                for (int i = 0; i < rounds; i++)
+                {
+                    var depth = img3d.Depth >> i;
+                    for (int xy = 0; xy < img3d.zspan; xy++)
+                    {
+                        Fwt97(buffer, depth, xy, img3d.zspan);
+                    }
+                }
+
+                // Reorder, quantise, write
+                var storage = ToMortonOrder3D(buffer, img3d);
+                rounds = (int)Math.Log(img3d.MaxDimension, 2);
+
+                Quantise3D(storage, QuantiseType.Reduce, rounds, ch);
+                WriteToFileFibonacci(storage, ch, "3D");
+
+
+                // clear buffer:
+                for (int i = 0; i < storage.Length; i++) { storage[i] = 0.0; }
+
+                // Read, De-quantise, reorder
+                ReadFromFileFibonacci(storage, ch, "3D");
+                Quantise3D(storage, QuantiseType.Expand, rounds, ch);
+                FromMortonOrder3D(storage, buffer, img3d);
+                
+                
+                // Restore
+                // through depth
+                rounds = (int)Math.Log(img3d.Depth, 2);
+                for (int i = rounds - 1; i >= 0; i--)
+                {
+                    var depth = img3d.Depth >> i;
+                    for (int xy = 0; xy < img3d.zspan; xy++)
+                    {
+                        Iwt97(buffer, depth, xy, img3d.zspan);
+                    }
+                }
+                // Note: if you restore the first frame without doing any of the depth
+                //       restoration, you get a rough thumbnail of the image with much less computation
+                // each plane independently
+                rounds = (int)Math.Log(img3d.Width, 2);
+                for (int i = rounds - 1; i >= 0; i--)
+                {
+                    var height = img3d.Height >> i;
+                    var width = img3d.Width >> i;
+                    var depth = img3d.Depth;// >> i;
+
+                    for (int z = 0; z < depth; z++)
+                    {
+                        var zo = z * img3d.zspan;
+
+                        // horizontal
+                        for (int y = 0; y < height >> 1; y++) // each row
+                        {
+                            var yo = (y * img3d.Width);
+                            Iwt97(buffer, width, zo + yo, 1);
+                        }
+
+                        // vertical
+                        for (int x = 0; x < width; x++) // each column
+                        {
+                            Iwt97(buffer, height, zo + x, img3d.Width);
+                        }
+                    }
+                }
+            }
+
+            // AC to DC
+            for (int i = 0; i < img3d.Y.Length; i++)
+            {
+                img3d.Y[i] += 127.5;
+                img3d.V[i] += 127.5;
+                img3d.U[i] += 127.5;
+            }
+        }
+
+        private static void FromMortonOrder3D(double[] input, double[] output, Image3d img3d)
         {
             var limit = (int)Math.Pow(img3d.MaxDimension, 3);
             var mx = img3d.Width - 1;
             var my = img3d.Height - 1;
             var mz = img3d.Depth - 1;
 
-            var swap = new double[buffer.Length];
             int o = 0;
 
             for (uint i = 0; i < limit; i++)
@@ -202,9 +328,8 @@ namespace ImageTools
                 if (x > mx || y > my || z > mz) continue;
 
                 var si = x + (y * img3d.yspan) + (z * img3d.zspan);
-                swap[si] = buffer[o++];
+                output[si] = input[o++];
             }
-            return swap;
         }
 
         private static double[] ToMortonOrder3D(double[] buffer, Image3d img3d)
@@ -516,26 +641,36 @@ namespace ImageTools
 
             // Test MJPEG = 1,864kb
 
-            // Good quality (test = 529kb) (morton = 477kb) (cbcr = 400kb)
-            //fYs = new double[]{  5,  4,  3, 2, 1, 1, 1 };
+            // MJPEG 100% equivalent (zsep = 1,270kb) (lzma = 1,170kb)
+            //fYs = new double[]{ 1 };
+            //fCs = new double[]{ 2 };
+
+            // Good quality (test = 529kb) (morton = 477kb) (cbcr = 400kb) (zsep = 378kb)
+            //              (lzma = 325 kb)
+            //fYs = new double[]{  5,  4,  3, 2, 1 };
             //fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
 
-            // Normal compression (test = 224kb) (morton = 177kb) (cbcr = 151kb)
-            fYs = new double[]{ 24, 12, 7,  5, 3, 2, 1 };
-            fCs = new double[]{ 50, 24, 12, 7, 5, 3, 2 };
-
+            // Medium compression (test = 224kb) (morton = 177kb) (cbcr = 151kb) (zsep = 131kb)
+            //                    (lzma = 115kb)
+            //fYs = new double[]{ 24, 12, 7,  5, 3, 2, 1 };
+            //fCs = new double[]{ 50, 24, 12, 7, 5, 3, 2 };
             
-            // Flat compression (cbcr = 116kb)
+            // Flat compression (cbcr = 116kb) (zsep = 95.1kb) (lzma 80.3kb)
             //fYs = new double[]{ 14, 14, 14, 14, 8, 4, 1 };
             //fCs = new double[]{ 400, 200, 100, 100, 90, 40, 20 };
 
-            // Strong compression (test = 145kb) (morton = 113kb) (cbcr = 95.8kb)
+            // Strong compression (test = 145kb) (morton = 113kb) (cbcr = 95.8kb) (zsep = 81.3kb)
             //fYs = new double[]{ 50,  35, 17, 10, 5, 3, 1 };
             //fCs = new double[]{200, 100, 50, 10, 5, 3, 2 };
             
-            // Very strong compression (test = 95.3kb) (morton = 72.4kb) (cbcr = 64.4kb)
+            // Very strong compression (test = 95.3kb) (morton = 72.4kb) (cbcr = 64.4kb) (zsep = 35.3kb) (lzma = 31.5kb)
             //fYs = new double[]{200,  80,  60,  40, 10,  5,  4 };
             //fCs = new double[]{999, 999, 400, 200, 80, 40, 20 };
+
+            
+            // Very strong compression (lzma = 15.1kb) (gzip = 19.1kb)
+            //fYs = new double[]{200 };
+            //fCs = new double[]{400 };
             
             // 'dish' compressed (morton = 69.0kb); This gives small file sizes and
             //                                      reasonable still-image detail, but
@@ -547,9 +682,15 @@ namespace ImageTools
             //fYs = new double[]{10, 20,  50,   80,  50,  20, 10 };
             //fCs = new double[]{999, 999, 999, 999, 999, 999, 999 };
             
+            
+            // sigmoid-ish compression (zsep = 111 kb)
+            fYs = new double[]{ 15, 11, 7, 7, 7, 7, 4, 1.5 };
+            fCs = new double[]{ 50, 24, 15, 15, 10, 6, 4 };
+
             for (int r = 0; r < rounds; r++)
             {
-                double factor = (ch == 0) ? fYs[r] : fCs[r];
+                var factors = (ch == 0) ? fYs : fCs;
+                var factor = (r >= factors.Length) ? factors[factors.Length - 1] : factors[r];
                 if (mode == QuantiseType.Reduce) factor = 1 / factor;
 
                 var len = buffer.Length >> r;
@@ -765,9 +906,11 @@ namespace ImageTools
             // GZIP
             using (var fs = File.Open(testpath, FileMode.Open))
             {
-                // switch comment to demonstrate shortened files
-                //var trunc_sim = new TruncatedStream(fs, (int)(fs.Length * 0.1));
-                var trunc_sim = fs;
+                // reduce factor to demonstrate shortened files
+                var length = (int)(fs.Length * 1.0);
+                Console.WriteLine($"Reading {length} bytes of a total {fs.Length}");
+                var trunc_sim = new TruncatedStream(fs, length);
+
                 using (var gs = new DeflateStream(trunc_sim, CompressionMode.Decompress))
                 {
                     DataEncoding.FibonacciDecode(gs, buffer);
@@ -776,9 +919,13 @@ namespace ImageTools
 
             // LZMA (slower, slightly better compression)
             /*var raw = File.ReadAllBytes(testpath.Replace(".dat", ".lzma"));
-            var instream = new MemoryStream(raw);
-            CompressionUtility.Decompress(instream, ms, null);
-            */
+            using (var instream = new MemoryStream(raw))
+            using (var ms = new MemoryStream())
+            {
+                CompressionUtility.Decompress(instream, ms, null);
+                ms.Seek(0, SeekOrigin.Begin);
+                DataEncoding.FibonacciDecode(ms, buffer);
+            }*/
         }
 
         private static void WriteToFileFibonacci(double[] buffer, int ch, string name)
@@ -786,28 +933,27 @@ namespace ImageTools
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_fib_test_"+ch+".dat";
             if (File.Exists(testpath)) File.Delete(testpath);
 
-            // Common packing
-            //var usig = DataEncoding.SignedToUnsigned(buffer.Select(d => (int)d).ToArray());
-            //var bytes = DataEncoding.UnsignedFibEncode(usig);
-
             // LZMA (better compression, but a lot slower)
-            /*var instream = new MemoryStream(bytes);
-            using (var fs2 = File.Open(testpath.Replace(".dat", ".lzma"), FileMode.Create))
+            /*using (var ms = new MemoryStream())
             {
-                CompressionUtility.Compress(instream, fs2, null);
-                fs2.Flush();
+                DataEncoding.FibonacciEncode(buffer, ms);
+                ms.Seek(0, SeekOrigin.Begin);
+                using (var fs2 = File.Open(testpath.Replace(".dat", ".lzma"), FileMode.Create))
+                {
+                    CompressionUtility.Compress(ms, fs2, null);
+                    fs2.Flush();
+                }
             }*/
 
+            // GZIP
             using (var ms = new MemoryStream())
             {
                 DataEncoding.FibonacciEncode(buffer, ms);
                 ms.Seek(0, SeekOrigin.Begin);
 
-                // GZIP
                 using (var fs = File.Open(testpath, FileMode.Create))
                 using (var gs = new DeflateStream(fs, CompressionMode.Compress))
                 {
-                    //DataEncoding.FibonacciEncode(buffer, gs);
                     ms.CopyTo(gs);
                     gs.Flush();
                     fs.Flush();
