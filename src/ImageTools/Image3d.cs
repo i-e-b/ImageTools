@@ -10,8 +10,8 @@ namespace ImageTools
     public class Image3d
     {
         public double[] Y;
-        public double[] Co;
-        public double[] Cg;
+        public double[] U;
+        public double[] V;
 
         public int yspan, zspan; // xspan is always 1
 
@@ -34,12 +34,12 @@ namespace ImageTools
                 {
                     if (Y == null) { InitPlanes(bmp, frameCount); }
 
-                    Bitmangle.ArgbImageToYCoCgPlanes(bmp, out var srcY, out var srcCo, out var srcCg);
+                    Bitmangle.ArgbImageToYCbCrPlanes(bmp, out var srcY, out var srcU, out var srcV);
                     for (int i = 0; i < srcY.Length; i++)
                     {
                         Y[zo+i] = srcY[i];
-                        Co[zo+i] = srcCo[i];
-                        Cg[zo+i] = srcCg[i];
+                        U[zo+i] = srcU[i];
+                        V[zo+i] = srcV[i];
                     }
                 }
                 zo += zspan;
@@ -55,7 +55,7 @@ namespace ImageTools
             var dst = new Bitmap(Width, Height, PixelFormat.Format32bppArgb);
             var zo = z * zspan;
 
-            Bitmangle.YCoCgPlanes_To_ArgbImage(dst, zo, Y, Co, Cg);
+            Bitmangle.YCbCrPlanes_To_ArgbImage(dst, zo, Y, U, V);
 
             return dst;
         }
@@ -73,8 +73,8 @@ namespace ImageTools
             yspan = bmp.Width; // planar image
             zspan = yspan * bmp.Height;
             Y = new double[total];
-            Co = new double[total];
-            Cg = new double[total];
+            U = new double[total];
+            V = new double[total];
         }
     }
 }

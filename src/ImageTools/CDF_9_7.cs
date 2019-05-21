@@ -67,8 +67,8 @@ namespace ImageTools
             for (int i = 0; i < img3d.Y.Length; i++)
             {
                 img3d.Y[i] -= 127.5;
-                img3d.Cg[i] -= 127.5;
-                img3d.Co[i] -= 127.5;
+                img3d.V[i] -= 127.5;
+                img3d.U[i] -= 127.5;
             }
 
             var quantise = 1.0;
@@ -78,8 +78,8 @@ namespace ImageTools
                 double[] buffer = null;
                 switch(ch) {
                     case 0: buffer = img3d.Y; break;
-                    case 1: buffer = img3d.Co; break; // not entirely sure if orange or green deserves more bits
-                    case 2: buffer = img3d.Cg; break;
+                    case 1: buffer = img3d.U; break; // not entirely sure if orange or green deserves more bits
+                    case 2: buffer = img3d.V; break;
                 }
                 int rounds = (int)Math.Log(img3d.MinDimension, 2);
 
@@ -181,8 +181,8 @@ namespace ImageTools
             for (int i = 0; i < img3d.Y.Length; i++)
             {
                 img3d.Y[i] += 127.5;
-                img3d.Cg[i] += 127.5;
-                img3d.Co[i] += 127.5;
+                img3d.V[i] += 127.5;
+                img3d.U[i] += 127.5;
             }
         }
 
@@ -516,21 +516,36 @@ namespace ImageTools
 
             // Test MJPEG = 1,864kb
 
-            // Good quality (test = 529kb) (morton = 477kb)
+            // Good quality (test = 529kb) (morton = 477kb) (cbcr = 400kb)
             //fYs = new double[]{  5,  4,  3, 2, 1, 1, 1 };
             //fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
 
-            // Normal compression (test = 224kb) (morton = 177kb)
+            // Normal compression (test = 224kb) (morton = 177kb) (cbcr = 151kb)
             fYs = new double[]{ 24, 12, 7,  5, 3, 2, 1 };
             fCs = new double[]{ 50, 24, 12, 7, 5, 3, 2 };
 
-            // Strong compression (test = 145kb) (morton = 113kb)
+            
+            // Flat compression (cbcr = 116kb)
+            //fYs = new double[]{ 14, 14, 14, 14, 8, 4, 1 };
+            //fCs = new double[]{ 400, 200, 100, 100, 90, 40, 20 };
+
+            // Strong compression (test = 145kb) (morton = 113kb) (cbcr = 95.8kb)
             //fYs = new double[]{ 50,  35, 17, 10, 5, 3, 1 };
             //fCs = new double[]{200, 100, 50, 10, 5, 3, 2 };
             
-            // Very strong compression (test = 95.3kb) (morton = 72.4kb)
+            // Very strong compression (test = 95.3kb) (morton = 72.4kb) (cbcr = 64.4kb)
             //fYs = new double[]{200,  80,  60,  40, 10,  5,  4 };
             //fCs = new double[]{999, 999, 400, 200, 80, 40, 20 };
+            
+            // 'dish' compressed (morton = 69.0kb); This gives small file sizes and
+            //                                      reasonable still-image detail, but
+            //                                      at a cost of strong motion artefacts.
+            //fYs = new double[]{200, 50,  20,   10,  20,  50, 200 };
+            //fCs = new double[]{999, 999, 600, 400, 200, 200, 200 };
+
+            // reverse dish (95kb) ... this one is quite weird
+            //fYs = new double[]{10, 20,  50,   80,  50,  20, 10 };
+            //fCs = new double[]{999, 999, 999, 999, 999, 999, 999 };
             
             for (int r = 0; r < rounds; r++)
             {

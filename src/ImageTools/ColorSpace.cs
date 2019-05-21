@@ -169,6 +169,18 @@ namespace ImageTools
             Co = (Co >> 1) + 127;
             Cg = (Cg >> 1) + 127;
         }
+
+        
+        public static void RGB32_To_Ycbcr(uint c, out int Y, out int Cb, out int Cr)
+        {
+            int R = (int) ((c >> 16) & 0xff);
+            int G = (int) ((c >>  8) & 0xff);
+            int B = (int) ((c      ) & 0xff);
+
+            Y = clip(16 + (0.257 * R + 0.504 * G + 0.098 * B));
+            Cb = clip(128 + (-0.148 * R + -0.291 * G + 0.439 * B));
+            Cr = clip(128 + (0.439 * R + -0.368 * G + -0.071 * B));
+        }
         
         /// <summary>
         /// Lossy conversion from YCoCg to RGB (both 24 bit, stored as 32).
@@ -201,6 +213,15 @@ namespace ImageTools
             var G   = vCg + tmp;
             var B   = tmp - (vCo >> 1);
             var R   = B + vCo;
+
+            return (uint)((clip(R) << 16) + (clip(G) << 8) + clip(B));
+        }
+
+        public static uint Ycbcr_To_RGB32(double Y, double Cb, double Cr)
+        {
+            var R = clip(1.164 * (Y - 16) + 0.0 * (Cb - 128) + 1.596 * (Cr - 128));
+            var G = clip(1.164 * (Y - 16) + -0.392 * (Cb - 128) + -0.813 * (Cr - 128));
+            var B = clip(1.164 * (Y - 16) + 2.017 * (Cb - 128) + 0.0 * (Cr - 128));
 
             return (uint)((clip(R) << 16) + (clip(G) << 8) + clip(B));
         }
@@ -522,5 +543,6 @@ namespace ImageTools
 
             return ComponentToCompound(0, clip(R * 255), clip(G * 255), clip(B * 255));
         }
+
     }
 }

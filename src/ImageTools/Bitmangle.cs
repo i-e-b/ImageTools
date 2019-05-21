@@ -101,5 +101,51 @@ namespace ImageTools
                 src.UnlockBits(srcData);
             }
         }
+
+        
+        
+        public static unsafe void YCbCrPlanes_To_ArgbImage(Bitmap dst, int offset, double[] Y, double[] Co, double[] Cg)
+        {
+            var ri = new Rectangle(Point.Empty, dst.Size);
+            var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            var len = dstData.Height * dstData.Width;
+            try
+            {
+                var s = (uint*)dstData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    s[i] = ColorSpace.Ycbcr_To_RGB32(Y[offset+i], Co[offset+i], Cg[offset+i]);
+                }
+            }
+            finally
+            {
+                dst.UnlockBits(dstData);
+            }
+        }
+
+        public static unsafe void ArgbImageToYCbCrPlanes(Bitmap src, out double[] Y, out double[] Co, out double[] Cg)
+        {
+            var ri = new Rectangle(Point.Empty, src.Size);
+            var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            var len = srcData.Height * srcData.Width;
+            Y = new double[len];
+            Co = new double[len];
+            Cg = new double[len];
+            try
+            {
+                var s = (uint*)srcData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    ColorSpace.RGB32_To_Ycbcr(s[i], out var y, out var co, out var cg);
+                    Y[i] = y;
+                    Co[i] = co;
+                    Cg[i] = cg;
+                }
+            }
+            finally
+            {
+                src.UnlockBits(srcData);
+            }
+        }
 	}
 }
