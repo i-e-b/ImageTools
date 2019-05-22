@@ -68,12 +68,20 @@
         // Inverse of Part1By2 - "delete" all bits not at positions divisible by 3
         private static uint Compact1By2(uint x)
         {
+            /*
             x &= 0x09249249;                  // x = ---- 9--8 --7- -6-- 5--4 --3- -2-- 1--0
             x = (x ^ (x >>  2)) & 0x030c30c3; // x = ---- --98 ---- 76-- --54 ---- 32-- --10
             x = (x ^ (x >>  4)) & 0x0300f00f; // x = ---- --98 ---- ---- 7654 ---- ---- 3210
             x = (x ^ (x >>  8)) & 0xff0000ff; // x = ---- --98 ---- ---- ---- ---- 7654 3210
             x = (x ^ (x >> 16)) & 0x000003ff; // x = ---- ---- ---- ---- ---- --98 7654 3210
             return x;
+            */
+            // This gunky style helps C#
+            var a = x & 0x09249249;
+            var b = a ^ (a>>2) & 0x030c30c3;
+            var c = b ^ (b>>4) & 0x0300f00f;
+            var d = c ^ (c>>8) & 0xff0000ff;
+            return (d ^ (d >> 16)) & 0x000003ff;
         }
 
     }
