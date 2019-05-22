@@ -99,30 +99,48 @@ namespace ImageTools.Tests
             Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_3.bmp"));
         }
 
+        static int count;
+        private void wc(int x, int y, int z) {
+            count++;
+            //Console.Write($"{x},{y},{z}; ");
+        }
+
         [Test]
         public void temp() {
-            var check = new List<List<int>>();
-            var temp = new List<int>();
-            
-            var max = 63;
-            var limit = max >> 1;
 
-            // this does it, but backwards and not quite in order
-            for (int b = max; b > limit; b--)
+            //int width = 16, height = 3, depth = 3;
+            int maxDim = 256; // largest of any dimension
+
+            // should be along the lines of
+            // 0,0,0; 1,0,0; 0,1,0; 0,0,1; 1,1,0; 0,1,1; 1,1,1; 
+            count = 0;
+
+            for (int i = 0; i < maxDim; i++)
             {
-                for (int i = b; i > 0; i >>= 1)
+                //Console.WriteLine();
+                // corner
+                wc(i,i,i);
+
+                // axiis (excl corner),
+                for (int a = 0; a < i; a++)
                 {
-                    temp.Add(i);
-                    if (i>>1 == (i+1)>>1) break;
+                    wc(a,i,i); // x
+                    wc(i,a,i); // y
+                    wc(i,i,a); // z
+
+                    // faces
+                    for (int b = 0; b < i; b++)
+                    {
+                        wc(a,b,i);
+                        wc(i,a,b);
+                        wc(b,i,a);
+                    }
                 }
-                temp.Reverse();
-                check.Add(temp);
-                temp = new List<int>();
+                
             }
 
-            Console.WriteLine(string.Join(",",check.SelectMany(l=>l)));
-            check.Sort((a,b)=>a[0].CompareTo(b[0]));
-            Console.WriteLine(string.Join(",",check.SelectMany(l=>l)));
+            Console.WriteLine($"Final point count = {count}; Expecting {Math.Pow(maxDim,3)}");
+
         }
 
         [Test]

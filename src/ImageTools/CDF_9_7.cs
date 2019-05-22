@@ -219,6 +219,17 @@ namespace ImageTools
                     case 2: buffer = img3d.V; break;
                 }
 
+                // decompose through depth
+                rounds = (int)Math.Log(img3d.Depth, 2);
+                for (int i = 0; i < rounds; i++)
+                {
+                    var depth = img3d.Depth >> i;
+                    var dx = new double[depth];
+                    for (int xy = 0; xy < img3d.zspan; xy++)
+                    {
+                        Fwt97(buffer, dx, xy, img3d.zspan);
+                    }
+                }
                 // Reduce each plane independently
                 rounds = (int)Math.Log(img3d.Width, 2);
                 for (int i = 0; i < rounds; i++)
@@ -248,21 +259,10 @@ namespace ImageTools
                         }
                     }
                 }
-                // decompose through depth
-                rounds = (int)Math.Log(img3d.Depth, 2);
-                for (int i = 0; i < rounds; i++)
-                {
-                    var depth = img3d.Depth >> i;
-                    var dx = new double[depth];
-                    for (int xy = 0; xy < img3d.zspan; xy++)
-                    {
-                        Fwt97(buffer, dx, xy, img3d.zspan);
-                    }
-                }
 
 
                 // Reorder, quantise, write
-                var storage = ToRingingOrder3D(buffer, img3d);
+                var storage = ToStorageOrder3D(buffer, img3d);
                 rounds = (int)Math.Log(img3d.MaxDimension, 2);
 
                 Quantise3D(storage, QuantiseType.Reduce, rounds, ch);
@@ -276,23 +276,10 @@ namespace ImageTools
                 ReadFromFileFibonacci(storage, ch, "3D");
                 rounds = (int)Math.Log(img3d.MaxDimension, 2);
                 Quantise3D(storage, QuantiseType.Expand, rounds, ch);
-                FromRingingOrder3D(storage, buffer, img3d);
+                FromStorageOrder3D(storage, buffer, img3d);
                 
                 
                 // Restore
-                // through depth
-                rounds = (int)Math.Log(img3d.Depth, 2);
-                for (int i = rounds - 1; i >= 0; i--)
-                {
-                    var depth = img3d.Depth >> i;
-                    var dx = new double[depth];
-                    for (int xy = 0; xy < img3d.zspan; xy++)
-                    {
-                        Iwt97(buffer, dx, xy, img3d.zspan);
-                    }
-                }
-                // Note: if you restore the first frame without doing any of the depth
-                //       restoration, you get a rough thumbnail of the image with much less computation
                 // each plane independently
                 rounds = (int)Math.Log(img3d.Width, 2);
                 for (int i = rounds - 1; i >= 0; i--)
@@ -322,6 +309,17 @@ namespace ImageTools
                         }
                     }
                 }
+                // through depth
+                rounds = (int)Math.Log(img3d.Depth, 2);
+                for (int i = rounds - 1; i >= 0; i--)
+                {
+                    var depth = img3d.Depth >> i;
+                    var dx = new double[depth];
+                    for (int xy = 0; xy < img3d.zspan; xy++)
+                    {
+                        Iwt97(buffer, dx, xy, img3d.zspan);
+                    }
+                }
             }
 
             // AC to DC
@@ -333,95 +331,68 @@ namespace ImageTools
             }
         }
 
+        private static void CubeOrder(Image3d img3d, Action<int,int,int> wc) {
+            for (int i = 0; i < img3d.MaxDimension; i++)
+            {
+                // corner
+                wc(i,i,i);
+
+                for (int a = 0; a < i; a++)
+                {
+                    // faces
+                    for (int b = 0; b < i; b++)
+                    {
+                        wc(a,b,i);
+                        wc(i,a,b);
+                        wc(b,i,a);
+                    }
+                    // axis (excl corner)
+                    wc(a,i,i); // x
+                    wc(i,a,i); // y
+                    wc(i,i,a); // z
+                }
+            }
+        }
+
         // An attempt at reordering specifically for 3D CDF
-        private static void FromRingingOrder3D(double[] storage, double[] buffer, Image3d img3d)
+        private static void FromStorageOrder3D(double[] storage, double[] buffer, Image3d img3d)
         {
-            var check = new List<List<int>>();
-            var temp = new List<int>();
+            // the plan: grow a cube centred on 0,0
+            // read samples in order across faces that are inside the image cube
+
+            var mx = img3d.Width;
+            var my = img3d.Height;
+            var mz = img3d.Depth;
+            var sy = img3d.yspan;
+            var sz = img3d.zspan;
+            var outidx = 0;
+
+            Action<int,int,int> wc = (x,y,z) => {
+                if (x >= mx || y >= my || z >= mz) return;
+                buffer[x + (y * sy) + (z * sz)] = storage[outidx++];
+            };
             
-            var max = img3d.Depth - 1;
-            var limit = max >> 1;
-
-            // this does it, but backwards and not quite in order
-            for (int b = max; b > limit; b--)
-            {
-                for (int i = b; i > 0; i >>= 1)
-                {
-                    temp.Add(i);
-                    if (i>>1 == (i+1)>>1) break;
-                }
-                temp.Reverse();
-                check.Add(temp);
-                temp = new List<int>();
-            }
-
-            check.Sort((a,b)=>a[0].CompareTo(b[0]));
-            
-            var order = check.SelectMany(l=>l).ToArray();
-
-            // now copy things over in the new order
-            for (int j = 0; j < img3d.zspan; j++) { buffer[j] = storage[j]; } // first frame first
-            for (int i = 0; i < order.Length; i++)
-            {
-                var target = order[i];
-                var offset = img3d.zspan * target;
-                var destOff = (i+1) * img3d.zspan;
-
-                for (int j = 0; j < img3d.zspan; j++)
-                {
-                    buffer[offset+j] = storage[destOff+j];
-                }
-            }
-
+            CubeOrder(img3d, wc);
         }
         
         // An attempt at reordering specifically for 3D CDF
-        private static double[] ToRingingOrder3D(double[] buffer, Image3d img3d)
+        private static double[] ToStorageOrder3D(double[] buffer, Image3d img3d)
         {
-            // The plan:
-            // First, pick frames (2^n - 1), then (2^n), then (2^n + 1) etc.
-            // each frame is stored directly in order in itself.
-            // so like 0,1,3,7,15,32,63,  2,4,8,16,32,64,  5,9,17,33, 6,10,18,34, ...
+            var mx = img3d.Width;
+            var my = img3d.Height;
+            var mz = img3d.Depth;
+            var sy = img3d.yspan;
+            var sz = img3d.zspan;
+            var outidx = 0;
+            var storage = new double[buffer.Length];
+
+            Action<int,int,int> wc = (x,y,z) => {
+                if (x >= mx || y >= my || z >= mz) return;
+                storage[outidx++] = buffer[x + (y * sy) + (z * sz)];
+            };
             
-            var check = new List<List<int>>();
-            var temp = new List<int>();
-            
-            var max = img3d.Depth - 1;
-            var limit = max >> 1;
-
-            // this does it, but backwards and not quite in order
-            for (int b = max; b > limit; b--)
-            {
-                for (int i = b; i > 0; i >>= 1)
-                {
-                    temp.Add(i);
-                    if (i>>1 == (i+1)>>1) break;
-                }
-                temp.Reverse();
-                check.Add(temp);
-                temp = new List<int>();
-            }
-
-            check.Sort((a,b)=>a[0].CompareTo(b[0]));
-            
-            var order = check.SelectMany(l=>l).ToArray();
-
-            // now copy things over in the new order
-            var swap = new double[buffer.Length];
-            for (int j = 0; j < img3d.zspan; j++) { swap[j] = buffer[j]; } // first frame first
-            for (int i = 0; i < order.Length; i++)
-            {
-                var target = order[i];
-                var offset = img3d.zspan * target;
-                var destOff = (i+1) * img3d.zspan;
-
-                for (int j = 0; j < img3d.zspan; j++)
-                {
-                    swap[destOff+j] = buffer[offset+j];
-                }
-            }
-
-            return swap;
+            CubeOrder(img3d, wc);
+            return storage;
         }
 
         private static void FromMortonOrder3D(double[] input, double[] output, Image3d img3d)
@@ -756,12 +727,12 @@ namespace ImageTools
             //fCs = new double[]{ 2 };
 
             // Good quality (test = 529kb) (morton = 477kb) (cbcr = 400kb) (zsep = 378kb)
-            //              (lzma = 325 kb)
-            //fYs = new double[]{  5,  4,  3, 2, 1 };
-            //fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
+            //              (lzma = 325 kb) (cube = 420kb/362kb)
+            fYs = new double[]{  5,  4,  3, 2, 1 };
+            fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
 
             // Medium compression (test = 224kb) (morton = 177kb) (cbcr = 151kb) (zsep = 131kb)
-            //                    (lzma = 115kb)
+            //                    (lzma = 115kb) (cube = 162kb)
             //fYs = new double[]{ 24, 12, 7,  5, 3, 2, 1 };
             //fCs = new double[]{ 50, 24, 12, 7, 5, 3, 2 };
             
@@ -779,7 +750,7 @@ namespace ImageTools
             //fCs = new double[]{999, 999, 400, 200, 80, 40, 20 };
 
             
-            // Very strong compression (lzma = 15.1kb) (gzip = 19.1kb)
+            // Very strong compression (lzma = 15.1kb) (gzip = 19.1kb) (cube=17.8kb)
             //fYs = new double[]{200 };
             //fCs = new double[]{400 };
             
@@ -794,9 +765,9 @@ namespace ImageTools
             //fCs = new double[]{999, 999, 999, 999, 999, 999, 999 };
             
             
-            // sigmoid-ish compression (zsep = 111 kb) (ring = 135kb)
-            fYs = new double[]{ 15, 11, 7, 7, 7, 7, 4, 1.5 };
-            fCs = new double[]{ 50, 24, 15, 15, 10, 6, 4 };
+            // sigmoid-ish compression (zs morton = 111 kb) (ring = 135kb) (cube = 140kb)
+            //fYs = new double[]{ 15, 11, 7, 7, 7, 7, 4, 1.5 };
+            //fCs = new double[]{ 50, 24, 15, 15, 10, 6, 4 };
 
             for (int r = 0; r < rounds; r++)
             {
@@ -1020,31 +991,36 @@ namespace ImageTools
 
         private static void ReadFromFileFibonacci(double[] buffer, int ch, string name)
         {
-            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_fib_test_"+ch+".dat";
+            var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\" + name + "_fib_test_" + ch + ".dat";
 
-            // GZIP
-            using (var fs = File.Open(testpath, FileMode.Open))
+            if (false)
             {
-                // reduce factor to demonstrate shortened files
-                var length = (int)(fs.Length * 1.0);
-                Console.WriteLine($"Reading {length} bytes of a total {fs.Length}");
-                var trunc_sim = new TruncatedStream(fs, length);
-
-                using (var gs = new DeflateStream(trunc_sim, CompressionMode.Decompress))
+                // LZMA (slower, slightly better compression)
+                var raw = File.ReadAllBytes(testpath.Replace(".dat", ".lzma"));
+                using (var instream = new MemoryStream(raw))
+                using (var ms = new MemoryStream())
                 {
-                    DataEncoding.FibonacciDecode(gs, buffer);
+                    CompressionUtility.Decompress(instream, ms, null);
+                    ms.Seek(0, SeekOrigin.Begin);
+                    DataEncoding.FibonacciDecode(ms, buffer);
                 }
             }
-
-            // LZMA (slower, slightly better compression)
-            /*var raw = File.ReadAllBytes(testpath.Replace(".dat", ".lzma"));
-            using (var instream = new MemoryStream(raw))
-            using (var ms = new MemoryStream())
+            else
             {
-                CompressionUtility.Decompress(instream, ms, null);
-                ms.Seek(0, SeekOrigin.Begin);
-                DataEncoding.FibonacciDecode(ms, buffer);
-            }*/
+                // GZIP
+                using (var fs = File.Open(testpath, FileMode.Open))
+                {
+                    // reduce factor to demonstrate shortened files
+                    var length = (int)(fs.Length * 1.0);
+                    Console.WriteLine($"Reading {length} bytes of a total {fs.Length}");
+                    var trunc_sim = new TruncatedStream(fs, length);
+
+                    using (var gs = new DeflateStream(trunc_sim, CompressionMode.Decompress))
+                    {
+                        DataEncoding.FibonacciDecode(gs, buffer);
+                    }
+                }
+            }
         }
 
         private static void WriteToFileFibonacci(double[] buffer, int ch, string name)
@@ -1052,30 +1028,35 @@ namespace ImageTools
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_fib_test_"+ch+".dat";
             if (File.Exists(testpath)) File.Delete(testpath);
 
-            // LZMA (better compression, but a lot slower)
-            /*using (var ms = new MemoryStream())
+            if (false)
             {
-                DataEncoding.FibonacciEncode(buffer, ms);
-                ms.Seek(0, SeekOrigin.Begin);
-                using (var fs2 = File.Open(testpath.Replace(".dat", ".lzma"), FileMode.Create))
+                // LZMA (better compression, but a lot slower)
+                using (var ms = new MemoryStream())
                 {
-                    CompressionUtility.Compress(ms, fs2, null);
-                    fs2.Flush();
+                    DataEncoding.FibonacciEncode(buffer, ms);
+                    ms.Seek(0, SeekOrigin.Begin);
+                    using (var fs2 = File.Open(testpath.Replace(".dat", ".lzma"), FileMode.Create))
+                    {
+                        CompressionUtility.Compress(ms, fs2, null);
+                        fs2.Flush();
+                    }
                 }
-            }*/
-
-            // GZIP
-            using (var ms = new MemoryStream())
+            }
+            else
             {
-                DataEncoding.FibonacciEncode(buffer, ms);
-                ms.Seek(0, SeekOrigin.Begin);
-
-                using (var fs = File.Open(testpath, FileMode.Create))
-                using (var gs = new DeflateStream(fs, CompressionMode.Compress))
+                // GZIP
+                using (var ms = new MemoryStream())
                 {
-                    ms.CopyTo(gs);
-                    gs.Flush();
-                    fs.Flush();
+                    DataEncoding.FibonacciEncode(buffer, ms);
+                    ms.Seek(0, SeekOrigin.Begin);
+
+                    using (var fs = File.Open(testpath, FileMode.Create))
+                    using (var gs = new DeflateStream(fs, CompressionMode.Compress))
+                    {
+                        ms.CopyTo(gs);
+                        gs.Flush();
+                        fs.Flush();
+                    }
                 }
             }
         }
