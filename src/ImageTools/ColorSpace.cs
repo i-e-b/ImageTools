@@ -169,7 +169,6 @@ namespace ImageTools
             Co = (Co >> 1) + 127;
             Cg = (Cg >> 1) + 127;
         }
-
         
         public static void RGB32_To_Ycbcr(uint c, out int Y, out int Cb, out int Cr)
         {
@@ -250,7 +249,7 @@ namespace ImageTools
         /// </summary>
         public static uint ComponentToCompound(int A, int B, int C, int D)
         {
-            return (uint)((clip(B) << 24) | (clip(B) << 16) | (clip(C) << 8) | clip(D));
+            return (uint)((clip(A) << 24) | (clip(B) << 16) | (clip(C) << 8) | clip(D));
         }
 
         
@@ -260,7 +259,7 @@ namespace ImageTools
         /// </summary>
         public static uint ComponentToCompound(double A, double B, double C, double D)
         {
-            return (uint)((clip(B) << 24) | (clip(B) << 16) | (clip(C) << 8) | clip(D));
+            return (uint)((clip(A) << 24) | (clip(B) << 16) | (clip(C) << 8) | clip(D));
         }
         
         /// <summary>
@@ -353,17 +352,28 @@ namespace ImageTools
 
             return new ColorYUV { Y = Y, U = U, V = V };
         }
+        
+        /// <summary>
+        /// Lossless conversion to YUV
+        /// </summary>
+        public static void RGB32_To_YUV(uint c, out double Y, out double U, out double V)
+        {
+            CompoundToComponent(c, out _, out var R, out var G, out var B);
+            Y = 16 + (0.257 * R + 0.504 * G + 0.098 * B);
+            U = 128 + (-0.148 * R + -0.291 * G + 0.439 * B);
+            V = 128 + (0.439 * R + -0.368 * G + -0.071 * B);
+        }
 
         /// <summary>
         /// Lossless conversion from Ycbcr 
         /// </summary>
-        public static uint YUV_To_RGB32(double Y, double cb, double cr)
+        public static uint YUV_To_RGB32(double Y, double U, double V)
         {
-            var R = clip(1.164 * (Y - 16) + 0.0 * (cb - 128) + 1.596 * (cr - 128));
-            var G = clip(1.164 * (Y - 16) + -0.392 * (cb - 128) + -0.813 * (cr - 128));
-            var B = clip(1.164 * (Y - 16) + 2.017 * (cb - 128) + 0.0 * (cr - 128));
+            var R = 1.164 * (Y - 16) + 0.0 * (U - 128) + 1.596 * (V - 128);
+            var G = 1.164 * (Y - 16) + -0.392 * (U - 128) + -0.813 * (V - 128);
+            var B = 1.164 * (Y - 16) + 2.017 * (U - 128) + 0.0 * (V - 128);
 
-            return ComponentToCompound(0, R, G, B);
+            return (uint)((clip(R) << 16) | (clip(G) << 8) | clip(B));
         }
 
         /// <summary>

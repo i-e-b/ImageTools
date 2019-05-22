@@ -91,6 +91,10 @@ namespace ImageTools
                     var width = img3d.Width >> i;
                     var depth = img3d.Depth >> i;
 
+                    var hx = new double[height];
+                    var yx = new double[width];
+                    var dx = new double[depth];
+
                     // Try different orderings of XY and Z once compressed output is going
                     //  Z,Y,X = 218(@7); = 11.8(@64)     
                     //  Y,X,Z = 218    ; = 11.8(@64)
@@ -108,21 +112,21 @@ namespace ImageTools
                         // Wavelet decompose vertical
                         for (int x = 0; x < width; x++) // each column
                         {
-                            Fwt97(buffer, height, zo + x, img3d.Width);
+                            Fwt97(buffer, hx, zo + x, img3d.Width);
                         }
 
                         // Wavelet decompose horizontal
                         for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
-                            Fwt97(buffer, width, zo + yo, 1);
+                            Fwt97(buffer, yx, zo + yo, 1);
                         }
                     }
 
                     // decompose through depth
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
-                        Fwt97(buffer, depth, xy, img3d.zspan);
+                        Fwt97(buffer, dx, xy, img3d.zspan);
                     }
                 }
 
@@ -146,13 +150,17 @@ namespace ImageTools
                     var width = img3d.Width >> i;
                     var depth = img3d.Depth >> i;
 
+                    var hx = new double[height];
+                    var yx = new double[width];
+                    var dx = new double[depth];
+
                     // Order here must be exact reverse of above
 
                     // restore through depth
                     var dz = img3d.zspan;
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
-                        Iwt97(buffer, depth, xy, dz);
+                        Iwt97(buffer, dx, xy, dz);
                     }
 
                     // Restore each plane independently
@@ -164,13 +172,13 @@ namespace ImageTools
                         for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
-                            Iwt97(buffer, width, zo + yo, 1);
+                            Iwt97(buffer, yx, zo + yo, 1);
                         }
 
                         // Wavelet restore vertical
                         for (int x = 0; x < width; x++) // each column
                         {
-                            Iwt97(buffer, height, zo + x, img3d.Width);
+                            Iwt97(buffer, hx, zo + x, img3d.Width);
                         }
                     }
                 }
@@ -215,7 +223,10 @@ namespace ImageTools
                 {
                     var height = img3d.Height >> i;
                     var width = img3d.Width >> i;
-                    var depth = img3d.Depth;// >> i;
+                    var depth = img3d.Depth;
+
+                    var hx = new double[height];
+                    var yx = new double[width];
 
                     for (int z = 0; z < depth; z++)
                     {
@@ -224,14 +235,14 @@ namespace ImageTools
                         // Wavelet decompose vertical
                         for (int x = 0; x < width; x++) // each column
                         {
-                            Fwt97(buffer, height, zo + x, img3d.Width);
+                            Fwt97(buffer, hx, zo + x, img3d.Width);
                         }
 
                         // Wavelet decompose horizontal
                         for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
-                            Fwt97(buffer, width, zo + yo, 1);
+                            Fwt97(buffer, yx, zo + yo, 1);
                         }
                     }
                 }
@@ -240,9 +251,10 @@ namespace ImageTools
                 for (int i = 0; i < rounds; i++)
                 {
                     var depth = img3d.Depth >> i;
+                    var dx = new double[depth];
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
-                        Fwt97(buffer, depth, xy, img3d.zspan);
+                        Fwt97(buffer, dx, xy, img3d.zspan);
                     }
                 }
 
@@ -265,13 +277,14 @@ namespace ImageTools
                 
                 // Restore
                 // through depth
-                rounds = (int)Math.Log(img3d.Depth, 2);
+                /*rounds = (int)Math.Log(img3d.Depth, 2);
                 for (int i = rounds - 1; i >= 0; i--)
                 {
                     var depth = img3d.Depth >> i;
+                    var dx = new double[depth];
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
-                        Iwt97(buffer, depth, xy, img3d.zspan);
+                        Iwt97(buffer, dx, xy, img3d.zspan);
                     }
                 }
                 // Note: if you restore the first frame without doing any of the depth
@@ -282,7 +295,10 @@ namespace ImageTools
                 {
                     var height = img3d.Height >> i;
                     var width = img3d.Width >> i;
-                    var depth = img3d.Depth;// >> i;
+                    var depth = img3d.Depth;
+
+                    var hx = new double[height];
+                    var yx = new double[width];
 
                     for (int z = 0; z < depth; z++)
                     {
@@ -292,16 +308,16 @@ namespace ImageTools
                         for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
-                            Iwt97(buffer, width, zo + yo, 1);
+                            Iwt97(buffer, yx, zo + yo, 1);
                         }
 
                         // vertical
                         for (int x = 0; x < width; x++) // each column
                         {
-                            Iwt97(buffer, height, zo + x, img3d.Width);
+                            Iwt97(buffer, hx, zo + x, img3d.Width);
                         }
                     }
-                }
+                }*/
             }
 
             // AC to DC
@@ -366,13 +382,13 @@ namespace ImageTools
         ///<para></para>
         ///  See also iwt97.
         /// </summary>
-        public static void Fwt97(double[] buf, int n, int offset, int stride)
+        public static void Fwt97(double[] buf, double[] x, int offset, int stride)
         {
             double a;
             int i;
 
             // pick out stride data
-            var x = new double[n];
+            var n = x.Length;
             for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
 
             // Predict 1
@@ -409,24 +425,21 @@ namespace ImageTools
 
             // Scale
             a = 1 / 1.149604398;
-            for (i = 0; i < n; i++)
+            var b = 1.149604398;
+            for (i = 0; i < n; i+=2)
             {
-                if ((i % 2) == 0) x[i] *= a;
-                else x[i] /= a;
+                x[i] *= a;
+                x[i+1] *= b;
             }
 
-            // Pack
+            // Pack into buffer (using stride and offset)
             // The raw output is like [DC][AC][DC][AC]...
             // we want it as          [DC][DC]...[AC][AC]
-            var tempbank = new double[n];
-            for (i = 0; i < n; i++)
-            {
-                if (i % 2 == 0) tempbank[i / 2] = x[i];
-                else tempbank[n / 2 + i / 2] = x[i];
+            var hn = n/2;
+            for (i = 0; i < hn; i++) { 
+                buf[i * stride + offset] = x[i*2];
+                buf[(i+hn) * stride + offset] = x[1+i*2];
             }
-
-            // pick out stride data
-            for (i = 0; i < n; i++) { buf[i * stride + offset] = tempbank[i]; }
         }
 
         /// <summary>
@@ -436,13 +449,15 @@ namespace ImageTools
         /// <para></para>
         /// See also fwt97.
         /// </summary>
-        public static void Iwt97(double[] buf, int n, int offset, int stride)
+        public static void Iwt97(double[] buf, double[] x, int offset, int stride)
         {
             double a;
             int i;
             
+            // TODO: merge the stride and unpack
+
             // pick out stride data
-            var x = new double[n];
+            var n = x.Length;
             for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
 
             // Unpack
@@ -572,16 +587,19 @@ namespace ImageTools
                     var height = si.Height >> i;
                     var width = si.Width >> i;
 
+                    var hx = new double[height];
+                    var yx = new double[width];
+
                     // Wavelet decompose vertical
                     for (int x = 0; x < width; x++) // each column
                     {
-                        Fwt97(buffer, height, x, si.Width);
+                        Fwt97(buffer, hx, x, si.Width);
                     }
                     
                     // Wavelet decompose HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
                     {
-                        Fwt97(buffer, width, y * si.Width, 1);
+                        Fwt97(buffer, yx, y * si.Width, 1);
                     }
                 }
 
@@ -606,16 +624,19 @@ namespace ImageTools
                     var height = si.Height >> i;
                     var width = si.Width >> i;
 
+                    var hx = new double[height];
+                    var yx = new double[width];
+
                     // Wavelet restore HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
                     {
-                        Iwt97(buffer, width, y * si.Width, 1);
+                        Iwt97(buffer, yx, y * si.Width, 1);
                     }
 
                     // Wavelet restore vertical
                     for (int x = 0; x < width; x++) // each column
                     {
-                        Iwt97(buffer, height, x, si.Width);
+                        Iwt97(buffer, hx, x, si.Width);
                     }
                 }
 
@@ -772,7 +793,8 @@ namespace ImageTools
                 for (int i = 0; i < rounds; i++)
                 {
                     var length = bufferSize >> i;
-                    Fwt97(buffer, length, 0, 1);
+                    var work = new double[length];
+                    Fwt97(buffer, work, 0, 1);
                 }
 
                 WriteToFileFibonacci(buffer, ch, "morton");
@@ -784,7 +806,8 @@ namespace ImageTools
                 for (int i = rounds - 1; i >= 0; i--)
                 {
                     var length = bufferSize >> i;
-                    Iwt97(buffer, length, 0, 1);
+                    var work = new double[length];
+                    Iwt97(buffer, work, 0, 1);
                 }
 
                 buffer = FromMortonOrder(buffer, si.Width, si.Height);
@@ -863,16 +886,20 @@ namespace ImageTools
             {
                 var height = si.Height >> i;
                 var width = si.Width >> i;
+
+                var hx = new double[height];
+                var wx = new double[width];
+
                 // Wavelet decompose vertical
                 for (int x = 0; x < width; x++) // each column
                 {
-                    Fwt97(buffer, height, x, si.Width);
+                    Fwt97(buffer, hx, x, si.Width);
                 }
 
                 // Wavelet decompose horizontal
                 for (int y = 0; y < height; y++) // each row
                 {
-                    Fwt97(buffer, width, y * si.Width, 1);
+                    Fwt97(buffer, wx, y * si.Width, 1);
                 }
             }
         }
@@ -884,16 +911,19 @@ namespace ImageTools
                 var height = si.Height >> i;
                 var width = si.Width >> i;
 
+                var hx = new double[height];
+                var wx = new double[width];
+
                 // Wavelet restore horizontal
                 for (int y = 0; y < height; y++) // each row
                 {
-                    Iwt97(buffer, width, y * si.Width, 1);
+                    Iwt97(buffer, wx, y * si.Width, 1);
                 }
 
                 // Wavelet restore vertical
                 for (int x = 0; x < width; x++) // each column
                 {
-                    Iwt97(buffer, height, x, si.Width);
+                    Iwt97(buffer, hx, x, si.Width);
                 }
             }
         }
@@ -998,6 +1028,7 @@ namespace ImageTools
 
         static unsafe void HorizonalWaveletTest(byte* s, byte* d, BitmapData si, BitmapData di)
         {
+            var work = new double[si.Width];
             for (int ch = 0; ch < 3; ch++)
             {
                 var buffer = ReadPlane(s, si, ch);
@@ -1008,13 +1039,13 @@ namespace ImageTools
                 // Wavelet decompose
                 for (int y = 0; y < si.Height; y++) // each row
                 {
-                    Fwt97(buffer, si.Width, y * si.Width, 1);
+                    Fwt97(buffer, work, y * si.Width, 1);
                 }
                 
                 // Wavelet restore (half image)
                 for (int y = 0; y < si.Height / 2; y++) // each row
                 {
-                    Iwt97(buffer, si.Width, y * si.Width, 1);
+                    Iwt97(buffer, work, y * si.Width, 1);
                 }
 
                 // AC to DC
@@ -1027,6 +1058,7 @@ namespace ImageTools
         
         static unsafe void VerticalWaveletTest(byte* s, byte* d, BitmapData si, BitmapData di)
         {
+            var work = new double[si.Height];
             for (int ch = 0; ch < 3; ch++)
             {
                 var buffer = ReadPlane(s, si, ch);
@@ -1037,14 +1069,14 @@ namespace ImageTools
                 // Wavelet decompose
                 for (int x = 0; x < si.Width; x++) // each column
                 {
-                    Fwt97(buffer, si.Height, x, si.Width);
+                    Fwt97(buffer, work, x, si.Width);
                 }
 
                 
                 // Wavelet restore (half image)
                 for (int x = 0; x < si.Width / 2; x++) // each column
                 {
-                    Iwt97(buffer, si.Height, x, si.Width);
+                    Iwt97(buffer, work, x, si.Width);
                 }
 
                 // AC to DC
