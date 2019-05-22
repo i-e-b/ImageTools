@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -98,6 +99,31 @@ namespace ImageTools.Tests
             Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_3.bmp"));
         }
 
+        [Test]
+        public void temp() {
+            var check = new List<List<int>>();
+            var temp = new List<int>();
+            
+            var max = 63;
+            var limit = max >> 1;
+
+            // this does it, but backwards and not quite in order
+            for (int b = max; b > limit; b--)
+            {
+                for (int i = b; i > 0; i >>= 1)
+                {
+                    temp.Add(i);
+                    if (i>>1 == (i+1)>>1) break;
+                }
+                temp.Reverse();
+                check.Add(temp);
+                temp = new List<int>();
+            }
+
+            Console.WriteLine(string.Join(",",check.SelectMany(l=>l)));
+            check.Sort((a,b)=>a[0].CompareTo(b[0]));
+            Console.WriteLine(string.Join(",",check.SelectMany(l=>l)));
+        }
 
         [Test]
         public void wavelet_3d_image_reduction()

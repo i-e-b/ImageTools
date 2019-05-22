@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using ImageTools.DataCompression.LZMA;
 using ImageTools.Utilities;
 
@@ -260,7 +262,7 @@ namespace ImageTools
 
 
                 // Reorder, quantise, write
-                var storage = ToMortonOrder3D(buffer, img3d);
+                var storage = ToRingingOrder3D(buffer, img3d);
                 rounds = (int)Math.Log(img3d.MaxDimension, 2);
 
                 Quantise3D(storage, QuantiseType.Reduce, rounds, ch);
@@ -274,7 +276,7 @@ namespace ImageTools
                 ReadFromFileFibonacci(storage, ch, "3D");
                 rounds = (int)Math.Log(img3d.MaxDimension, 2);
                 Quantise3D(storage, QuantiseType.Expand, rounds, ch);
-                FromMortonOrder3D(storage, buffer, img3d);
+                FromRingingOrder3D(storage, buffer, img3d);
                 
                 
                 // Restore
@@ -329,6 +331,97 @@ namespace ImageTools
                 img3d.V[i] += 127.5;
                 img3d.U[i] += 127.5;
             }
+        }
+
+        // An attempt at reordering specifically for 3D CDF
+        private static void FromRingingOrder3D(double[] storage, double[] buffer, Image3d img3d)
+        {
+            var check = new List<List<int>>();
+            var temp = new List<int>();
+            
+            var max = img3d.Depth - 1;
+            var limit = max >> 1;
+
+            // this does it, but backwards and not quite in order
+            for (int b = max; b > limit; b--)
+            {
+                for (int i = b; i > 0; i >>= 1)
+                {
+                    temp.Add(i);
+                    if (i>>1 == (i+1)>>1) break;
+                }
+                temp.Reverse();
+                check.Add(temp);
+                temp = new List<int>();
+            }
+
+            check.Sort((a,b)=>a[0].CompareTo(b[0]));
+            
+            var order = check.SelectMany(l=>l).ToArray();
+
+            // now copy things over in the new order
+            for (int j = 0; j < img3d.zspan; j++) { buffer[j] = storage[j]; } // first frame first
+            for (int i = 0; i < order.Length; i++)
+            {
+                var target = order[i];
+                var offset = img3d.zspan * target;
+                var destOff = (i+1) * img3d.zspan;
+
+                for (int j = 0; j < img3d.zspan; j++)
+                {
+                    buffer[offset+j] = storage[destOff+j];
+                }
+            }
+
+        }
+        
+        // An attempt at reordering specifically for 3D CDF
+        private static double[] ToRingingOrder3D(double[] buffer, Image3d img3d)
+        {
+            // The plan:
+            // First, pick frames (2^n - 1), then (2^n), then (2^n + 1) etc.
+            // each frame is stored directly in order in itself.
+            // so like 0,1,3,7,15,32,63,  2,4,8,16,32,64,  5,9,17,33, 6,10,18,34, ...
+            
+            var check = new List<List<int>>();
+            var temp = new List<int>();
+            
+            var max = img3d.Depth - 1;
+            var limit = max >> 1;
+
+            // this does it, but backwards and not quite in order
+            for (int b = max; b > limit; b--)
+            {
+                for (int i = b; i > 0; i >>= 1)
+                {
+                    temp.Add(i);
+                    if (i>>1 == (i+1)>>1) break;
+                }
+                temp.Reverse();
+                check.Add(temp);
+                temp = new List<int>();
+            }
+
+            check.Sort((a,b)=>a[0].CompareTo(b[0]));
+            
+            var order = check.SelectMany(l=>l).ToArray();
+
+            // now copy things over in the new order
+            var swap = new double[buffer.Length];
+            for (int j = 0; j < img3d.zspan; j++) { swap[j] = buffer[j]; } // first frame first
+            for (int i = 0; i < order.Length; i++)
+            {
+                var target = order[i];
+                var offset = img3d.zspan * target;
+                var destOff = (i+1) * img3d.zspan;
+
+                for (int j = 0; j < img3d.zspan; j++)
+                {
+                    swap[destOff+j] = buffer[offset+j];
+                }
+            }
+
+            return swap;
         }
 
         private static void FromMortonOrder3D(double[] input, double[] output, Image3d img3d)
@@ -680,7 +773,8 @@ namespace ImageTools
             //fYs = new double[]{ 50,  35, 17, 10, 5, 3, 1 };
             //fCs = new double[]{200, 100, 50, 10, 5, 3, 2 };
             
-            // Very strong compression (test = 95.3kb) (morton = 72.4kb) (cbcr = 64.4kb) (zsep = 35.3kb) (lzma = 31.5kb)
+            // Very strong compression (test = 95.3kb) (morton = 72.4kb) (cbcr = 64.4kb)
+            //                         (zsep = 35.3kb) (lzma = 31.5kb) (ring = 57.6)
             //fYs = new double[]{200,  80,  60,  40, 10,  5,  4 };
             //fCs = new double[]{999, 999, 400, 200, 80, 40, 20 };
 
@@ -700,7 +794,7 @@ namespace ImageTools
             //fCs = new double[]{999, 999, 999, 999, 999, 999, 999 };
             
             
-            // sigmoid-ish compression (zsep = 111 kb)
+            // sigmoid-ish compression (zsep = 111 kb) (ring = 135kb)
             fYs = new double[]{ 15, 11, 7, 7, 7, 7, 4, 1.5 };
             fCs = new double[]{ 50, 24, 15, 15, 10, 6, 4 };
 
@@ -927,7 +1021,6 @@ namespace ImageTools
         private static void ReadFromFileFibonacci(double[] buffer, int ch, string name)
         {
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_fib_test_"+ch+".dat";
-
 
             // GZIP
             using (var fs = File.Open(testpath, FileMode.Open))
