@@ -219,17 +219,6 @@ namespace ImageTools
                     case 2: buffer = img3d.V; break;
                 }
 
-                // decompose through depth
-                rounds = (int)Math.Log(img3d.Depth, 2);
-                for (int i = 0; i < rounds; i++)
-                {
-                    var depth = img3d.Depth >> i;
-                    var dx = new double[depth];
-                    for (int xy = 0; xy < img3d.zspan; xy++)
-                    {
-                        Fwt97(buffer, dx, xy, img3d.zspan);
-                    }
-                }
                 // Reduce each plane independently
                 rounds = (int)Math.Log(img3d.Width, 2);
                 for (int i = 0; i < rounds; i++)
@@ -259,6 +248,17 @@ namespace ImageTools
                         }
                     }
                 }
+                // decompose through depth
+                rounds = (int)Math.Log(img3d.Depth, 2);
+                for (int i = 0; i < rounds; i++)
+                {
+                    var depth = img3d.Depth >> i;
+                    var dx = new double[depth];
+                    for (int xy = 0; xy < img3d.zspan; xy++)
+                    {
+                        Fwt97(buffer, dx, xy, img3d.zspan);
+                    }
+                }
 
 
                 // Reorder, quantise, write
@@ -280,6 +280,17 @@ namespace ImageTools
                 
                 
                 // Restore
+                // through depth
+                rounds = (int)Math.Log(img3d.Depth, 2);
+                for (int i = rounds - 1; i >= 0; i--)
+                {
+                    var depth = img3d.Depth >> i;
+                    var dx = new double[depth];
+                    for (int xy = 0; xy < img3d.zspan; xy++)
+                    {
+                        Iwt97(buffer, dx, xy, img3d.zspan);
+                    }
+                }
                 // each plane independently
                 rounds = (int)Math.Log(img3d.Width, 2);
                 for (int i = rounds - 1; i >= 0; i--)
@@ -309,17 +320,6 @@ namespace ImageTools
                         }
                     }
                 }
-                // through depth
-                rounds = (int)Math.Log(img3d.Depth, 2);
-                for (int i = rounds - 1; i >= 0; i--)
-                {
-                    var depth = img3d.Depth >> i;
-                    var dx = new double[depth];
-                    for (int xy = 0; xy < img3d.zspan; xy++)
-                    {
-                        Iwt97(buffer, dx, xy, img3d.zspan);
-                    }
-                }
             }
 
             // AC to DC
@@ -331,67 +331,48 @@ namespace ImageTools
             }
         }
 
-        private static void CubeOrder(Image3d img3d, Action<int,int,int> wc) {
-            for (int i = 0; i < img3d.MaxDimension; i++)
-            {
-                // corner
-                wc(i,i,i);
+        // An attempt at reordering specifically for 3D CDF
+        private static void FromStorageOrder3D(double[] storage, double[] buffer, Image3d img3d)
+        {
+            // TODO: try morton 2d on frames independently.
 
-                for (int a = 0; a < i; a++)
+            var height = img3d.Height;
+            var planeSize = img3d.Width * img3d.Height;
+
+            for (int z = 0; z < img3d.Depth; z++)
+            {
+                var zo = z * img3d.zspan;
+                for (uint i = 0; i < planeSize; i++) // each pixel (read cycle)
                 {
-                    // faces
-                    for (int b = 0; b < i; b++)
-                    {
-                        wc(a,b,i);
-                        wc(i,a,b);
-                        wc(b,i,a);
-                    }
-                    // axis (excl corner)
-                    wc(a,i,i); // x
-                    wc(i,a,i); // y
-                    wc(i,i,a); // z
+                    Morton.DecodeMorton2(i, out var x, out var y);
+
+                    var row = zo + (int)y * height;
+                    buffer[row + (int)x] = storage[zo+i];
                 }
             }
         }
 
         // An attempt at reordering specifically for 3D CDF
-        private static void FromStorageOrder3D(double[] storage, double[] buffer, Image3d img3d)
-        {
-            // the plan: grow a cube centred on 0,0
-            // read samples in order across faces that are inside the image cube
-
-            var mx = img3d.Width;
-            var my = img3d.Height;
-            var mz = img3d.Depth;
-            var sy = img3d.yspan;
-            var sz = img3d.zspan;
-            var outidx = 0;
-
-            Action<int,int,int> wc = (x,y,z) => {
-                if (x >= mx || y >= my || z >= mz) return;
-                buffer[x + (y * sy) + (z * sz)] = storage[outidx++];
-            };
-            
-            CubeOrder(img3d, wc);
-        }
-        
-        // An attempt at reordering specifically for 3D CDF
         private static double[] ToStorageOrder3D(double[] buffer, Image3d img3d)
         {
-            var mx = img3d.Width;
-            var my = img3d.Height;
-            var mz = img3d.Depth;
-            var sy = img3d.yspan;
-            var sz = img3d.zspan;
-            var outidx = 0;
             var storage = new double[buffer.Length];
 
-            Action<int,int,int> wc = (x,y,z) => {
-                if (x >= mx || y >= my || z >= mz) return;
-                storage[outidx++] = buffer[x + (y * sy) + (z * sz)];
-            };
             
-            CubeOrder(img3d, wc);
+            var height = img3d.Height;
+            var planeSize = img3d.Width * img3d.Height;
+
+            for (int z = 0; z < img3d.Depth; z++)
+            {
+                var zo = z * img3d.zspan;
+                for (uint i = 0; i < planeSize; i++) // each pixel (read cycle)
+                {
+                    Morton.DecodeMorton2(i, out var x, out var y);
+
+                    var row = zo + (int)y * height;
+                    storage[zo+ i] = buffer[row + (int)x];
+                }
+            }
+
             return storage;
         }
 
@@ -728,8 +709,8 @@ namespace ImageTools
 
             // Good quality (test = 529kb) (morton = 477kb) (cbcr = 400kb) (zsep = 378kb)
             //              (lzma = 325 kb) (cube = 420kb/362kb)
-            fYs = new double[]{  5,  4,  3, 2, 1 };
-            fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
+            //fYs = new double[]{  5,  4,  3, 2, 1 };
+            //fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
 
             // Medium compression (test = 224kb) (morton = 177kb) (cbcr = 151kb) (zsep = 131kb)
             //                    (lzma = 115kb) (cube = 162kb)
@@ -766,8 +747,8 @@ namespace ImageTools
             
             
             // sigmoid-ish compression (zs morton = 111 kb) (ring = 135kb) (cube = 140kb)
-            //fYs = new double[]{ 15, 11, 7, 7, 7, 7, 4, 1.5 };
-            //fCs = new double[]{ 50, 24, 15, 15, 10, 6, 4 };
+            fYs = new double[]{ 15, 11, 7, 7, 7, 7, 4, 1.5 };
+            fCs = new double[]{ 50, 24, 15, 15, 10, 6, 4 };
 
             for (int r = 0; r < rounds; r++)
             {
