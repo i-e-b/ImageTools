@@ -258,19 +258,21 @@ namespace ImageTools
                     }
                 }
 
+
                 // Reorder, quantise, write
                 var storage = ToMortonOrder3D(buffer, img3d);
                 rounds = (int)Math.Log(img3d.MaxDimension, 2);
 
                 Quantise3D(storage, QuantiseType.Reduce, rounds, ch);
                 WriteToFileFibonacci(storage, ch, "3D");
-
-
+                //var storage = new double[buffer.Length];
                 // clear buffer:
                 for (int i = 0; i < storage.Length; i++) { storage[i] = 0.0; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0.0; }
 
                 // Read, De-quantise, reorder
                 ReadFromFileFibonacci(storage, ch, "3D");
+                rounds = (int)Math.Log(img3d.MaxDimension, 2);
                 Quantise3D(storage, QuantiseType.Expand, rounds, ch);
                 FromMortonOrder3D(storage, buffer, img3d);
                 
@@ -358,7 +360,6 @@ namespace ImageTools
             var swap = new double[buffer.Length];
             int o = 0;
 
-            // TODO: we're wasting a lot of time calculating co-ords we don't need.
             for (uint i = 0; i < limit; i++)
             {
                 Morton.DecodeMorton3(i, out var x, out var y, out var z);
@@ -386,16 +387,11 @@ namespace ImageTools
         public static void Fwt97(double[] buf, double[] x, int offset, int stride)
         {
             double a;
-            int i,t;
+            int i;
 
             // pick out stride data
             var n = x.Length;
-            t = offset;
-            for (i = 0; i < n; i++)
-            {
-                x[i] = buf[t];
-                t += stride;
-            }
+            for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
 
             // Predict 1
             a = -1.586134342;
@@ -442,11 +438,9 @@ namespace ImageTools
             // The raw output is like [DC][AC][DC][AC]...
             // we want it as          [DC][DC]...[AC][AC]
             var hn = n/2;
-            t = offset;
             for (i = 0; i < hn; i++) {
-                buf[t] = x[i * 2];
-                buf[t + hn] = x[1 + i * 2];
-                t += stride;
+                buf[i * stride + offset] = x[i*2];
+                buf[(i + hn) * stride + offset] = x[1 + i * 2];
             }
         }
 
@@ -460,18 +454,16 @@ namespace ImageTools
         public static void Iwt97(double[] buf, double[] x, int offset, int stride)
         {
             double a;
-            int i,t;
+            int i;
                         
             // Unpack from stride into working buffer
             // The raw input is like [DC][DC]...[AC][AC]
             // we want it as         [DC][AC][DC][AC]...
             var n = x.Length;
             var hn = n/2;
-            t = offset;
-            for (i = 0; i < hn; i++) { 
-                x[i*2] = buf[t];
-                x[1+i*2] = buf[t+hn];
-                t += stride;
+            for (i = 0; i < hn; i++) {
+                x[i*2] = buf[i * stride + offset];
+                x[1 + i * 2] = buf[(i + hn) * stride + offset];
             }
 
             // Undo scale
@@ -516,12 +508,8 @@ namespace ImageTools
             x[n - 1] += 2 * a * x[n - 2];
             
 
-            // pick out stride data
-            t = offset;
-            for (i = 0; i < n; i++) {
-                buf[t] = x[i];
-                t+=stride;
-            }
+            // write back stride data
+            for (i = 0; i < n; i++) { buf[i * stride + offset] = x[i]; }
         }
         
         /// <summary>
