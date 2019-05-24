@@ -219,6 +219,11 @@ namespace ImageTools
                     case 2: buffer = img3d.V; break;
                 }
 
+                // Note: The compression is the same regardless of depth-first or frame-first,
+                //       but doing frame-first is much better for live capture, as each frame
+                //       can be processed as it comes in, then the depth and packing done with
+                //       a complete frameset on a separate processor.
+
                 // Reduce each plane independently
                 rounds = (int)Math.Log(img3d.Width, 2);
                 for (int i = 0; i < rounds; i++)
@@ -262,21 +267,21 @@ namespace ImageTools
 
 
                 // Reorder, quantise, write
-                var storage = ToStorageOrder3D(buffer, img3d);
+                ToStorageOrder3D(buffer, img3d);
                 rounds = (int)Math.Log(img3d.MaxDimension, 2);
 
-                Quantise3D(storage, QuantiseType.Reduce, rounds, ch);
-                WriteToFileFibonacci(storage, ch, "3D");
-                //var storage = new double[buffer.Length];
+                Quantise3D(buffer, QuantiseType.Reduce, rounds, ch);
+                WriteToFileFibonacci(buffer, ch, "3D");
+
+
                 // clear buffer:
-                for (int i = 0; i < storage.Length; i++) { storage[i] = 0.0; }
                 for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0.0; }
 
                 // Read, De-quantise, reorder
-                ReadFromFileFibonacci(storage, ch, "3D");
+                ReadFromFileFibonacci(buffer, ch, "3D");
                 rounds = (int)Math.Log(img3d.MaxDimension, 2);
-                Quantise3D(storage, QuantiseType.Expand, rounds, ch);
-                FromStorageOrder3D(storage, buffer, img3d);
+                Quantise3D(buffer, QuantiseType.Expand, rounds, ch);
+                FromStorageOrder3D(buffer, img3d);
                 
                 
                 // Restore
@@ -331,15 +336,55 @@ namespace ImageTools
             }
         }
 
+        private static void CubeOrder(Image3d img3d, Action<int,int,int> wc) {
+            for (int i = 0; i < img3d.MaxDimension; i++)
+            {
+                // corner
+                wc(i,i,i);
+
+                for (int a = 0; a < i; a++)
+                {
+                    // faces
+                    for (int b = 0; b < i; b++)
+                    {
+                        wc(a,b,i);
+                        wc(i,a,b);
+                        wc(b,i,a);
+                    }
+                    // axis (excl corner)
+                    wc(a,i,i); // x
+                    wc(i,a,i); // y
+                    wc(i,i,a); // z
+                }
+            }
+        }
+
         // An attempt at reordering specifically for 3D CDF
-        private static void FromStorageOrder3D(double[] storage, double[] buffer, Image3d img3d)
+        private static void FromStorageOrder3D(double[] buffer, Image3d img3d)
         {
-            // TODO: try morton 2d on frames independently.
+            var storage = new double[buffer.Length];
 
             var height = img3d.Height;
-            var planeSize = img3d.Width * img3d.Height;
+            var depth = img3d.Depth;
+            var planeSize = img3d.zspan;
+            
 
-            for (int z = 0; z < img3d.Depth; z++)
+            var mx = img3d.Width;
+            var my = img3d.Height;
+            var mz = img3d.Depth;
+            var sy = img3d.yspan;
+            var sz = img3d.zspan;
+            var outidx = 0;
+
+            Action<int,int,int> wc = (x,y,z) => {
+                if (x >= mx || y >= my || z >= mz) return;
+                storage[outidx++] = buffer[x + (y * sy) + (z * sz)];
+            };
+            
+            CubeOrder(img3d, wc);
+
+            // per plane (buffer -> temp)
+            for (int z = 0; z < depth; z++)
             {
                 var zo = z * img3d.zspan;
                 for (uint i = 0; i < planeSize; i++) // each pixel (read cycle)
@@ -350,18 +395,20 @@ namespace ImageTools
                     buffer[row + (int)x] = storage[zo+i];
                 }
             }
+
         }
 
         // An attempt at reordering specifically for 3D CDF
-        private static double[] ToStorageOrder3D(double[] buffer, Image3d img3d)
+        private static void ToStorageOrder3D(double[] buffer, Image3d img3d)
         {
             var storage = new double[buffer.Length];
-
             
             var height = img3d.Height;
+            var depth = img3d.Depth;
             var planeSize = img3d.Width * img3d.Height;
 
-            for (int z = 0; z < img3d.Depth; z++)
+            // per plane
+            for (int z = 0; z < depth; z++)
             {
                 var zo = z * img3d.zspan;
                 for (uint i = 0; i < planeSize; i++) // each pixel (read cycle)
@@ -369,11 +416,23 @@ namespace ImageTools
                     Morton.DecodeMorton2(i, out var x, out var y);
 
                     var row = zo + (int)y * height;
-                    storage[zo+ i] = buffer[row + (int)x];
+                    storage[zo + i] = buffer[row + (int)x];
                 }
             }
 
-            return storage;
+            var mx = img3d.Width;
+            var my = img3d.Height;
+            var mz = img3d.Depth;
+            var sy = img3d.yspan;
+            var sz = img3d.zspan;
+            var outidx = 0;
+
+            Action<int,int,int> wc = (x,y,z) => {
+                if (x >= mx || y >= my || z >= mz) return;
+                buffer[x + (y * sy) + (z * sz)] = storage[outidx++];
+            };
+            
+            CubeOrder(img3d, wc);
         }
 
         private static void FromMortonOrder3D(double[] input, double[] output, Image3d img3d)
@@ -708,9 +767,9 @@ namespace ImageTools
             //fCs = new double[]{ 2 };
 
             // Good quality (test = 529kb) (morton = 477kb) (cbcr = 400kb) (zsep = 378kb)
-            //              (lzma = 325 kb) (cube = 420kb/362kb)
-            //fYs = new double[]{  5,  4,  3, 2, 1 };
-            //fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
+            //              (lzma = 325 kb) (cube = 362kb) (flat-morton: 401kb)
+            fYs = new double[]{  5,  4,  3, 2, 1 };
+            fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
 
             // Medium compression (test = 224kb) (morton = 177kb) (cbcr = 151kb) (zsep = 131kb)
             //                    (lzma = 115kb) (cube = 162kb)
@@ -747,8 +806,8 @@ namespace ImageTools
             
             
             // sigmoid-ish compression (zs morton = 111 kb) (ring = 135kb) (cube = 140kb)
-            fYs = new double[]{ 15, 11, 7, 7, 7, 7, 4, 1.5 };
-            fCs = new double[]{ 50, 24, 15, 15, 10, 6, 4 };
+            //fYs = new double[]{ 15, 11, 7, 7, 7, 7, 4, 1.5 };
+            //fCs = new double[]{ 50, 24, 15, 15, 10, 6, 4 };
 
             for (int r = 0; r < rounds; r++)
             {
@@ -992,7 +1051,7 @@ namespace ImageTools
                 using (var fs = File.Open(testpath, FileMode.Open))
                 {
                     // reduce factor to demonstrate shortened files
-                    var length = (int)(fs.Length * 1.0);
+                    var length = (int)(fs.Length * 0.1);
                     Console.WriteLine($"Reading {length} bytes of a total {fs.Length}");
                     var trunc_sim = new TruncatedStream(fs, length);
 
