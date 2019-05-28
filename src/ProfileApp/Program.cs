@@ -25,7 +25,7 @@ namespace ProfileApp
             // STEP 2: Do the decomposition
             var sw = new Stopwatch();
             sw.Start();
-            CDF_9_7.ReduceImage3D(img3d);
+            CDF_9_7.ReduceImage3D_2(img3d);
             sw.Stop();
             Console.WriteLine($"Core transform took {sw.Elapsed}");
 

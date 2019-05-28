@@ -271,7 +271,6 @@ namespace ImageTools
                 Quantise3D(buffer, QuantiseType.Reduce, (int)Math.Log(img3d.MaxDimension, 2), ch);
                 WriteToFileFibonacci(buffer, ch, "3D");
 
-
                 // clear buffer:
                 for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0.0; }
 
@@ -453,7 +452,6 @@ namespace ImageTools
                     for (int x = 0; x < width; x++)
                     {
                         storage[incrPos++] = buffer[zo + yo + x];
-                        //buffer[zo + yo + x] = 0;
                     }
                 }
             }
@@ -490,7 +488,6 @@ namespace ImageTools
                         for (int x = 0; x < width; x++)
                         {
                             storage[incrPos++] = buffer[zo + yo + x];
-                            //buffer[zo + yo + x] = +127;
                         }
                     }
                 }
@@ -502,6 +499,127 @@ namespace ImageTools
                 buffer[i] = storage[i];
             }
         }
+
+        
+
+        private static void FromStorageOrder2D(double[] buffer, BitmapData si, int rounds)
+        {
+            var storage = new double[buffer.Length];
+
+            // Plan: Do like the CDF reductions, but put all depths together before the next scale.
+            int incrPos = 0;
+
+            // first, any unreduced value
+            var height = si.Height >> rounds;
+            var width = si.Width >> rounds;
+
+            for (int y = 0; y < height; y++)
+            {
+                var yo = y * si.Width;
+                for (int x = 0; x < width; x++)
+                {
+                    storage[yo + x] = buffer[incrPos++];
+                }
+            }
+
+            // now the reduced coefficients in order from most to least significant
+            for (int i = rounds - 1; i >= 0; i--)
+            {
+                height = si.Height >> i;
+                width = si.Width >> i;
+                var left = width >> 1;
+                var top = height >> 1;
+
+
+                    // vertical block
+                    // from top to the height of the horz block,
+                    // from left=(right most of prev) to right
+                    for (int x = left; x < width; x++) // each column
+                    {
+                        for (int y = 0; y < top; y++)
+                        {
+                            var yo = y * si.Width;
+                            storage[yo + x] = buffer[incrPos++];
+                        }
+                    }
+
+                    // horizontal block
+                    for (int y = top; y < height; y++) // each row
+                    {
+                        var yo = y * si.Width;
+                        for (int x = 0; x < width; x++)
+                        {
+                            storage[yo + x] = buffer[incrPos++];
+                        }
+                }
+            }
+
+            // copy back to buffer
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                buffer[i] = storage[i];
+            }
+        }
+
+        private static void ToStorageOrder2D(double[] buffer, BitmapData si, int rounds)
+        {
+            var storage = new double[buffer.Length];
+
+            // Plan: Do like the CDF reductions, but put all depths together before the next scale.
+            int incrPos = 0;
+
+            // first, any unreduced value
+            var height = si.Height >> rounds;
+            var width = si.Width >> rounds;
+
+            for (int y = 0; y < height; y++)
+            {
+                var yo = y * si.Width;
+                for (int x = 0; x < width; x++)
+                {
+                    storage[incrPos++] = buffer[yo + x];
+                }
+            }
+
+            // now the reduced coefficients in order from most to least significant
+            for (int i = rounds - 1; i >= 0; i--)
+            {
+                height = si.Height >> i;
+                width = si.Width >> i;
+                var left = width >> 1;
+                var top = height >> 1;
+
+
+                    // vertical block
+                    // from top to the height of the horz block,
+                    // from left=(right most of prev) to right
+                    for (int x = left; x < width; x++) // each column
+                    {
+                        for (int y = 0; y < top; y++)
+                        {
+                            var yo = y * si.Width;
+                            storage[incrPos++] = buffer[yo + x];
+                        }
+                    }
+
+                    // horizontal block
+                    for (int y = top; y < height; y++) // each row
+                    {
+                        var yo = y * si.Width;
+                        for (int x = 0; x < width; x++)
+                        {
+                            storage[incrPos++] = buffer[yo + x];
+                        }
+                }
+            }
+
+            // copy back to buffer
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                buffer[i] = storage[i];
+            }
+        }
+
 
         private static void FromMortonOrder3D(double[] input, double[] output, Image3d img3d)
         {
@@ -739,6 +857,8 @@ namespace ImageTools
             // Change color space
             var bufferSize = To_YCxCx_ColorSpace(s, si);
 
+            // Current best: 259kb; 253kb
+
             int rounds = (int)Math.Log(si.Width, 2) - 1;
             Console.WriteLine($"Decomposing with {rounds} rounds");
 
@@ -771,7 +891,8 @@ namespace ImageTools
                     }
                 }
 
-                // Quantise and reduce co-efficients
+                // Reorder, Quantise and reduce co-efficients
+                ToStorageOrder2D(buffer, si, rounds);
                 QuantisePlanar2(si, buffer, ch, rounds, QuantiseType.Reduce);
 
                 // Write output
@@ -785,6 +906,7 @@ namespace ImageTools
 
                 // Re-expand co-efficients
                 QuantisePlanar2(si, buffer, ch, rounds, QuantiseType.Expand);
+                FromStorageOrder2D(buffer, si, rounds);
 
                 // Restore
                 for (int i = rounds - 1; i >= 0; i--)
@@ -807,7 +929,7 @@ namespace ImageTools
                         Iwt97(buffer, hx, x, si.Width);
                     }
                 }
-
+                
                 // AC to DC
                 for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
 
@@ -830,7 +952,7 @@ namespace ImageTools
 
             // Test MJPEG = 1,864kb
 
-            // MJPEG 100% equivalent (zsep = 1,270kb) (lzma = 1,170kb)
+            // MJPEG 100% equivalent (zsep = 1,270kb) (lzma = 1,170kb) (cdf-ord = 1,210kb)
             //fYs = new double[]{ 1 };
             //fCs = new double[]{ 2 };
 
@@ -841,9 +963,9 @@ namespace ImageTools
             //fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
 
             // Medium compression (test = 224kb) (morton = 177kb) (cbcr = 151kb) (zsep = 131kb)
-            //                    (lzma = 115kb) (cube = 162kb)
-            //fYs = new double[]{ 24, 12, 7,  5, 3, 2, 1 };
-            //fCs = new double[]{ 50, 24, 12, 7, 5, 3, 2 };
+            //                    (lzma = 115kb) (cube = 162kb) (cdf-ord = 128kb/110kb)
+            fYs = new double[]{ 24, 12, 7,  5, 3, 2, 1 };
+            fCs = new double[]{ 50, 24, 12, 7, 5, 3, 2 };
             
             // Flat compression (cbcr = 116kb) (zsep = 95.1kb) (lzma 80.3kb)
             //fYs = new double[]{ 14, 14, 14, 14, 8, 4, 1 };
@@ -859,7 +981,7 @@ namespace ImageTools
             //fCs = new double[]{999, 999, 400, 200, 80, 40, 20 };
 
             
-            // Very strong compression (lzma = 15.1kb) (gzip = 19.1kb) (cube=17.8kb)
+            // Very strong compression (lzma = 15.1kb) (gzip = 19.1kb) (cube=17.8kb) (cdf-ord = 11.6kb)
             //fYs = new double[]{200 };
             //fCs = new double[]{400 };
             
@@ -875,8 +997,8 @@ namespace ImageTools
             
             
             // sigmoid-ish compression (zs morton = 111 kb) (ring = 135kb) (cube = 140kb) (cdf-ord = 104kb)
-            fYs = new double[]{ 15, 11, 7, 7, 7, 7, 4, 1.5 };
-            fCs = new double[]{ 50, 24, 15, 15, 10, 6, 4 };
+            //fYs = new double[]{ 15, 11,  7,  7,  7,  7, 4, 1.5 };
+            //fCs = new double[]{ 200,50, 24, 15, 15, 10, 6, 4 };
 
             for (int r = 0; r < rounds; r++)
             {
@@ -894,48 +1016,38 @@ namespace ImageTools
 
         private static void QuantisePlanar2(BitmapData si, double[] buffer, int ch, int rounds, QuantiseType mode)
         {
+            // ReSharper disable JoinDeclarationAndInitializer
+            double[] fYs, fCs;   
+            // ReSharper restore JoinDeclarationAndInitializer
+
             // Planar two splits in half, starting with top/bottom, and alternating between
             // vertical and horizontal
 
             // Fibonacci coding strongly prefers small numbers
 
             // pretty good:
-            var fYs = new[]{9, 4, 2.3, 1.5, 1, 1, 1, 1, 1 };
-            var fCs = new[]{15, 10, 2, 1, 1, 1, 1, 1, 1 };
+            fYs = new double[]{12, 9, 4, 2.3, 1.5 };
+            fCs = new double[]{15, 10, 2 };
             
             // heavily crushed
-            //var fYs = new[]{ 80, 50, 20, 10, 3.5, 1, 1, 1, 1};
-            //var fCs = new[]{200, 100, 50, 10, 3.5, 2, 1, 1, 1};
+            //fYs = new[]{ 80, 50, 20, 10, 3.5, 1, 1, 1, 1};
+            //fCs = new[]{200, 100, 50, 10, 3.5, 2, 1, 1, 1};
 
             // about the same as 100% JPEG
-            //var fYs = new[]{ 1, 1, 1, 1, 1, 1, 1, 1, 1};
-            //var fCs = new[]{10000, 2, 1, 1, 1, 1, 1, 1, 1};
+            //fYs = new double[]{ 1, 1, 1, 1, 1, 1, 1, 1, 1};
+            //fCs = new double[]{10000, 2, 1, 1, 1, 1, 1, 1, 1};
 
+            
             for (int r = 0; r < rounds; r++)
             {
-                double factor = (ch == 2) ? fYs[r] : fCs[r];
-
+                var factors = (ch == 2) ? fYs : fCs;
+                var factor = (r >= factors.Length) ? factors[factors.Length - 1] : factors[r];
                 if (mode == QuantiseType.Reduce) factor = 1 / factor;
-                var width = si.Width >> r;
-                var height = si.Height >> r;
-                // vertical
-                for (int y = height / 2; y < height; y++)
-                {
-                    var yo = y * si.Width;
-                    for (int x = 0; x < width; x++)
-                    {
-                        buffer[yo+x] *= factor;
-                    }
-                }
 
-                // half-horizontal
-                for (int y = 0; y < height / 2; y++)
+                var len = buffer.Length >> r;
+                for (int i = len / 2; i < len; i++)
                 {
-                    var yo = y * si.Width;
-                    for (int x = width / 2; x < width; x++)
-                    {
-                        buffer[yo+x] *= factor;
-                    }
+                    buffer[i] *= factor;
                 }
             }
         }
