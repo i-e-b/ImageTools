@@ -194,7 +194,6 @@ namespace ImageTools
                 img3d.U[i] += 127.5;
             }
         }
-
         
         // Reducing image in XY first then by Z
         public static void ReduceImage3D_2(Image3d img3d)
@@ -332,27 +331,339 @@ namespace ImageTools
             }
         }
 
-        private static void CubeOrder(Image3d img3d, Action<int,int,int> wc) {
-            for (int i = 0; i < img3d.MaxDimension; i++)
-            {
-                // corner
-                wc(i,i,i);
+        
+        /// <summary>
+        /// Separate scales into 3 sets of coefficients
+        /// </summary>
+        static unsafe void WaveletDecomposePlanar3(byte* s, byte* d, BitmapData si, BitmapData di)
+        {
+            // Change color space
+            var bufferSize = To_YCxCx_ColorSpace(s, si);
 
-                for (int a = 0; a < i; a++)
-                {
-                    // faces
-                    for (int b = 0; b < i; b++)
-                    {
-                        wc(a,b,i);
-                        wc(i,a,b);
-                        wc(b,i,a);
-                    }
-                    // axis (excl corner)
-                    wc(a,i,i); // x
-                    wc(i,a,i); // y
-                    wc(i,i,a); // z
-                }
+
+            int rounds = (int)Math.Log(si.Width, 2) - 1;
+            Console.WriteLine($"Decomposing with {rounds} rounds");
+
+            for (int ch = 0; ch < 3; ch++)
+            {
+                var buffer = ReadPlane(s, si, ch);
+
+                // DC to AC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
+
+                // Transform
+                PlanarDecompose(si, buffer, rounds);
+
+
+                // Test of quantisation:
+               // var quality = (ch + 1) * 2; // bias quality by color channel. Assumes 2=Y
+                //buffer = QuantiseByIndependentRound(si, buffer, ch, rounds, quality);
+                //buffer = QuantiseByEnergyBalance(si, buffer, ch, rounds, quality);
+
+                WriteToFileFibonacci(buffer, ch, "planar");
+
+                
+                ReadFromFileFibonacci(buffer, ch, "planar");
+
+                // Restore
+                PlanarRestore(si, buffer, rounds);
+
+                // AC to DC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
+
+                // Write back to image
+                WritePlane(buffer, d, di, ch);
             }
+            
+            // Restore color space
+            To_RGB_ColorSpace(d, bufferSize);
+        }
+
+        /// <summary>
+        /// This version is a hybrid between Morton (1 set of Coeffs per round) and Planar (3 sets of Coeffs per round)
+        /// </summary>
+        static unsafe void WaveletDecomposePlanar2(byte* s, byte* d, BitmapData si, BitmapData di)
+        {
+            // Change color space
+            var bufferSize = To_YCxCx_ColorSpace(s, si);
+
+            // Current best: 265kb
+
+            int rounds = (int)Math.Log(si.Width, 2) - 1;
+            Console.WriteLine($"Decomposing with {rounds} rounds");
+
+            for (int ch = 0; ch < 3; ch++)
+            {
+                var buffer = ReadPlane(s, si, ch);
+
+                // DC to AC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
+
+                // Transform
+                for (int i = 0; i < rounds; i++)
+                {
+                    var height = si.Height >> i;
+                    var width = si.Width >> i;
+
+                    var hx = new double[height];
+                    var yx = new double[width];
+
+                    // Wavelet decompose vertical
+                    for (int x = 0; x < width; x++) // each column
+                    {
+                        Fwt97(buffer, hx, x, si.Width);
+                    }
+                    
+                    // Wavelet decompose HALF horizontal
+                    for (int y = 0; y < height / 2; y++) // each row
+                    {
+                        Fwt97(buffer, yx, y * si.Width, 1);
+                    }
+                }
+
+                // Unquantised: native: 708kb; Ordered:  705kb
+                // Reorder, Quantise and reduce co-efficients
+                ToStorageOrder2D(buffer, si, rounds);
+                QuantisePlanar2(buffer, ch, rounds, QuantiseType.Reduce);
+
+                // Write output
+                WriteToFileFibonacci(buffer, ch, "p_2");
+
+                // Prove reading is good:
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0.0; }
+
+                // read output
+                ReadFromFileFibonacci(buffer, ch, "p_2");
+
+                // Re-expand co-efficients
+                QuantisePlanar2(buffer, ch, rounds, QuantiseType.Expand);
+                FromStorageOrder2D(buffer, si, rounds);
+
+                // Restore
+                for (int i = rounds - 1; i >= 0; i--)
+                {
+                    var height = si.Height >> i;
+                    var width = si.Width >> i;
+
+                    var hx = new double[height];
+                    var yx = new double[width];
+
+                    // Wavelet restore HALF horizontal
+                    for (int y = 0; y < height / 2; y++) // each row
+                    {
+                        Iwt97(buffer, yx, y * si.Width, 1);
+                    }
+
+                    // Wavelet restore vertical
+                    for (int x = 0; x < width; x++) // each column
+                    {
+                        Iwt97(buffer, hx, x, si.Width);
+                    }
+                }
+                
+                // AC to DC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
+
+                // Write back to image
+                WritePlane(buffer, d, di, ch);
+            }
+            
+            // Restore color space
+            To_RGB_ColorSpace(d, bufferSize);
+        }
+
+        /// <summary>
+        /// Separate scales into 1 set of coefficients using a spacefilling curve
+        /// </summary>
+        static unsafe void WaveletDecomposeMortonOrder(byte* s, byte* d, BitmapData si, BitmapData di)
+        {
+            // Change color space
+            var bufferSize = To_YCxCx_ColorSpace(s, si);
+
+            int rounds = (int)Math.Log(bufferSize, 2) - 1;
+            Console.WriteLine($"Decomposing with {rounds} rounds");
+
+            for (int ch = 0; ch < 3; ch++)
+            {
+                var buffer = ReadPlane(s, si, ch);
+
+                // DC to AC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
+
+                // Transform
+                buffer = ToMortonOrder(buffer, si.Width, si.Height);
+                for (int i = 0; i < rounds; i++)
+                {
+                    var length = bufferSize >> i;
+                    var work = new double[length];
+                    Fwt97(buffer, work, 0, 1);
+                }
+
+                WriteToFileFibonacci(buffer, ch, "morton");
+                
+                // read output
+                ReadFromFileFibonacci(buffer, ch, "morton");
+
+                // Restore
+                for (int i = rounds - 1; i >= 0; i--)
+                {
+                    var length = bufferSize >> i;
+                    var work = new double[length];
+                    Iwt97(buffer, work, 0, 1);
+                }
+
+                buffer = FromMortonOrder(buffer, si.Width, si.Height);
+
+                // AC to DC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
+
+                // Write back to image
+                WritePlane(buffer, d, di, ch);
+            }
+            
+            // Restore color space
+            To_RGB_ColorSpace(d, bufferSize);
+        }
+
+        /// <summary>
+        ///  fwt97 - Forward biorthogonal 9/7 wavelet transform (lifting implementation)
+        ///<para></para><list type="bullet">
+        ///  <item><description>x is an input signal, which will be replaced by its output transform.</description></item>
+        ///  <item><description>n is the length of the signal, and must be a power of 2.</description></item>
+        ///  <item><description>s is the stride across the signal (for multi dimensional signals)</description></item>
+        /// </list>
+        ///<para></para>
+        ///  The first half part of the output signal contains the approximation coefficients.
+        ///  The second half part contains the detail coefficients (aka. the wavelets coefficients).
+        ///<para></para>
+        ///  See also iwt97.
+        /// </summary>
+        public static void Fwt97(double[] buf, double[] x, int offset, int stride)
+        {
+            double a;
+            int i;
+
+            // pick out stride data
+            var n = x.Length;
+            for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
+
+            // Predict 1
+            a = -1.586134342;
+            for (i = 1; i < n - 2; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
+            }
+            x[n - 1] += 2 * a * x[n - 2];
+
+            // Update 1
+            a = -0.05298011854;
+            for (i = 2; i < n; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
+            }
+            x[0] += 2 * a * x[1];
+
+            // Predict 2
+            a = 0.8829110762;
+            for (i = 1; i < n - 2; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
+            }
+            x[n - 1] += 2 * a * x[n - 2];
+
+            // Update 2
+            a = 0.4435068522;
+            for (i = 2; i < n; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
+            }
+            x[0] += 2 * a * x[1];
+
+            // Scale
+            a = 1 / 1.149604398;
+            var b = 1.149604398;
+            for (i = 0; i < n; i+=2)
+            {
+                x[i] *= a;
+                x[i+1] *= b;
+            }
+
+            // Pack into buffer (using stride and offset)
+            // The raw output is like [DC][AC][DC][AC]...
+            // we want it as          [DC][DC]...[AC][AC]
+            var hn = n/2;
+            for (i = 0; i < hn; i++) {
+                buf[i * stride + offset] = x[i*2];
+                buf[(i + hn) * stride + offset] = x[1 + i * 2];
+            }
+        }
+
+        /// <summary>
+        /// iwt97 - Inverse biorthogonal 9/7 wavelet transform
+        /// <para></para>
+        /// This is the inverse of fwt97 so that iwt97(fwt97(x,n),n)=x for every signal x of length n.
+        /// <para></para>
+        /// See also fwt97.
+        /// </summary>
+        public static void Iwt97(double[] buf, double[] x, int offset, int stride)
+        {
+            double a;
+            int i;
+                        
+            // Unpack from stride into working buffer
+            // The raw input is like [DC][DC]...[AC][AC]
+            // we want it as         [DC][AC][DC][AC]...
+            var n = x.Length;
+            var hn = n/2;
+            for (i = 0; i < hn; i++) {
+                x[i*2] = buf[i * stride + offset];
+                x[1 + i * 2] = buf[(i + hn) * stride + offset];
+            }
+
+            // Undo scale
+            a = 1.149604398;
+            var b = 1 / 1.149604398;
+            for (i = 0; i < n; i+=2)
+            {
+                x[i] *= a;
+                x[i+1] *= b;
+            }
+
+            // Undo update 2
+            a = -0.4435068522;
+            for (i = 2; i < n; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
+            }
+            x[0] += 2 * a * x[1];
+
+            // Undo predict 2
+            a = -0.8829110762;
+            for (i = 1; i < n - 2; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
+            }
+            x[n - 1] += 2 * a * x[n - 2];
+
+            // Undo update 1
+            a = 0.05298011854;
+            for (i = 2; i < n; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
+            }
+            x[0] += 2 * a * x[1];
+
+            // Undo predict 1
+            a = 1.586134342;
+            for (i = 1; i < n - 2; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
+            }
+            x[n - 1] += 2 * a * x[n - 2];
+            
+
+            // write back stride data
+            for (i = 0; i < n; i++) { buf[i * stride + offset] = x[i]; }
         }
 
         // An attempt at reordering specifically for 3D CDF
@@ -661,286 +972,6 @@ namespace ImageTools
             return swap;
         }
 
-        /// <summary>
-        ///  fwt97 - Forward biorthogonal 9/7 wavelet transform (lifting implementation)
-        ///<para></para><list type="bullet">
-        ///  <item><description>x is an input signal, which will be replaced by its output transform.</description></item>
-        ///  <item><description>n is the length of the signal, and must be a power of 2.</description></item>
-        ///  <item><description>s is the stride across the signal (for multi dimensional signals)</description></item>
-        /// </list>
-        ///<para></para>
-        ///  The first half part of the output signal contains the approximation coefficients.
-        ///  The second half part contains the detail coefficients (aka. the wavelets coefficients).
-        ///<para></para>
-        ///  See also iwt97.
-        /// </summary>
-        public static void Fwt97(double[] buf, double[] x, int offset, int stride)
-        {
-            double a;
-            int i;
-
-            // pick out stride data
-            var n = x.Length;
-            for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
-
-            // Predict 1
-            a = -1.586134342;
-            for (i = 1; i < n - 2; i += 2)
-            {
-                x[i] += a * (x[i - 1] + x[i + 1]);
-            }
-            x[n - 1] += 2 * a * x[n - 2];
-
-            // Update 1
-            a = -0.05298011854;
-            for (i = 2; i < n; i += 2)
-            {
-                x[i] += a * (x[i - 1] + x[i + 1]);
-            }
-            x[0] += 2 * a * x[1];
-
-            // Predict 2
-            a = 0.8829110762;
-            for (i = 1; i < n - 2; i += 2)
-            {
-                x[i] += a * (x[i - 1] + x[i + 1]);
-            }
-            x[n - 1] += 2 * a * x[n - 2];
-
-            // Update 2
-            a = 0.4435068522;
-            for (i = 2; i < n; i += 2)
-            {
-                x[i] += a * (x[i - 1] + x[i + 1]);
-            }
-            x[0] += 2 * a * x[1];
-
-            // Scale
-            a = 1 / 1.149604398;
-            var b = 1.149604398;
-            for (i = 0; i < n; i+=2)
-            {
-                x[i] *= a;
-                x[i+1] *= b;
-            }
-
-            // Pack into buffer (using stride and offset)
-            // The raw output is like [DC][AC][DC][AC]...
-            // we want it as          [DC][DC]...[AC][AC]
-            var hn = n/2;
-            for (i = 0; i < hn; i++) {
-                buf[i * stride + offset] = x[i*2];
-                buf[(i + hn) * stride + offset] = x[1 + i * 2];
-            }
-        }
-
-        /// <summary>
-        /// iwt97 - Inverse biorthogonal 9/7 wavelet transform
-        /// <para></para>
-        /// This is the inverse of fwt97 so that iwt97(fwt97(x,n),n)=x for every signal x of length n.
-        /// <para></para>
-        /// See also fwt97.
-        /// </summary>
-        public static void Iwt97(double[] buf, double[] x, int offset, int stride)
-        {
-            double a;
-            int i;
-                        
-            // Unpack from stride into working buffer
-            // The raw input is like [DC][DC]...[AC][AC]
-            // we want it as         [DC][AC][DC][AC]...
-            var n = x.Length;
-            var hn = n/2;
-            for (i = 0; i < hn; i++) {
-                x[i*2] = buf[i * stride + offset];
-                x[1 + i * 2] = buf[(i + hn) * stride + offset];
-            }
-
-            // Undo scale
-            a = 1.149604398;
-            var b = 1 / 1.149604398;
-            for (i = 0; i < n; i+=2)
-            {
-                x[i] *= a;
-                x[i+1] *= b;
-            }
-
-            // Undo update 2
-            a = -0.4435068522;
-            for (i = 2; i < n; i += 2)
-            {
-                x[i] += a * (x[i - 1] + x[i + 1]);
-            }
-            x[0] += 2 * a * x[1];
-
-            // Undo predict 2
-            a = -0.8829110762;
-            for (i = 1; i < n - 2; i += 2)
-            {
-                x[i] += a * (x[i - 1] + x[i + 1]);
-            }
-            x[n - 1] += 2 * a * x[n - 2];
-
-            // Undo update 1
-            a = 0.05298011854;
-            for (i = 2; i < n; i += 2)
-            {
-                x[i] += a * (x[i - 1] + x[i + 1]);
-            }
-            x[0] += 2 * a * x[1];
-
-            // Undo predict 1
-            a = 1.586134342;
-            for (i = 1; i < n - 2; i += 2)
-            {
-                x[i] += a * (x[i - 1] + x[i + 1]);
-            }
-            x[n - 1] += 2 * a * x[n - 2];
-            
-
-            // write back stride data
-            for (i = 0; i < n; i++) { buf[i * stride + offset] = x[i]; }
-        }
-        
-        /// <summary>
-        /// Separate scales into 3 sets of coefficients
-        /// </summary>
-        static unsafe void WaveletDecomposePlanar3(byte* s, byte* d, BitmapData si, BitmapData di)
-        {
-            // Change color space
-            var bufferSize = To_YCxCx_ColorSpace(s, si);
-
-
-            int rounds = (int)Math.Log(si.Width, 2) - 1;
-            Console.WriteLine($"Decomposing with {rounds} rounds");
-
-            for (int ch = 0; ch < 3; ch++)
-            {
-                var buffer = ReadPlane(s, si, ch);
-
-                // DC to AC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
-
-                // Transform
-                PlanarDecompose(si, buffer, rounds);
-
-
-                // Test of quantisation:
-               // var quality = (ch + 1) * 2; // bias quality by color channel. Assumes 2=Y
-                //buffer = QuantiseByIndependentRound(si, buffer, ch, rounds, quality);
-                //buffer = QuantiseByEnergyBalance(si, buffer, ch, rounds, quality);
-
-                WriteToFileFibonacci(buffer, ch, "planar");
-
-                
-                ReadFromFileFibonacci(buffer, ch, "planar");
-
-                // Restore
-                PlanarRestore(si, buffer, rounds);
-
-                // AC to DC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
-
-                // Write back to image
-                WritePlane(buffer, d, di, ch);
-            }
-            
-            // Restore color space
-            To_RGB_ColorSpace(d, bufferSize);
-        }
-
-        /// <summary>
-        /// This version is a hybrid between Morton (1 set of Coeffs per round) and Planar (3 sets of Coeffs per round)
-        /// </summary>
-        static unsafe void WaveletDecomposePlanar2(byte* s, byte* d, BitmapData si, BitmapData di)
-        {
-            // Change color space
-            var bufferSize = To_YCxCx_ColorSpace(s, si);
-
-            // Current best: 259kb; 253kb
-
-            int rounds = (int)Math.Log(si.Width, 2) - 1;
-            Console.WriteLine($"Decomposing with {rounds} rounds");
-
-            for (int ch = 0; ch < 3; ch++)
-            {
-                var buffer = ReadPlane(s, si, ch);
-
-                // DC to AC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
-
-                // Transform
-                for (int i = 0; i < rounds; i++)
-                {
-                    var height = si.Height >> i;
-                    var width = si.Width >> i;
-
-                    var hx = new double[height];
-                    var yx = new double[width];
-
-                    // Wavelet decompose vertical
-                    for (int x = 0; x < width; x++) // each column
-                    {
-                        Fwt97(buffer, hx, x, si.Width);
-                    }
-                    
-                    // Wavelet decompose HALF horizontal
-                    for (int y = 0; y < height / 2; y++) // each row
-                    {
-                        Fwt97(buffer, yx, y * si.Width, 1);
-                    }
-                }
-
-                // Reorder, Quantise and reduce co-efficients
-                ToStorageOrder2D(buffer, si, rounds);
-                QuantisePlanar2(si, buffer, ch, rounds, QuantiseType.Reduce);
-
-                // Write output
-                WriteToFileFibonacci(buffer, ch, "p_2");
-
-                // Prove reading is good:
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0.0; }
-
-                // read output
-                ReadFromFileFibonacci(buffer, ch, "p_2");
-
-                // Re-expand co-efficients
-                QuantisePlanar2(si, buffer, ch, rounds, QuantiseType.Expand);
-                FromStorageOrder2D(buffer, si, rounds);
-
-                // Restore
-                for (int i = rounds - 1; i >= 0; i--)
-                {
-                    var height = si.Height >> i;
-                    var width = si.Width >> i;
-
-                    var hx = new double[height];
-                    var yx = new double[width];
-
-                    // Wavelet restore HALF horizontal
-                    for (int y = 0; y < height / 2; y++) // each row
-                    {
-                        Iwt97(buffer, yx, y * si.Width, 1);
-                    }
-
-                    // Wavelet restore vertical
-                    for (int x = 0; x < width; x++) // each column
-                    {
-                        Iwt97(buffer, hx, x, si.Width);
-                    }
-                }
-                
-                // AC to DC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
-
-                // Write back to image
-                WritePlane(buffer, d, di, ch);
-            }
-            
-            // Restore color space
-            To_RGB_ColorSpace(d, bufferSize);
-        }
-
         private static void Quantise3D(double[] buffer, QuantiseType mode, int rounds, int ch)
         {
             // ReSharper disable JoinDeclarationAndInitializer
@@ -1014,7 +1045,7 @@ namespace ImageTools
             }
         }
 
-        private static void QuantisePlanar2(BitmapData si, double[] buffer, int ch, int rounds, QuantiseType mode)
+        private static void QuantisePlanar2(double[] buffer, int ch, int rounds, QuantiseType mode)
         {
             // ReSharper disable JoinDeclarationAndInitializer
             double[] fYs, fCs;   
@@ -1030,8 +1061,8 @@ namespace ImageTools
             fCs = new double[]{15, 10, 2 };
             
             // heavily crushed
-            //fYs = new[]{ 80, 50, 20, 10, 3.5, 1, 1, 1, 1};
-            //fCs = new[]{200, 100, 50, 10, 3.5, 2, 1, 1, 1};
+            //fYs = new double[]{ 60, 60, 40, 20, 10, 6.5, 3.5, 1.5 };
+            //fCs = new double[]{1000, 200, 100, 50, 20, 10, 4};
 
             // about the same as 100% JPEG
             //fYs = new double[]{ 1, 1, 1, 1, 1, 1, 1, 1, 1};
@@ -1045,64 +1076,11 @@ namespace ImageTools
                 if (mode == QuantiseType.Reduce) factor = 1 / factor;
 
                 var len = buffer.Length >> r;
-                for (int i = len / 2; i < len; i++)
+                for (int i = len >> 1; i < len; i++)
                 {
                     buffer[i] *= factor;
                 }
             }
-        }
-
-        /// <summary>
-        /// Separate scales into 1 set of coefficients using a spacefilling curve
-        /// </summary>
-        static unsafe void WaveletDecomposeMortonOrder(byte* s, byte* d, BitmapData si, BitmapData di)
-        {
-            // Change color space
-            var bufferSize = To_YCxCx_ColorSpace(s, si);
-
-            int rounds = (int)Math.Log(bufferSize, 2) - 1;
-            Console.WriteLine($"Decomposing with {rounds} rounds");
-
-            for (int ch = 0; ch < 3; ch++)
-            {
-                var buffer = ReadPlane(s, si, ch);
-
-                // DC to AC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
-
-                // Transform
-                buffer = ToMortonOrder(buffer, si.Width, si.Height);
-                for (int i = 0; i < rounds; i++)
-                {
-                    var length = bufferSize >> i;
-                    var work = new double[length];
-                    Fwt97(buffer, work, 0, 1);
-                }
-
-                WriteToFileFibonacci(buffer, ch, "morton");
-                
-                // read output
-                ReadFromFileFibonacci(buffer, ch, "morton");
-
-                // Restore
-                for (int i = rounds - 1; i >= 0; i--)
-                {
-                    var length = bufferSize >> i;
-                    var work = new double[length];
-                    Iwt97(buffer, work, 0, 1);
-                }
-
-                buffer = FromMortonOrder(buffer, si.Width, si.Height);
-
-                // AC to DC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
-
-                // Write back to image
-                WritePlane(buffer, d, di, ch);
-            }
-            
-            // Restore color space
-            To_RGB_ColorSpace(d, bufferSize);
         }
 
         private static unsafe void To_RGB_ColorSpace(byte* d, int bufferSize)
