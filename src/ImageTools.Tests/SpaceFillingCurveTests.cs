@@ -19,7 +19,6 @@ namespace ImageTools.Tests
             Assert.That(x, Is.EqualTo(6));
             Assert.That(y, Is.EqualTo(4));
         }
-        
 
         [Test]
         public void large_size_hilbert_test ()

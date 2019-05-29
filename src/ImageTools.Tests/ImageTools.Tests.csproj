@@ -47,6 +47,7 @@
     <Compile Include="BlurringImages.cs" />
     <Compile Include="ByteEncodingTests.cs" />
     <Compile Include="ColorSpaceTests.cs" />
+    <Compile Include="InterleavedFileTests.cs" />
     <Compile Include="SpaceFillingCurveTests.cs" />
     <Compile Include="WaveletTests.cs" />
     <Compile Include="SampleDownscales.cs" />
