@@ -10,6 +10,9 @@ using ImageTools.Utilities;
 
 namespace ImageTools
 {
+    /// <summary>
+    /// https://en.wikipedia.org/wiki/Cohen%E2%80%93Daubechies%E2%80%93Feauveau_wavelet
+    /// </summary>
     public class CDF_9_7
     {
         public static unsafe Bitmap HorizontalGradients(Bitmap src)
@@ -1244,18 +1247,12 @@ namespace ImageTools
             else
             {
                 // GZIP
-                using (var ms = new MemoryStream())
+                using (var fs = File.Open(testpath, FileMode.Create))
+                using (var gs = new DeflateStream(fs, CompressionMode.Compress))
                 {
-                    DataEncoding.FibonacciEncode(buffer, ms);
-                    ms.Seek(0, SeekOrigin.Begin);
-
-                    using (var fs = File.Open(testpath, FileMode.Create))
-                    using (var gs = new DeflateStream(fs, CompressionMode.Compress))
-                    {
-                        ms.CopyTo(gs);
-                        gs.Flush();
-                        fs.Flush();
-                    }
+                    DataEncoding.FibonacciEncode(buffer, gs);
+                    gs.Flush();
+                    fs.Flush();
                 }
             }
         }

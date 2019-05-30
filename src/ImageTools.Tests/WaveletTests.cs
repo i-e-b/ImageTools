@@ -99,50 +99,6 @@ namespace ImageTools.Tests
             Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_3.bmp"));
         }
 
-        static int count;
-        private void wc(int x, int y, int z) {
-            count++;
-            //Console.Write($"{x},{y},{z}; ");
-        }
-
-        [Test]
-        public void temp() {
-
-            //int width = 16, height = 3, depth = 3;
-            int maxDim = 256; // largest of any dimension
-
-            // should be along the lines of
-            // 0,0,0; 1,0,0; 0,1,0; 0,0,1; 1,1,0; 0,1,1; 1,1,1; 
-            count = 0;
-
-            for (int i = 0; i < maxDim; i++)
-            {
-                //Console.WriteLine();
-                // corner
-                wc(i,i,i);
-
-                // axiis (excl corner),
-                for (int a = 0; a < i; a++)
-                {
-                    wc(a,i,i); // x
-                    wc(i,a,i); // y
-                    wc(i,i,a); // z
-
-                    // faces
-                    for (int b = 0; b < i; b++)
-                    {
-                        wc(a,b,i);
-                        wc(i,a,b);
-                        wc(b,i,a);
-                    }
-                }
-                
-            }
-
-            Console.WriteLine($"Final point count = {count}; Expecting {Math.Pow(maxDim,3)}");
-
-        }
-
         [Test]
         public void wavelet_3d_image_reduction()
         {
