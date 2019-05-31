@@ -70,9 +70,9 @@ namespace ImageTools
             // DC to AC
             for (int i = 0; i < img3d.Y.Length; i++)
             {
-                img3d.Y[i] -= 127.5;
-                img3d.V[i] -= 127.5;
-                img3d.U[i] -= 127.5;
+                img3d.Y[i] -= 127.5f;
+                img3d.V[i] -= 127.5f;
+                img3d.U[i] -= 127.5f;
             }
 
             var quantise = 1.0;
@@ -84,7 +84,7 @@ namespace ImageTools
 
             for (int ch = 0; ch < 3; ch++)
             {
-                double[] buffer = null;
+                float[] buffer = null;
                 MemoryStream ms = null;
                 switch(ch) {
                     case 0:
@@ -109,8 +109,8 @@ namespace ImageTools
                     var width = img3d.Width >> i;
                     var depth = img3d.Depth;
 
-                    var hx = new double[height];
-                    var yx = new double[width];
+                    var hx = new float[height];
+                    var yx = new float[width];
 
                     for (int z = 0; z < depth; z++)
                     {
@@ -135,7 +135,7 @@ namespace ImageTools
                 for (int i = 0; i < rounds; i++)
                 {
                     var depth = img3d.Depth >> i;
-                    var dx = new double[depth];
+                    var dx = new float[depth];
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
                         Fwt97(buffer, dx, xy, img3d.zspan);
@@ -162,6 +162,8 @@ namespace ImageTools
             // Interleave then compress = 160kb
             // Compress then interleave = 128kb
 
+            // equivalent bpp: 0.062 (263146 bits)/(4194304 pixels)
+
             // interleave the files:
             msY.Seek(0, SeekOrigin.Begin);
             msU.Seek(0, SeekOrigin.Begin);
@@ -184,7 +186,12 @@ namespace ImageTools
             InterleavedFile container;
             using (var fs = File.Open(targetPath, FileMode.Open))
             {
-                container = InterleavedFile.ReadFromStream(fs);
+                // reduce factor to demonstrate shortened files
+                var length = (int)(fs.Length * 0.9);
+                Console.WriteLine($"Reading {length} bytes of a total {fs.Length}");
+                var trunc_sim = new TruncatedStream(fs, length);
+
+                container = InterleavedFile.ReadFromStream(trunc_sim);
             }
             if (container == null) return null;
 
@@ -196,7 +203,7 @@ namespace ImageTools
             // this MUST exactly match the reduce method, but with transforms in reverse order
             for (int ch = 0; ch < 3; ch++)
             {
-                double[] buffer = null;
+                float[] buffer = null;
                 switch(ch) {
                     case 0: 
                         buffer = img3d.Y;
@@ -227,7 +234,7 @@ namespace ImageTools
                 for (int i = rounds - 1; i >= 0; i--)
                 {
                     var depth = img3d.Depth >> i;
-                    var dx = new double[depth];
+                    var dx = new float[depth];
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
                         Iwt97(buffer, dx, xy, img3d.zspan);
@@ -241,8 +248,8 @@ namespace ImageTools
                     var width = img3d.Width >> i;
                     var depth = img3d.Depth;
 
-                    var hx = new double[height];
-                    var yx = new double[width];
+                    var hx = new float[height];
+                    var yx = new float[width];
 
                     for (int z = 0; z < depth; z++)
                     {
@@ -267,9 +274,9 @@ namespace ImageTools
             // AC to DC
             for (int i = 0; i < img3d.Y.Length; i++)
             {
-                img3d.Y[i] += 127.5;
-                img3d.V[i] += 127.5;
-                img3d.U[i] += 127.5;
+                img3d.Y[i] += 127.5f;
+                img3d.V[i] += 127.5f;
+                img3d.U[i] += 127.5f;
             }
 
             return img3d;
@@ -286,16 +293,16 @@ namespace ImageTools
             // DC to AC
             for (int i = 0; i < img3d.Y.Length; i++)
             {
-                img3d.Y[i] -= 127.5;
-                img3d.V[i] -= 127.5;
-                img3d.U[i] -= 127.5;
+                img3d.Y[i] -= 127.5f;
+                img3d.V[i] -= 127.5f;
+                img3d.U[i] -= 127.5f;
             }
 
             var quantise = 1.0;
 
             for (int ch = 0; ch < 3; ch++)
             {
-                double[] buffer = null;
+                float[] buffer = null;
                 switch(ch) {
                     case 0: buffer = img3d.Y; break;
                     case 1: buffer = img3d.U; break; // not entirely sure if orange or green deserves more bits
@@ -310,9 +317,9 @@ namespace ImageTools
                     var width = img3d.Width >> i;
                     var depth = img3d.Depth >> i;
 
-                    var hx = new double[height];
-                    var yx = new double[width];
-                    var dx = new double[depth];
+                    var hx = new float[height];
+                    var yx = new float[width];
+                    var dx = new float[depth];
 
                     // Try different orderings of XY and Z once compressed output is going
                     //  Z,Y,X = 218(@7); = 11.8(@64)     
@@ -369,9 +376,9 @@ namespace ImageTools
                     var width = img3d.Width >> i;
                     var depth = img3d.Depth >> i;
 
-                    var hx = new double[height];
-                    var yx = new double[width];
-                    var dx = new double[depth];
+                    var hx = new float[height];
+                    var yx = new float[width];
+                    var dx = new float[depth];
 
                     // Order here must be exact reverse of above
 
@@ -406,9 +413,9 @@ namespace ImageTools
             // AC to DC
             for (int i = 0; i < img3d.Y.Length; i++)
             {
-                img3d.Y[i] += 127.5;
-                img3d.V[i] += 127.5;
-                img3d.U[i] += 127.5;
+                img3d.Y[i] += 127.5f;
+                img3d.V[i] += 127.5f;
+                img3d.U[i] += 127.5f;
             }
         }
         
@@ -418,16 +425,16 @@ namespace ImageTools
             // DC to AC
             for (int i = 0; i < img3d.Y.Length; i++)
             {
-                img3d.Y[i] -= 127.5;
-                img3d.V[i] -= 127.5;
-                img3d.U[i] -= 127.5;
+                img3d.Y[i] -= 127.5f;
+                img3d.V[i] -= 127.5f;
+                img3d.U[i] -= 127.5f;
             }
 
             int rounds;
 
             for (int ch = 0; ch < 3; ch++)
             {
-                double[] buffer = null;
+                float[] buffer = null;
                 switch(ch) {
                     case 0: buffer = img3d.Y; break;
                     case 1: buffer = img3d.U; break; // not entirely sure if orange or green deserves more bits
@@ -447,8 +454,8 @@ namespace ImageTools
                     var width = img3d.Width >> i;
                     var depth = img3d.Depth;
 
-                    var hx = new double[height];
-                    var yx = new double[width];
+                    var hx = new float[height];
+                    var yx = new float[width];
 
                     for (int z = 0; z < depth; z++)
                     {
@@ -473,7 +480,7 @@ namespace ImageTools
                 for (int i = 0; i < rounds; i++)
                 {
                     var depth = img3d.Depth >> i;
-                    var dx = new double[depth];
+                    var dx = new float[depth];
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
                         Fwt97(buffer, dx, xy, img3d.zspan);
@@ -487,7 +494,7 @@ namespace ImageTools
                 WriteToFileFibonacci(buffer, ch, "3D");
 
                 // clear buffer:
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0.0; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0.0f; }
 
                 // Read, De-quantise, reorder
                 ReadFromFileFibonacci(buffer, ch, "3D");
@@ -501,7 +508,7 @@ namespace ImageTools
                 for (int i = rounds - 1; i >= 0; i--)
                 {
                     var depth = img3d.Depth >> i;
-                    var dx = new double[depth];
+                    var dx = new float[depth];
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
                         Iwt97(buffer, dx, xy, img3d.zspan);
@@ -515,8 +522,8 @@ namespace ImageTools
                     var width = img3d.Width >> i;
                     var depth = img3d.Depth;
 
-                    var hx = new double[height];
-                    var yx = new double[width];
+                    var hx = new float[height];
+                    var yx = new float[width];
 
                     for (int z = 0; z < depth; z++)
                     {
@@ -541,9 +548,9 @@ namespace ImageTools
             // AC to DC
             for (int i = 0; i < img3d.Y.Length; i++)
             {
-                img3d.Y[i] += 127.5;
-                img3d.V[i] += 127.5;
-                img3d.U[i] += 127.5;
+                img3d.Y[i] += 127.5f;
+                img3d.V[i] += 127.5f;
+                img3d.U[i] += 127.5f;
             }
         }
 
@@ -565,7 +572,7 @@ namespace ImageTools
                 var buffer = ReadPlane(s, si, ch);
 
                 // DC to AC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5f; }
 
                 // Transform
                 PlanarDecompose(si, buffer, rounds);
@@ -585,7 +592,7 @@ namespace ImageTools
                 PlanarRestore(si, buffer, rounds);
 
                 // AC to DC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5f; }
 
                 // Write back to image
                 WritePlane(buffer, d, di, ch);
@@ -613,7 +620,7 @@ namespace ImageTools
                 var buffer = ReadPlane(s, si, ch);
 
                 // DC to AC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5f; }
 
                 // Transform
                 for (int i = 0; i < rounds; i++)
@@ -621,8 +628,8 @@ namespace ImageTools
                     var height = si.Height >> i;
                     var width = si.Width >> i;
 
-                    var hx = new double[height];
-                    var yx = new double[width];
+                    var hx = new float[height];
+                    var yx = new float[width];
 
                     // Wavelet decompose vertical
                     for (int x = 0; x < width; x++) // each column
@@ -646,7 +653,7 @@ namespace ImageTools
                 WriteToFileFibonacci(buffer, ch, "p_2");
 
                 // Prove reading is good:
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0.0; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0.0f; }
 
                 // read output
                 ReadFromFileFibonacci(buffer, ch, "p_2");
@@ -661,8 +668,8 @@ namespace ImageTools
                     var height = si.Height >> i;
                     var width = si.Width >> i;
 
-                    var hx = new double[height];
-                    var yx = new double[width];
+                    var hx = new float[height];
+                    var yx = new float[width];
 
                     // Wavelet restore HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
@@ -678,7 +685,7 @@ namespace ImageTools
                 }
                 
                 // AC to DC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5f; }
 
                 // Write back to image
                 WritePlane(buffer, d, di, ch);
@@ -704,14 +711,14 @@ namespace ImageTools
                 var buffer = ReadPlane(s, si, ch);
 
                 // DC to AC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5f; }
 
                 // Transform
                 buffer = ToMortonOrder(buffer, si.Width, si.Height);
                 for (int i = 0; i < rounds; i++)
                 {
                     var length = bufferSize >> i;
-                    var work = new double[length];
+                    var work = new float[length];
                     Fwt97(buffer, work, 0, 1);
                 }
 
@@ -724,14 +731,14 @@ namespace ImageTools
                 for (int i = rounds - 1; i >= 0; i--)
                 {
                     var length = bufferSize >> i;
-                    var work = new double[length];
+                    var work = new float[length];
                     Iwt97(buffer, work, 0, 1);
                 }
 
                 buffer = FromMortonOrder(buffer, si.Width, si.Height);
 
                 // AC to DC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5f; }
 
                 // Write back to image
                 WritePlane(buffer, d, di, ch);
@@ -754,9 +761,9 @@ namespace ImageTools
         ///<para></para>
         ///  See also iwt97.
         /// </summary>
-        public static void Fwt97(double[] buf, double[] x, int offset, int stride)
+        public static void Fwt97(float[] buf, float[] x, int offset, int stride)
         {
-            double a;
+            float a;
             int i;
 
             // pick out stride data
@@ -764,7 +771,7 @@ namespace ImageTools
             for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
 
             // Predict 1
-            a = -1.586134342;
+            a = -1.586134342f;
             for (i = 1; i < n - 2; i += 2)
             {
                 x[i] += a * (x[i - 1] + x[i + 1]);
@@ -772,7 +779,7 @@ namespace ImageTools
             x[n - 1] += 2 * a * x[n - 2];
 
             // Update 1
-            a = -0.05298011854;
+            a = -0.05298011854f;
             for (i = 2; i < n; i += 2)
             {
                 x[i] += a * (x[i - 1] + x[i + 1]);
@@ -780,7 +787,7 @@ namespace ImageTools
             x[0] += 2 * a * x[1];
 
             // Predict 2
-            a = 0.8829110762;
+            a = 0.8829110762f;
             for (i = 1; i < n - 2; i += 2)
             {
                 x[i] += a * (x[i - 1] + x[i + 1]);
@@ -788,7 +795,7 @@ namespace ImageTools
             x[n - 1] += 2 * a * x[n - 2];
 
             // Update 2
-            a = 0.4435068522;
+            a = 0.4435068522f;
             for (i = 2; i < n; i += 2)
             {
                 x[i] += a * (x[i - 1] + x[i + 1]);
@@ -796,8 +803,8 @@ namespace ImageTools
             x[0] += 2 * a * x[1];
 
             // Scale
-            a = 1 / 1.149604398;
-            var b = 1.149604398;
+            a = 1.0f / 1.149604398f;
+            var b = 1.149604398f;
             for (i = 0; i < n; i+=2)
             {
                 x[i] *= a;
@@ -821,9 +828,9 @@ namespace ImageTools
         /// <para></para>
         /// See also fwt97.
         /// </summary>
-        public static void Iwt97(double[] buf, double[] x, int offset, int stride)
+        public static void Iwt97(float[] buf, float[] x, int offset, int stride)
         {
-            double a;
+            float a;
             int i;
                         
             // Unpack from stride into working buffer
@@ -837,8 +844,8 @@ namespace ImageTools
             }
 
             // Undo scale
-            a = 1.149604398;
-            var b = 1 / 1.149604398;
+            a = 1.149604398f;
+            var b = 1.0f / 1.149604398f;
             for (i = 0; i < n; i+=2)
             {
                 x[i] *= a;
@@ -846,7 +853,7 @@ namespace ImageTools
             }
 
             // Undo update 2
-            a = -0.4435068522;
+            a = -0.4435068522f;
             for (i = 2; i < n; i += 2)
             {
                 x[i] += a * (x[i - 1] + x[i + 1]);
@@ -854,7 +861,7 @@ namespace ImageTools
             x[0] += 2 * a * x[1];
 
             // Undo predict 2
-            a = -0.8829110762;
+            a = -0.8829110762f;
             for (i = 1; i < n - 2; i += 2)
             {
                 x[i] += a * (x[i - 1] + x[i + 1]);
@@ -862,7 +869,7 @@ namespace ImageTools
             x[n - 1] += 2 * a * x[n - 2];
 
             // Undo update 1
-            a = 0.05298011854;
+            a = 0.05298011854f;
             for (i = 2; i < n; i += 2)
             {
                 x[i] += a * (x[i - 1] + x[i + 1]);
@@ -870,7 +877,7 @@ namespace ImageTools
             x[0] += 2 * a * x[1];
 
             // Undo predict 1
-            a = 1.586134342;
+            a = 1.586134342f;
             for (i = 1; i < n - 2; i += 2)
             {
                 x[i] += a * (x[i - 1] + x[i + 1]);
@@ -883,9 +890,9 @@ namespace ImageTools
         }
 
         // An attempt at reordering specifically for 3D CDF
-        private static void FromStorageOrder3D(double[] buffer, Image3d img3d, int rounds)
+        private static void FromStorageOrder3D(float[] buffer, Image3d img3d, int rounds)
         {
-            var storage = new double[buffer.Length];
+            var storage = new float[buffer.Length];
 
             var depth = img3d.Depth;
 
@@ -955,9 +962,9 @@ namespace ImageTools
         }
 
         // An attempt at reordering specifically for 3D CDF
-        private static void ToStorageOrder3D(double[] buffer, Image3d img3d, int rounds)
+        private static void ToStorageOrder3D(float[] buffer, Image3d img3d, int rounds)
         {
-            var storage = new double[buffer.Length];
+            var storage = new float[buffer.Length];
 
             var depth = img3d.Depth;
 
@@ -1029,9 +1036,9 @@ namespace ImageTools
 
         
 
-        private static void FromStorageOrder2D(double[] buffer, BitmapData si, int rounds)
+        private static void FromStorageOrder2D(float[] buffer, BitmapData si, int rounds)
         {
-            var storage = new double[buffer.Length];
+            var storage = new float[buffer.Length];
 
             // Plan: Do like the CDF reductions, but put all depths together before the next scale.
             int incrPos = 0;
@@ -1088,9 +1095,9 @@ namespace ImageTools
             }
         }
 
-        private static void ToStorageOrder2D(double[] buffer, BitmapData si, int rounds)
+        private static void ToStorageOrder2D(float[] buffer, BitmapData si, int rounds)
         {
-            var storage = new double[buffer.Length];
+            var storage = new float[buffer.Length];
 
             // Plan: Do like the CDF reductions, but put all depths together before the next scale.
             int incrPos = 0;
@@ -1148,7 +1155,7 @@ namespace ImageTools
         }
 
 
-        private static void FromMortonOrder3D(double[] input, double[] output, Image3d img3d)
+        private static void FromMortonOrder3D(float[] input, float[] output, Image3d img3d)
         {
             var limit = (int)Math.Pow(img3d.MaxDimension, 3);
             var mx = img3d.Width - 1;
@@ -1167,14 +1174,14 @@ namespace ImageTools
             }
         }
 
-        private static double[] ToMortonOrder3D(double[] buffer, Image3d img3d)
+        private static float[] ToMortonOrder3D(float[] buffer, Image3d img3d)
         {
             var limit = (int)Math.Pow(img3d.MaxDimension, 3);
             var mx = img3d.Width - 1;
             var my = img3d.Height - 1;
             var mz = img3d.Depth - 1;
 
-            var swap = new double[buffer.Length];
+            var swap = new float[buffer.Length];
             int o = 0;
 
             for (uint i = 0; i < limit; i++)
@@ -1188,7 +1195,7 @@ namespace ImageTools
             return swap;
         }
 
-        private static void Quantise3D(double[] buffer, QuantiseType mode, int rounds, int ch)
+        private static void Quantise3D(float[] buffer, QuantiseType mode, int rounds, int ch)
         {
             // ReSharper disable JoinDeclarationAndInitializer
             double[] fYs, fCs;   
@@ -1250,7 +1257,7 @@ namespace ImageTools
             for (int r = 0; r < rounds; r++)
             {
                 var factors = (ch == 0) ? fYs : fCs;
-                var factor = (r >= factors.Length) ? factors[factors.Length - 1] : factors[r];
+                float factor = (float)((r >= factors.Length) ? factors[factors.Length - 1] : factors[r]);
                 if (mode == QuantiseType.Reduce) factor = 1 / factor;
 
                 var len = buffer.Length >> r;
@@ -1261,7 +1268,7 @@ namespace ImageTools
             }
         }
 
-        private static void QuantisePlanar2(double[] buffer, int ch, int rounds, QuantiseType mode)
+        private static void QuantisePlanar2(float[] buffer, int ch, int rounds, QuantiseType mode)
         {
             // ReSharper disable JoinDeclarationAndInitializer
             double[] fYs, fCs;   
@@ -1288,7 +1295,7 @@ namespace ImageTools
             for (int r = 0; r < rounds; r++)
             {
                 var factors = (ch == 2) ? fYs : fCs;
-                var factor = (r >= factors.Length) ? factors[factors.Length - 1] : factors[r];
+                float factor = (float)((r >= factors.Length) ? factors[factors.Length - 1] : factors[r]);
                 if (mode == QuantiseType.Reduce) factor = 1 / factor;
 
                 var len = buffer.Length >> r;
@@ -1324,9 +1331,9 @@ namespace ImageTools
             return bufferSize;
         }
 
-        private static double[] FromMortonOrder(double[] src, int width, int height)
+        private static float[] FromMortonOrder(float[] src, int width, int height)
         {
-            var dst = new double[width*height];
+            var dst = new float[width*height];
             var planeSize = width * height;
             for (uint i = 0; i < planeSize; i++) // each pixel (read cycle)
             {
@@ -1339,9 +1346,9 @@ namespace ImageTools
             return dst;
         }
 
-        private static double[] ToMortonOrder(double[] src, int width, int height)
+        private static float[] ToMortonOrder(float[] src, int width, int height)
         {
-            var dst = new double[width*height];
+            var dst = new float[width*height];
             for (uint y = 0; y < height; y++)
             {
                 var row = y * height;
@@ -1356,15 +1363,15 @@ namespace ImageTools
             return dst;
         }
 
-        private static void PlanarDecompose(BitmapData si, double[] buffer, int rounds)
+        private static void PlanarDecompose(BitmapData si, float[] buffer, int rounds)
         {
             for (int i = 0; i < rounds; i++)
             {
                 var height = si.Height >> i;
                 var width = si.Width >> i;
 
-                var hx = new double[height];
-                var wx = new double[width];
+                var hx = new float[height];
+                var wx = new float[width];
 
                 // Wavelet decompose vertical
                 for (int x = 0; x < width; x++) // each column
@@ -1380,15 +1387,15 @@ namespace ImageTools
             }
         }
 
-        private static void PlanarRestore(BitmapData si, double[] buffer, int rounds)
+        private static void PlanarRestore(BitmapData si, float[] buffer, int rounds)
         {
             for (int i = rounds - 1; i >= 0; i--)
             {
                 var height = si.Height >> i;
                 var width = si.Width >> i;
 
-                var hx = new double[height];
-                var wx = new double[width];
+                var hx = new float[height];
+                var wx = new float[width];
 
                 // Wavelet restore horizontal
                 for (int y = 0; y < height; y++) // each row
@@ -1404,7 +1411,7 @@ namespace ImageTools
             }
         }
 
-        private static void ReadFromFileFibonacci(double[] buffer, int ch, string name)
+        private static void ReadFromFileFibonacci(float[] buffer, int ch, string name)
         {
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\" + name + "_fib_test_" + ch + ".dat";
 
@@ -1445,7 +1452,7 @@ namespace ImageTools
             }
         }
 
-        private static void WriteToFileFibonacci(double[] buffer, int ch, string name)
+        private static void WriteToFileFibonacci(float[] buffer, int ch, string name)
         {
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_fib_test_"+ch+".dat";
             if (File.Exists(testpath)) File.Delete(testpath);
@@ -1492,12 +1499,19 @@ namespace ImageTools
         }
 
 
-        private static unsafe double[] ReadPlane(byte* src, BitmapData si, int channelNumber) {
+        private static int Saturate(float value)
+        {
+            if (value < 0) return 0;
+            if (value > 255) return 255;
+            return (int)value;
+        }
+
+        private static unsafe float[] ReadPlane(byte* src, BitmapData si, int channelNumber) {
             var bytePerPix = si.Stride / si.Width;
             var samples = si.Width * si.Height;
             var limit = si.Stride * si.Height;
 
-            var dst = new double[samples];
+            var dst = new float[samples];
             var j = 0;
             for (int i = channelNumber; i < limit; i+= bytePerPix)
             {
@@ -1507,7 +1521,7 @@ namespace ImageTools
             return dst;
         }
         
-        private static unsafe void WritePlane(double[] src, byte* dst, BitmapData di, int channelNumber) {
+        private static unsafe void WritePlane(float[] src, byte* dst, BitmapData di, int channelNumber) {
             var bytePerPix = di.Stride / di.Width;
             var limit = di.Stride * di.Height;
 
@@ -1520,13 +1534,13 @@ namespace ImageTools
 
         static unsafe void HorizonalWaveletTest(byte* s, byte* d, BitmapData si, BitmapData di)
         {
-            var work = new double[si.Width];
+            var work = new float[si.Width];
             for (int ch = 0; ch < 3; ch++)
             {
                 var buffer = ReadPlane(s, si, ch);
 
                 // DC to AC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5f; }
 
                 // Wavelet decompose
                 for (int y = 0; y < si.Height; y++) // each row
@@ -1541,7 +1555,7 @@ namespace ImageTools
                 }
 
                 // AC to DC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5f; }
 
                 // Write back to image
                 WritePlane(buffer, d, di, ch);
@@ -1550,13 +1564,13 @@ namespace ImageTools
         
         static unsafe void VerticalWaveletTest(byte* s, byte* d, BitmapData si, BitmapData di)
         {
-            var work = new double[si.Height];
+            var work = new float[si.Height];
             for (int ch = 0; ch < 3; ch++)
             {
                 var buffer = ReadPlane(s, si, ch);
 
                 // DC to AC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5f; }
 
                 // Wavelet decompose
                 for (int x = 0; x < si.Width; x++) // each column
@@ -1572,7 +1586,7 @@ namespace ImageTools
                 }
 
                 // AC to DC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5; }
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5f; }
 
                 // Write back to image
                 WritePlane(buffer, d, di, ch);

@@ -168,24 +168,68 @@ namespace ImageTools
                 dst.UnlockBits(dstData);
             }
         }
+        
+        public static unsafe void YUVPlanes_To_ArgbImage(Bitmap dst, int offset, float[] Y, float[] U, float[] V)
+        {
+            var ri = new Rectangle(Point.Empty, dst.Size);
+            var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            var len = dstData.Height * dstData.Width;
+            try
+            {
+                var s = (uint*)dstData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    s[i] = ColorSpace.YUV_To_RGB32(Y[offset+i], U[offset+i], V[offset+i]);
+                }
+            }
+            finally
+            {
+                dst.UnlockBits(dstData);
+            }
+        }
 
-        public static unsafe void ArgbImageToYUVPlanes(Bitmap src, out double[] Y, out double[] Co, out double[] Cg)
+        public static unsafe void ArgbImageToYUVPlanes(Bitmap src, out double[] Y, out double[] U, out double[] V)
         {
             var ri = new Rectangle(Point.Empty, src.Size);
             var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
             var len = srcData.Height * srcData.Width;
             Y = new double[len];
-            Co = new double[len];
-            Cg = new double[len];
+            U = new double[len];
+            V = new double[len];
             try
             {
                 var s = (uint*)srcData.Scan0;
                 for (int i = 0; i < len; i++)
                 {
-                    ColorSpace.RGB32_To_YUV(s[i], out var y, out var co, out var cg);
+                    ColorSpace.RGB32_To_YUV(s[i], out var y, out var u, out var v);
                     Y[i] = y;
-                    Co[i] = co;
-                    Cg[i] = cg;
+                    U[i] = u;
+                    V[i] = v;
+                }
+            }
+            finally
+            {
+                src.UnlockBits(srcData);
+            }
+        }
+        
+        public static unsafe void ArgbImageToYUVPlanes_f(Bitmap src, out float[] Y, out float[] U, out float[] V)
+        {
+            var ri = new Rectangle(Point.Empty, src.Size);
+            var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            var len = srcData.Height * srcData.Width;
+            Y = new float[len];
+            U = new float[len];
+            V = new float[len];
+            try
+            {
+                var s = (uint*)srcData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    ColorSpace.RGB32_To_YUV(s[i], out var y, out var u, out var v);
+                    Y[i] = (float)y;
+                    U[i] = (float)u;
+                    V[i] = (float)v;
                 }
             }
             finally

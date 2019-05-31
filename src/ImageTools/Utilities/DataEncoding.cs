@@ -180,7 +180,7 @@ namespace ImageTools.Utilities
         /// <param name="input">Readable stream for input</param>
         /// <param name="output">An existing value buffer. If there is more input
         /// than buffer space, the end of the input will be truncated</param>
-        public static void FibonacciDecode(Stream input, double[] output)
+        public static void FibonacciDecode(Stream input, float[] output)
         {
             // Read a byte, scan through bits building up a number until we hit `b11`
             // Then move on to the next
@@ -235,7 +235,7 @@ namespace ImageTools.Utilities
         /// </summary>
         /// <param name="buffer">Input buffer. Values will be truncated and must be in the range +- 196418</param>
         /// <param name="output">Writable stream for output</param>
-        public static void FibonacciEncode(double[] buffer, Stream output)
+        public static void FibonacciEncode(float[] buffer, Stream output)
         {
             var bf = new byte[8]; // if each bit is set. Value is 0xFF or 0x00
             var v = new byte[]{ 1<<7, 1<<6, 1<<5, 1<<4, 1<<3, 1<<2, 1<<1, 1 }; // values of the flag

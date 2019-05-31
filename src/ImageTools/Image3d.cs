@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using ImageTools.Utilities;
 
 namespace ImageTools
 {
@@ -9,9 +10,9 @@ namespace ImageTools
     /// </summary>
     public class Image3d
     {
-        public double[] Y;
-        public double[] U;
-        public double[] V;
+        public float[] Y;
+        public float[] U;
+        public float[] V;
 
         public int yspan, zspan; // xspan is always 1
 
@@ -34,7 +35,7 @@ namespace ImageTools
                 {
                     if (Y == null) { InitPlanes(bmp, frameCount); }
 
-                    Bitmangle.ArgbImageToYUVPlanes(bmp, out var srcY, out var srcU, out var srcV);
+                    Bitmangle.ArgbImageToYUVPlanes_f(bmp, out var srcY, out var srcU, out var srcV);
                     for (int i = 0; i < srcY.Length; i++)
                     {
                         Y[zo+i] = srcY[i];
@@ -48,7 +49,7 @@ namespace ImageTools
 
         public long ByteSize()
         {
-            return (Y.LongLength + U.LongLength + V.LongLength) * 8;
+            return (Y.LongLength + U.LongLength + V.LongLength) * TypeSize.Of(Y.GetType().GetElementType());
         }
 
         public Image3d(int width, int height, int depth)
@@ -63,9 +64,9 @@ namespace ImageTools
             var total = Width * Height * Depth;
             yspan = Width; // planar image
             zspan = yspan * Height;
-            Y = new double[total];
-            U = new double[total];
-            V = new double[total];
+            Y = new float[total];
+            U = new float[total];
+            V = new float[total];
         }
 
         /// <summary>
@@ -94,9 +95,9 @@ namespace ImageTools
             var total = bmp.Width * bmp.Height * frameCount;
             yspan = bmp.Width; // planar image
             zspan = yspan * bmp.Height;
-            Y = new double[total];
-            U = new double[total];
-            V = new double[total];
+            Y = new float[total];
+            U = new float[total];
+            V = new float[total];
         }
     }
 }
