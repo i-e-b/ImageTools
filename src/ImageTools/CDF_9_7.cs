@@ -6,6 +6,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using ImageTools.DataCompression.LZMA;
+using ImageTools.Tests;
 using ImageTools.Utilities;
 
 namespace ImageTools
@@ -60,6 +61,219 @@ namespace ImageTools
             return dst;
         }
 
+
+        /// <summary>
+        /// Compress a 3D image to a single file. This can be restored by `RestoreImage3D_FromFile`
+        /// </summary>
+        public static void ReduceImage3D_ToFile(Image3d img3d, string filePath) {
+            // this is the first half of `ReduceImage3D_2`
+            // DC to AC
+            for (int i = 0; i < img3d.Y.Length; i++)
+            {
+                img3d.Y[i] -= 127.5;
+                img3d.V[i] -= 127.5;
+                img3d.U[i] -= 127.5;
+            }
+
+            var quantise = 1.0;
+            int rounds;
+
+            var msY = new MemoryStream();
+            var msU = new MemoryStream();
+            var msV = new MemoryStream();
+
+            for (int ch = 0; ch < 3; ch++)
+            {
+                double[] buffer = null;
+                MemoryStream ms = null;
+                switch(ch) {
+                    case 0:
+                        buffer = img3d.Y;
+                        ms = msY;
+                        break;
+                    case 1:
+                        buffer = img3d.U;
+                        ms = msU;
+                        break;
+                    case 2:
+                        buffer = img3d.V;
+                        ms = msV;
+                        break;
+                }
+
+                // Reduce each plane independently
+                rounds = (int)Math.Log(img3d.Width, 2);
+                for (int i = 0; i < rounds; i++)
+                {
+                    var height = img3d.Height >> i;
+                    var width = img3d.Width >> i;
+                    var depth = img3d.Depth;
+
+                    var hx = new double[height];
+                    var yx = new double[width];
+
+                    for (int z = 0; z < depth; z++)
+                    {
+                        var zo = z * img3d.zspan;
+
+                        // Wavelet decompose vertical
+                        for (int x = 0; x < width; x++) // each column
+                        {
+                            Fwt97(buffer, hx, zo + x, img3d.Width);
+                        }
+
+                        // Wavelet decompose horizontal
+                        for (int y = 0; y < height >> 1; y++) // each row
+                        {
+                            var yo = (y * img3d.Width);
+                            Fwt97(buffer, yx, zo + yo, 1);
+                        }
+                    }
+                }
+                // decompose through depth
+                rounds = (int)Math.Log(img3d.Depth, 2);
+                for (int i = 0; i < rounds; i++)
+                {
+                    var depth = img3d.Depth >> i;
+                    var dx = new double[depth];
+                    for (int xy = 0; xy < img3d.zspan; xy++)
+                    {
+                        Fwt97(buffer, dx, xy, img3d.zspan);
+                    }
+                }
+
+
+                // Reorder, quantise, encode
+                ToStorageOrder3D(buffer, img3d, (int)Math.Log(img3d.Width, 2));
+                Quantise3D(buffer, QuantiseType.Reduce, (int)Math.Log(img3d.MaxDimension, 2), ch);
+
+                using (var tmp = new MemoryStream(buffer.Length))
+                {   // byte-by-byte writing to DeflateStream is *very* slow, so we buffer
+                    DataEncoding.FibonacciEncode(buffer, tmp);
+                    using (var gs = new DeflateStream(ms, CompressionLevel.Optimal, true))
+                    {
+                        tmp.WriteTo(gs);
+                        gs.Flush();
+                    }
+                }
+            }
+        
+            // Individual stream sum    = 128kb
+            // Interleave then compress = 160kb
+            // Compress then interleave = 128kb
+
+            // interleave the files:
+            msY.Seek(0, SeekOrigin.Begin);
+            msU.Seek(0, SeekOrigin.Begin);
+            msV.Seek(0, SeekOrigin.Begin);
+            var container = new InterleavedFile((ushort)img3d.Width, (ushort)img3d.Height, (ushort)img3d.Depth, msY.ToArray(), msU.ToArray(), msV.ToArray());
+
+            using (var fs = File.Open(filePath, FileMode.Create))
+            {
+                container.WriteToStream(fs);
+                fs.Flush();
+            }
+        }
+
+        /// <summary>
+        /// Restore a 3D image from a single file (as created by `ReduceImage3D_ToFile`)
+        /// </summary>
+        public static Image3d RestoreImage3D_FromFile(string targetPath)
+        {
+            // Load raw data out of the container file
+            InterleavedFile container;
+            using (var fs = File.Open(targetPath, FileMode.Open))
+            {
+                container = InterleavedFile.ReadFromStream(fs);
+            }
+            if (container == null) return null;
+
+            var img3d = new Image3d(container.Width, container.Height, container.Depth);
+            int rounds;
+            MemoryStream storedData = null;
+
+            // restore into the image.
+            // this MUST exactly match the reduce method, but with transforms in reverse order
+            for (int ch = 0; ch < 3; ch++)
+            {
+                double[] buffer = null;
+                switch(ch) {
+                    case 0: 
+                        buffer = img3d.Y;
+                        storedData = new MemoryStream(container.Planes[0]);
+                        break;
+                    case 1:
+                        buffer = img3d.U;
+                        storedData =  new MemoryStream(container.Planes[1]);
+                        break; // not entirely sure if orange or green deserves more bits
+                    case 2:
+                        buffer = img3d.V;
+                        storedData = new MemoryStream(container.Planes[2]);
+                        break;
+                }
+
+                // Read, De-quantise, reorder
+                using (var gs = new DeflateStream(storedData, CompressionMode.Decompress))
+                {
+                    DataEncoding.FibonacciDecode(gs, buffer);
+                }
+                Quantise3D(buffer, QuantiseType.Expand, (int)Math.Log(img3d.MaxDimension, 2), ch);
+                FromStorageOrder3D(buffer, img3d, (int)Math.Log(img3d.Width, 2));
+                
+                
+                // Restore
+                // through depth
+                rounds = (int)Math.Log(img3d.Depth, 2);
+                for (int i = rounds - 1; i >= 0; i--)
+                {
+                    var depth = img3d.Depth >> i;
+                    var dx = new double[depth];
+                    for (int xy = 0; xy < img3d.zspan; xy++)
+                    {
+                        Iwt97(buffer, dx, xy, img3d.zspan);
+                    }
+                }
+                // each plane independently
+                rounds = (int)Math.Log(img3d.Width, 2);
+                for (int i = rounds - 1; i >= 0; i--)
+                {
+                    var height = img3d.Height >> i;
+                    var width = img3d.Width >> i;
+                    var depth = img3d.Depth;
+
+                    var hx = new double[height];
+                    var yx = new double[width];
+
+                    for (int z = 0; z < depth; z++)
+                    {
+                        var zo = z * img3d.zspan;
+
+                        // horizontal
+                        for (int y = 0; y < height >> 1; y++) // each row
+                        {
+                            var yo = (y * img3d.Width);
+                            Iwt97(buffer, yx, zo + yo, 1);
+                        }
+
+                        // vertical
+                        for (int x = 0; x < width; x++) // each column
+                        {
+                            Iwt97(buffer, hx, zo + x, img3d.Width);
+                        }
+                    }
+                }
+            }
+
+            // AC to DC
+            for (int i = 0; i < img3d.Y.Length; i++)
+            {
+                img3d.Y[i] += 127.5;
+                img3d.V[i] += 127.5;
+                img3d.U[i] += 127.5;
+            }
+
+            return img3d;
+        }
 
         // Reducing image by equal rounds
         public static void ReduceImage3D(Image3d img3d)
@@ -209,7 +423,6 @@ namespace ImageTools
                 img3d.U[i] -= 127.5;
             }
 
-            var quantise = 1.0;
             int rounds;
 
             for (int ch = 0; ch < 3; ch++)
@@ -1209,18 +1422,25 @@ namespace ImageTools
             }
             else
             {
-                // GZIP
-                using (var fs = File.Open(testpath, FileMode.Open))
-                {
-                    // reduce factor to demonstrate shortened files
-                    var length = (int)(fs.Length * 1.0);
-                    Console.WriteLine($"Reading {length} bytes of a total {fs.Length}");
-                    var trunc_sim = new TruncatedStream(fs, length);
-
-                    using (var gs = new DeflateStream(trunc_sim, CompressionMode.Decompress))
+                // Deflate
+                using (var ms = new MemoryStream())
+                {   // byte-by-byte reading from Deflate stream is *very* slow, so we buffer it
+                    using (var fs = File.Open(testpath, FileMode.Open))
                     {
-                        DataEncoding.FibonacciDecode(gs, buffer);
+                        // reduce factor to demonstrate shortened files
+                        var length = (int)(fs.Length * 1.0);
+                        Console.WriteLine($"Reading {length} bytes of a total {fs.Length}");
+                        var trunc_sim = new TruncatedStream(fs, length);
+
+                        using (var gs = new DeflateStream(trunc_sim, CompressionMode.Decompress))
+                        {
+                            gs.CopyTo(ms);
+                        }
                     }
+
+                    // now the actual decode:
+                    ms.Seek(0, SeekOrigin.Begin);
+                    DataEncoding.FibonacciDecode(ms, buffer);
                 }
             }
         }
@@ -1246,13 +1466,19 @@ namespace ImageTools
             }
             else
             {
-                // GZIP
-                using (var fs = File.Open(testpath, FileMode.Create))
-                using (var gs = new DeflateStream(fs, CompressionMode.Compress))
-                {
-                    DataEncoding.FibonacciEncode(buffer, gs);
-                    gs.Flush();
-                    fs.Flush();
+                // Deflate
+                using (var ms = new MemoryStream(buffer.Length)) // this is bytes/8
+                {   // byte-by-byte input to deflate stream is *very* slow, so we buffer it first
+                    DataEncoding.FibonacciEncode(buffer, ms);
+                    ms.Seek(0, SeekOrigin.Begin);
+
+                    using (var fs = File.Open(testpath, FileMode.Create))
+                    using (var gs = new DeflateStream(fs, CompressionMode.Compress))
+                    {
+                        ms.CopyTo(gs);
+                        gs.Flush();
+                        fs.Flush();
+                    }
                 }
             }
         }

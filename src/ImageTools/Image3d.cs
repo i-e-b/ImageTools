@@ -46,6 +46,28 @@ namespace ImageTools
             }
         }
 
+        public long ByteSize()
+        {
+            return (Y.LongLength + U.LongLength + V.LongLength) * 8;
+        }
+
+        public Image3d(int width, int height, int depth)
+        {
+            Width = width;
+            Height = height;
+            Depth =  depth;
+
+            MaxDimension = Math.Max(Width, Math.Max(Height, Depth));
+            MinDimension = Math.Min(Width, Math.Min(Height, Depth));
+
+            var total = Width * Height * Depth;
+            yspan = Width; // planar image
+            zspan = yspan * Height;
+            Y = new double[total];
+            U = new double[total];
+            V = new double[total];
+        }
+
         /// <summary>
         /// Read a Z slice back to a 2D bitmap image.
         /// Caller should dispose.

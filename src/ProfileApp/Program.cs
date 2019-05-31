@@ -21,22 +21,28 @@ namespace ProfileApp
 
             var img3d = new Image3d(frames);
 
-
             // STEP 2: Do the decomposition
             var sw = new Stopwatch();
             sw.Start();
-            CDF_9_7.ReduceImage3D_2(img3d);
+            var targetPath = Path.Combine(basePath, "outputs/w3d_a_packed.bin");
+            CDF_9_7.ReduceImage3D_ToFile(img3d, targetPath);
             sw.Stop();
-            Console.WriteLine($"Core transform took {sw.Elapsed}");
+            Console.WriteLine($"Compression took {sw.Elapsed}. Written to {targetPath}");
 
-            // STEP 3: output frames for inspection
-            for (int z = 0; z < frames.Length; z++)
+            // STEP 3: Restore original from file
+            sw.Reset();
+            sw.Start();
+            Image3d result = CDF_9_7.RestoreImage3D_FromFile(targetPath);
+            sw.Stop();
+            Console.WriteLine($"Restore took {sw.Elapsed}");
+
+            // STEP 4: output frames for inspection
+            for (int z = 0; z < result.Depth; z++)
             {
-                using (Bitmap f = img3d.ReadSlice(z)) {
-                    f.SaveBmp($"./outputs/Cdf97_3d_f{z}.bmp");
+                using (Bitmap f = result.ReadSlice(z)) {
+                    f.SaveBmp($"./outputs/w3d_f{z}.bmp");
                 }
             }
-            //Console.ReadKey();
         }
 
     }
