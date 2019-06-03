@@ -187,7 +187,7 @@ namespace ImageTools
             using (var fs = File.Open(targetPath, FileMode.Open))
             {
                 // reduce factor to demonstrate shortened files
-                var length = (int)(fs.Length * 0.9);
+                var length = (int)(fs.Length * 1.0);
                 Console.WriteLine($"Reading {length} bytes of a total {fs.Length}");
                 var trunc_sim = new TruncatedStream(fs, length);
 
@@ -280,6 +280,65 @@ namespace ImageTools
             }
 
             return img3d;
+        }
+
+        private static void Quantise3D(float[] buffer, QuantiseType mode, int rounds, int ch)
+        {
+            // ReSharper disable JoinDeclarationAndInitializer
+            double[] fYs, fCs;   
+            // ReSharper restore JoinDeclarationAndInitializer
+
+            //              |< spacial blur
+            //                               motion blur >|
+
+            // Test MJPEG = 1,864kb
+
+            // MJPEG 100% equivalent (zsep = 1,270kb) (lzma = 1,170kb) (cdf-ord = 1,210kb)
+            //fYs = new double[]{ 1 };
+            //fCs = new double[]{ 999,2 };
+
+            // Good quality (test = 529kb) (morton = 477kb) (cbcr = 400kb) (zsep = 378kb)
+            //              (lzma = 325kb) (cube = 362kb) (flat-morton: 401kb)
+            //              (cdf-ord = 369kb)
+            //fYs = new double[]{  5,  4,  3, 2, 1 };
+            //fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
+
+            // Medium compression (test = 224kb) (morton = 177kb) (cbcr = 151kb) (zsep = 131kb)
+            //                    (lzma = 115kb) (cube = 162kb) (cdf-ord = 128kb/110kb)
+            //fYs = new double[]{ 24, 12, 7,  5, 3, 2, 1 };
+            //fCs = new double[]{ 50, 24, 12, 7, 5, 3, 2 };
+            
+            // Flat compression (cbcr = 116kb) (zsep = 95.1kb) (lzma 80.3kb)
+            //fYs = new double[]{ 14, 14, 14, 14, 8, 4, 1 };
+            //fCs = new double[]{ 400, 200, 100, 100, 90, 40, 20 };
+
+            // Strong compression (test = 145kb) (morton = 113kb) (cbcr = 95.8kb) (zsep = 81.3kb)
+            //fYs = new double[]{ 50,  35, 17, 10, 5, 3, 1 };
+            //fCs = new double[]{200, 100, 50, 10, 5, 3, 2 };
+            
+            // Very strong compression (test = 95.3kb) (morton = 72.4kb) (cbcr = 64.4kb)
+            //                         (zsep = 35.3kb) (lzma = 31.5kb) (ring = 57.6)
+            //                         (cdf-ord = 30.0kb)
+            //fYs = new double[]{200,  80,  60,  40, 10,  5,  4 };
+            //fCs = new double[]{999, 999, 400, 200, 80, 40, 20 };
+            
+            // sigmoid-ish compression, with extra high-freq.
+            // (cdf-ord = 169kb)
+            fYs = new double[]{ 4.5, 14, 12,  7,  7,  7,  7, 4, 1.5 };
+            fCs = new double[]{ 255, 50, 24, 15, 15, 10, 6, 3.5 };
+
+            for (int r = 0; r < rounds; r++)
+            {
+                var factors = (ch == 0) ? fYs : fCs;
+                float factor = (float)((r >= factors.Length) ? factors[factors.Length - 1] : factors[r]);
+                if (mode == QuantiseType.Reduce) factor = 1 / factor;
+
+                var len = buffer.Length >> r;
+                for (int i = len / 2; i < len; i++)
+                {
+                    buffer[i] *= factor;
+                }
+            }
         }
 
         // Reducing image by equal rounds
@@ -1195,79 +1254,6 @@ namespace ImageTools
             return swap;
         }
 
-        private static void Quantise3D(float[] buffer, QuantiseType mode, int rounds, int ch)
-        {
-            // ReSharper disable JoinDeclarationAndInitializer
-            double[] fYs, fCs;   
-            // ReSharper restore JoinDeclarationAndInitializer
-
-            //              |< spacial blur
-            //                               motion blur >|
-
-            // Test MJPEG = 1,864kb
-
-            // MJPEG 100% equivalent (zsep = 1,270kb) (lzma = 1,170kb) (cdf-ord = 1,210kb)
-            //fYs = new double[]{ 1 };
-            //fCs = new double[]{ 2 };
-
-            // Good quality (test = 529kb) (morton = 477kb) (cbcr = 400kb) (zsep = 378kb)
-            //              (lzma = 325kb) (cube = 362kb) (flat-morton: 401kb)
-            //              (cdf-ord = 369kb)
-            //fYs = new double[]{  5,  4,  3, 2, 1 };
-            //fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
-
-            // Medium compression (test = 224kb) (morton = 177kb) (cbcr = 151kb) (zsep = 131kb)
-            //                    (lzma = 115kb) (cube = 162kb) (cdf-ord = 128kb/110kb)
-            fYs = new double[]{ 24, 12, 7,  5, 3, 2, 1 };
-            fCs = new double[]{ 50, 24, 12, 7, 5, 3, 2 };
-            
-            // Flat compression (cbcr = 116kb) (zsep = 95.1kb) (lzma 80.3kb)
-            //fYs = new double[]{ 14, 14, 14, 14, 8, 4, 1 };
-            //fCs = new double[]{ 400, 200, 100, 100, 90, 40, 20 };
-
-            // Strong compression (test = 145kb) (morton = 113kb) (cbcr = 95.8kb) (zsep = 81.3kb)
-            //fYs = new double[]{ 50,  35, 17, 10, 5, 3, 1 };
-            //fCs = new double[]{200, 100, 50, 10, 5, 3, 2 };
-            
-            // Very strong compression (test = 95.3kb) (morton = 72.4kb) (cbcr = 64.4kb)
-            //                         (zsep = 35.3kb) (lzma = 31.5kb) (ring = 57.6)
-            //fYs = new double[]{200,  80,  60,  40, 10,  5,  4 };
-            //fCs = new double[]{999, 999, 400, 200, 80, 40, 20 };
-
-            
-            // Very strong compression (lzma = 15.1kb) (gzip = 19.1kb) (cube=17.8kb) (cdf-ord = 11.6kb)
-            //fYs = new double[]{200 };
-            //fCs = new double[]{400 };
-            
-            // 'dish' compressed (morton = 69.0kb); This gives small file sizes and
-            //                                      reasonable still-image detail, but
-            //                                      at a cost of strong motion artefacts.
-            //fYs = new double[]{200, 50,  20,   10,  20,  50, 200 };
-            //fCs = new double[]{999, 999, 600, 400, 200, 200, 200 };
-
-            // reverse dish (95kb) ... this one is quite weird
-            //fYs = new double[]{10, 20,  50,   80,  50,  20, 10 };
-            //fCs = new double[]{999, 999, 999, 999, 999, 999, 999 };
-            
-            
-            // sigmoid-ish compression (zs morton = 111 kb) (ring = 135kb) (cube = 140kb) (cdf-ord = 104kb)
-            //fYs = new double[]{ 15, 11,  7,  7,  7,  7, 4, 1.5 };
-            //fCs = new double[]{ 200,50, 24, 15, 15, 10, 6, 4 };
-
-            for (int r = 0; r < rounds; r++)
-            {
-                var factors = (ch == 0) ? fYs : fCs;
-                float factor = (float)((r >= factors.Length) ? factors[factors.Length - 1] : factors[r]);
-                if (mode == QuantiseType.Reduce) factor = 1 / factor;
-
-                var len = buffer.Length >> r;
-                for (int i = len / 2; i < len; i++)
-                {
-                    buffer[i] *= factor;
-                }
-            }
-        }
-
         private static void QuantisePlanar2(float[] buffer, int ch, int rounds, QuantiseType mode)
         {
             // ReSharper disable JoinDeclarationAndInitializer
@@ -1489,15 +1475,6 @@ namespace ImageTools
                 }
             }
         }
-
-
-        private static int Saturate(double value)
-        {
-            if (value < 0) return 0;
-            if (value > 255) return 255;
-            return (int)value;
-        }
-
 
         private static int Saturate(float value)
         {

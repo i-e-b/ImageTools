@@ -145,7 +145,7 @@ namespace ImageTools.Tests
             var img3d = new Image3d(frames);
 
             // Raw frames as doubles is *big*
-            Console.WriteLine($"Memory size: {img3d.ByteSize() / 1048576L} MB");
+            Console.WriteLine($"3D image memory size: {img3d.ByteSize() / 1048576L} MB");
 
             Assert.That(img3d.Y.LongLength, Is.EqualTo(256*256*64)); // every dimension must be a power of 2, but not the same one
 
