@@ -35,7 +35,7 @@ namespace ImageTools
                 {
                     if (Y == null) { InitPlanes(bmp, frameCount); }
 
-                    Bitmangle.ArgbImageToYUVPlanes_f(bmp, out var srcY, out var srcU, out var srcV);
+                    BitmapTools.ArgbImageToYUVPlanes_f(bmp, out var srcY, out var srcU, out var srcV);
                     for (int i = 0; i < srcY.Length; i++)
                     {
                         Y[zo+i] = srcY[i];
@@ -78,7 +78,7 @@ namespace ImageTools
             var dst = new Bitmap(Width, Height, PixelFormat.Format32bppArgb);
             var zo = z * zspan;
 
-            Bitmangle.YUVPlanes_To_ArgbImage(dst, zo, Y, U, V);
+            BitmapTools.YUVPlanes_To_ArgbImage(dst, zo, Y, U, V);
 
             return dst;
         }

@@ -1,9 +1,10 @@
 ﻿using System.Drawing;
 using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 
 namespace ImageTools
 {
-	public class Bitmangle
+	public class BitmapTools
 	{
 		public unsafe delegate void Kernel32To64(byte* src, ushort* dst, BitmapData srcData, BitmapData dstData);
 		public unsafe delegate void Kernel32To32(byte* src, byte* dst, BitmapData srcData, BitmapData dstData);
@@ -102,6 +103,32 @@ namespace ImageTools
             }
         }
 
+        /// <summary>
+        /// Copy a managed int array into a new ARGB32 bitmap image.
+        /// No color transforms are made, the data must already be packed.
+        /// </summary>
+        public static Bitmap IntArrayToBitmap(Rectangle rct, int[] dest)
+        {
+            var destImage = new Bitmap(rct.Width, rct.Height, PixelFormat.Format32bppArgb);
+            var bits2 = destImage.LockBits(rct, ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+            Marshal.Copy(dest, 0, bits2.Scan0, dest.Length);
+            destImage.UnlockBits(bits2);
+            return destImage;
+        }
+
+        /// <summary>
+        /// Copy the data from a ARGB32 bitmap into a managed int array.
+        /// No color transforms are made. The pixel data will remain packed
+        /// </summary>
+        public static Rectangle BitmapToIntArray(Bitmap sourceImage, out int[] source)
+        {
+            var rct = new Rectangle(0, 0, sourceImage.Width, sourceImage.Height);
+            source = new int[rct.Width * rct.Height];
+            var bits = sourceImage.LockBits(rct, ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+            Marshal.Copy(bits.Scan0, source, 0, source.Length);
+            sourceImage.UnlockBits(bits);
+            return rct;
+        }
         
         
         public static unsafe void YCbCrPlanes_To_ArgbImage(Bitmap dst, int offset, double[] Y, double[] Co, double[] Cg)

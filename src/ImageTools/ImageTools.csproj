@@ -40,9 +40,10 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Bitmangle.cs" />
+    <Compile Include="BitmapTools.cs" />
     <Compile Include="Blur.cs" />
-    <Compile Include="CDF_9_7.cs" />
+    <Compile Include="CDF.cs" />
+    <Compile Include="WaveletCompress.cs" />
     <Compile Include="ColorSpace.cs" />
     <Compile Include="DataCompression\LZMA\Lzma.cs" />
     <Compile Include="Haar.cs" />
@@ -50,6 +51,7 @@
     <Compile Include="Image3d.cs" />
     <Compile Include="QuantiseType.cs" />
     <Compile Include="TruncatedStream.cs" />
+    <Compile Include="Utilities\BitWise.cs" />
     <Compile Include="Utilities\DataEncoding.cs" />
     <Compile Include="Utilities\InterleavedFile.cs" />
     <Compile Include="Utilities\Load.cs" />

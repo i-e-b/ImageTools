@@ -15,7 +15,7 @@ namespace ImageTools
 			var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format64bppArgb);
 
             // TODO: plane separation in the kernel runner
-			Bitmangle.RunKernel(src, dst, GradientKernel);
+			BitmapTools.RunKernel(src, dst, GradientKernel);
 
 			return dst;
 		}

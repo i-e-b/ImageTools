@@ -49,13 +49,14 @@
     <Compile Include="ColorSpaceTests.cs" />
     <Compile Include="InterleavedFileTests.cs" />
     <Compile Include="SpaceFillingCurveTests.cs" />
-    <Compile Include="WaveletTests.cs" />
+    <Compile Include="Wavelet_3D_Tests.cs" />
     <Compile Include="SampleDownscales.cs" />
     <Compile Include="UpscalingImages.cs" />
     <Compile Include="DownscalingImages.cs" />
     <Compile Include="Files.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SavingImages.cs" />
+    <Compile Include="Wavelet_2D_Tests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ImageTools\ImageTools.csproj">
@@ -71,6 +72,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="inputs\3.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="inputs\4.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="inputs\moire_sample.PNG">

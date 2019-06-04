@@ -25,14 +25,14 @@ namespace ProfileApp
             var sw = new Stopwatch();
             sw.Start();
             var targetPath = Path.Combine(basePath, "outputs/w3d_a_packed.bin");
-            CDF_9_7.ReduceImage3D_ToFile(img3d, targetPath);
+            WaveletCompress.ReduceImage3D_ToFile(img3d, targetPath);
             sw.Stop();
             Console.WriteLine($"Compression took {sw.Elapsed}. Written to {targetPath}");
 
             // STEP 3: Restore original from file
             sw.Reset();
             sw.Start();
-            Image3d result = CDF_9_7.RestoreImage3D_FromFile(targetPath);
+            Image3d result = WaveletCompress.RestoreImage3D_FromFile(targetPath);
             sw.Stop();
             Console.WriteLine($"Restore took {sw.Elapsed}");
 
