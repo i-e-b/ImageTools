@@ -319,13 +319,21 @@ namespace ImageTools
             // Very strong compression (test = 95.3kb) (morton = 72.4kb) (cbcr = 64.4kb)
             //                         (zsep = 35.3kb) (lzma = 31.5kb) (ring = 57.6)
             //                         (cdf-ord = 30.0kb)
+            // sqrt 2nd: 27.4; no sqrt: 30.0; sqrt 1st: 15.2kb
             //fYs = new double[]{200,  80,  60,  40, 10,  5,  4 };
             //fCs = new double[]{999, 999, 400, 200, 80, 40, 20 };
             
             // sigmoid-ish compression, with extra high-freq.
             // (cdf-ord = 169kb)
+            // no sqrt: 169; sqrt 2nd: 151   ...sqrt harms low freq quite badly. Sqrt alone = 1200. High freq dominates
             fYs = new double[]{ 4.5, 14, 12,  7,  7,  7,  7, 4, 1.5 };
             fCs = new double[]{ 255, 50, 24, 15, 15, 10, 6, 3.5 };
+
+            
+            //fYs = new double[]{4,2,1};
+            //fCs = new double[]{4,2,1};
+
+
 
             for (int r = 0; r < rounds; r++)
             {
@@ -336,7 +344,21 @@ namespace ImageTools
                 var len = buffer.Length >> r;
                 for (int i = len / 2; i < len; i++)
                 {
-                    buffer[i] *= factor;
+                    //buffer[i] *= factor;
+                    if (mode == QuantiseType.Reduce)
+                    {
+                        //buffer[i] *= factor;
+                        var v = buffer[i];
+                        var s = Math.Sign(v);
+                        buffer[i] = (float)(s * Math.Sqrt(Math.Abs(v)));
+                    }
+                    else
+                    {
+                        var v = buffer[i];
+                        var s = Math.Sign(v);
+                        buffer[i] = (float)(s * (v*v));
+                        //buffer[i] *= factor;
+                    }
                 }
             }
         }

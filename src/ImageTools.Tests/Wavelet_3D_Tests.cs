@@ -77,7 +77,7 @@ namespace ImageTools.Tests
             Image3d result = WaveletCompress.RestoreImage3D_FromFile(targetPath);
             sw.Stop();
             Console.WriteLine($"Restore took {sw.Elapsed}");
-
+            
             // STEP 4: output frames for inspection
             for (int z = 0; z < result.Depth; z++)
             {

@@ -15,7 +15,7 @@ Really don't use this. These are a collection of algorithms for my own play and 
 ## Plans and To-do
 
 In no particular order:
-* [ ] Reduce memory footprint
+* [ ] Reduce memory footprint (think of a way to not hold an entire 3D image in memory twice...)
 * [ ] Experiment with non-linear quantisation
 * [ ] Find a good way to do non-power-two images
 * [ ] Bring in the old bits from 'ImageCompress' (color cell compression) and delete that repo
