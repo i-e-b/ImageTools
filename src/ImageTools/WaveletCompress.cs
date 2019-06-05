@@ -47,9 +47,9 @@ namespace ImageTools
         {
             var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
             
-            BitmapTools.ArgbImageToYUVPlanes_f(src, out var Y, out var U, out var V);
-            WaveletDecomposePlanar3(Y,U,V, src.Width, src.Height);
-            BitmapTools.YUVPlanes_To_ArgbImage(dst, 0, Y, U, V);
+            BitmapTools.ArgbImageToYUVPlanes_ForcePower2(src, out var Y, out var U, out var V, out var width, out var height);
+            WaveletDecomposePlanar3(Y,U,V, width, height);
+            BitmapTools.YUVPlanes_To_ArgbImage_Slice(dst, 0, width, Y, U, V);
 
             return dst;
         }
@@ -58,9 +58,9 @@ namespace ImageTools
         {
             var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
 
-            BitmapTools.ArgbImageToYUVPlanes_f(src, out var Y, out var U, out var V);
-            WaveletDecomposePlanar2(Y,U,V, src.Width, src.Height);
-            BitmapTools.YUVPlanes_To_ArgbImage(dst, 0, Y, U, V);
+            BitmapTools.ArgbImageToYUVPlanes_ForcePower2(src, out var Y, out var U, out var V, out var width, out var height);
+            WaveletDecomposePlanar2(Y,U,V, width, height);
+            BitmapTools.YUVPlanes_To_ArgbImage_Slice(dst, 0, width, Y, U, V);
 
             return dst;
         }
@@ -712,7 +712,7 @@ namespace ImageTools
                 // Write output
                 WriteToFileFibonacci(buffer, ch, "p_2");
 
-                // Prove reading is good:
+                                // Prove reading is good:
                 for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0.0f; }
 
                 // read output
@@ -740,7 +740,7 @@ namespace ImageTools
                         CDF.Iwt97(buffer, hx, height, x, srcWidth);
                     }
                 }
-                
+
                 // AC to DC
                 for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5f; }
             }
@@ -1121,17 +1121,17 @@ namespace ImageTools
             fCs = new double[]{15, 10, 2 };
             
             // heavily crushed
-            //fYs = new double[]{ 60, 60, 40, 20, 10, 6.5, 3.5, 1.5 };
-            //fCs = new double[]{1000, 200, 100, 50, 20, 10, 4};
+            //fYs = new double[]{ 180, 150, 100, 40, 8, 5, 3.5, 1.5 };
+            //fCs = new double[]{1000, 200, 200, 50, 20, 10, 4};
 
             // about the same as 100% JPEG
             //fYs = new double[]{ 1, 1, 1, 1, 1, 1, 1, 1, 1};
             //fCs = new double[]{10000, 2, 1, 1, 1, 1, 1, 1, 1};
-
-            
+                        
+            rounds = (int)Math.Log(buffer.Length, 2);
             for (int r = 0; r < rounds; r++)
             {
-                var factors = (ch == 2) ? fYs : fCs;
+                var factors = (ch == 0) ? fYs : fCs;
                 float factor = (float)((r >= factors.Length) ? factors[factors.Length - 1] : factors[r]);
                 if (mode == QuantiseType.Reduce) factor = 1 / factor;
 

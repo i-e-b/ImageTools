@@ -1,6 +1,7 @@
 ﻿using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using ImageTools.Utilities;
 
 namespace ImageTools
 {
@@ -175,7 +176,50 @@ namespace ImageTools
             }
         }
 
-        
+        public static unsafe void ArgbImageToYUVPlanes_ForcePower2(Bitmap src,
+            out float[] Y, out float[] U, out float[] V,
+            out int width, out int height)
+        {
+            var ri = new Rectangle(Point.Empty, src.Size);
+            var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+
+            var srcHeight = srcData.Height;
+            var srcWidth = srcData.Width;
+            width = Bin.NextPow2(srcData.Width);
+            height = Bin.NextPow2(srcData.Height);
+
+            var len = height * width;
+
+            // relies on C# setting zeros
+            Y = new float[len];
+            U = new float[len];
+            V = new float[len];
+            int stride = srcData.Stride / sizeof(uint);
+            try
+            {
+                var s = (uint*)srcData.Scan0;
+                for (int y = 0; y < srcHeight; y++)
+                {
+                    var src_yo = stride * y;
+                    var dst_yo = width * y;
+                    for (int x = 0; x < srcWidth; x++)
+                    {
+                        var src_i = src_yo + x;
+                        var dst_i = dst_yo + x;
+                        ColorSpace.RGB32_To_YUV(s[src_i], out var yv, out var u, out var v);
+                        Y[dst_i] = (float)yv;
+                        U[dst_i] = (float)u;
+                        V[dst_i] = (float)v;
+                        
+                    }       
+                }
+            }
+            finally
+            {
+                src.UnlockBits(srcData);
+            }
+        }
+
         
         public static unsafe void YUVPlanes_To_ArgbImage(Bitmap dst, int offset, double[] Y, double[] Co, double[] Cg)
         {
@@ -215,6 +259,49 @@ namespace ImageTools
             }
         }
 
+        /// <summary>
+        /// fill an image from a larger set of source planes
+        /// </summary>
+        /// <param name="dst">Target of the copy, used as size of slice to take</param>
+        /// <param name="offset">sample-wise offset in source planes</param>
+        /// <param name="srcWidth">the original plane width</param>
+        /// <param name="Y">Luminance plane</param>
+        /// <param name="U">blue-green plane</param>
+        /// <param name="V">red-yellow plane</param>
+        public static unsafe void YUVPlanes_To_ArgbImage_Slice(Bitmap dst,
+            int offset, int srcWidth,
+            float[] Y, float[] U, float[] V)
+        {
+            var ri = new Rectangle(Point.Empty, dst.Size);
+            var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+
+            var dstHeight = dstData.Height;
+            var dstWidth = dstData.Width;
+            try
+            {
+                int stride = dstData.Stride / sizeof(uint);
+                var s = (uint*)dstData.Scan0;
+                
+                for (int y = 0; y < dstHeight; y++)
+                {
+                    var dst_yo = stride * y;
+                    var src_yo = offset + (srcWidth * y);
+                    for (int x = 0; x < dstWidth; x++)
+                    {
+                        var src_i = src_yo + x;
+                        var dst_i = dst_yo + x;
+                        s[dst_i] = ColorSpace.YUV_To_RGB32(Y[src_i], U[src_i], V[src_i]);
+                    }       
+                }
+            }
+            finally
+            {
+                dst.UnlockBits(dstData);
+            }
+        }
+
+
+
         public static unsafe void ArgbImageToYUVPlanes(Bitmap src, out double[] Y, out double[] U, out double[] V)
         {
             var ri = new Rectangle(Point.Empty, src.Size);
@@ -245,6 +332,7 @@ namespace ImageTools
             var ri = new Rectangle(Point.Empty, src.Size);
             var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
             var len = srcData.Height * srcData.Width;
+
             Y = new float[len];
             U = new float[len];
             V = new float[len];

@@ -15,6 +15,14 @@
             c |= c >> 16;
             return ++c;
         }
+        
+        /// <summary>
+        /// Return the smalles number that is a power-of-two
+        /// greater than or equal to the input
+        /// </summary>
+        public static int NextPow2(int c) {
+            return (int)NextPow2((uint)c);
+        }
 
         /// <summary>
         /// Render a human-friendly string for a file size in bytes
