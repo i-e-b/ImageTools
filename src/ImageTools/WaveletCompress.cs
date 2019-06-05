@@ -333,6 +333,8 @@ namespace ImageTools
             //fYs = new double[]{4,2,1};
             //fCs = new double[]{4,2,1};
 
+            // Log2: 1240kb; Log10: 97.8kb
+            // Log(kround): 
 
 
             for (int r = 0; r < rounds; r++)
@@ -340,6 +342,8 @@ namespace ImageTools
                 var factors = (ch == 0) ? fYs : fCs;
                 float factor = (float)((r >= factors.Length) ? factors[factors.Length - 1] : factors[r]);
                 if (mode == QuantiseType.Reduce) factor = 1 / factor;
+
+                var k = (rounds + 1) - r;
 
                 var len = buffer.Length >> r;
                 for (int i = len / 2; i < len; i++)
@@ -350,13 +354,13 @@ namespace ImageTools
                         //buffer[i] *= factor;
                         var v = buffer[i];
                         var s = Math.Sign(v);
-                        buffer[i] = (float)(s * Math.Sqrt(Math.Abs(v)));
+                        buffer[i] = (float)(s * Math.Log(Math.Abs(v)+1, k));
                     }
                     else
                     {
                         var v = buffer[i];
                         var s = Math.Sign(v);
-                        buffer[i] = (float)(s * (v*v));
+                        buffer[i] = (float)(s * Math.Pow(k, Math.Abs(v)));
                         //buffer[i] *= factor;
                     }
                 }
