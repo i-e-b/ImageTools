@@ -130,7 +130,7 @@ namespace ImageTools
 				var rct = BitmapTools.BitmapToIntArray(sourceImage, out var source);
                 var dest = new int[rct.Width * rct.Height];
 
-                radius = (int)BitWise.NextPow2((uint)radius);
+                radius = (int)Bin.NextPow2((uint)radius);
                 int shift = (int)Math.Log(radius * 2, 2);
 
                 int w = rct.Width;

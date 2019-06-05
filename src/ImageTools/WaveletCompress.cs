@@ -188,7 +188,7 @@ namespace ImageTools
             {
                 // reduce factor to demonstrate shortened files
                 var length = (int)(fs.Length * 1.0);
-                Console.WriteLine($"Reading {length} bytes of a total {fs.Length}");
+                Console.WriteLine($"Reading {Bin.Human(length)} bytes of a total {Bin.Human(fs.Length)}");
                 var trunc_sim = new TruncatedStream(fs, length);
 
                 container = InterleavedFile.ReadFromStream(trunc_sim);
@@ -299,9 +299,13 @@ namespace ImageTools
 
             // Good quality (test = 529kb) (morton = 477kb) (cbcr = 400kb) (zsep = 378kb)
             //              (lzma = 325kb) (cube = 362kb) (flat-morton: 401kb)
-            //              (cdf-ord = 369kb)
+            //              (cdf-ord = 369kb) (cdf-more-round = 367kb)
             //fYs = new double[]{  5,  4,  3, 2, 1 };
             //fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
+            
+            // Good quality,long tail (cdf-more-round = 351kb)
+            fYs = new double[]{  5,  4,  3, 2, 1.5 };
+            fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
 
             // Medium compression (test = 224kb) (morton = 177kb) (cbcr = 151kb) (zsep = 131kb)
             //                    (lzma = 115kb) (cube = 162kb) (cdf-ord = 128kb/110kb)
@@ -324,45 +328,23 @@ namespace ImageTools
             //fCs = new double[]{999, 999, 400, 200, 80, 40, 20 };
             
             // sigmoid-ish compression, with extra high-freq.
-            // (cdf-ord = 169kb)
+            // (cdf-ord = 169kb), (cdf-more-rounds = 165kb)
             // no sqrt: 169; sqrt 2nd: 151   ...sqrt harms low freq quite badly. Sqrt alone = 1200. High freq dominates
-            fYs = new double[]{ 4.5, 14, 12,  7,  7,  7,  7, 4, 1.5 };
-            fCs = new double[]{ 255, 50, 24, 15, 15, 10, 6, 3.5 };
+            //fYs = new double[]{ 4.5, 14, 12,  7,  7,  7,  7, 4, 1.5 };
+            //fCs = new double[]{ 255, 50, 24, 15, 15, 10, 6, 3.5 };
 
             
-            //fYs = new double[]{4,2,1};
-            //fCs = new double[]{4,2,1};
-
-            // Log2: 1240kb; Log10: 97.8kb
-            // Log(kround): 
-
-
-            for (int r = 0; r < rounds; r++)
+            rounds = (int)Math.Log(buffer.Length, 2);
+            for (int r = 0; r <  rounds; r++)
             {
                 var factors = (ch == 0) ? fYs : fCs;
                 float factor = (float)((r >= factors.Length) ? factors[factors.Length - 1] : factors[r]);
                 if (mode == QuantiseType.Reduce) factor = 1 / factor;
 
-                var k = (rounds + 1) - r;
-
                 var len = buffer.Length >> r;
                 for (int i = len / 2; i < len; i++)
                 {
-                    //buffer[i] *= factor;
-                    if (mode == QuantiseType.Reduce)
-                    {
-                        //buffer[i] *= factor;
-                        var v = buffer[i];
-                        var s = Math.Sign(v);
-                        buffer[i] = (float)(s * Math.Log(Math.Abs(v)+1, k));
-                    }
-                    else
-                    {
-                        var v = buffer[i];
-                        var s = Math.Sign(v);
-                        buffer[i] = (float)(s * Math.Pow(k, Math.Abs(v)));
-                        //buffer[i] *= factor;
-                    }
+                    buffer[i] *= factor;
                 }
             }
         }

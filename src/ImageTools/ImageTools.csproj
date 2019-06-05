@@ -51,7 +51,7 @@
     <Compile Include="Image3d.cs" />
     <Compile Include="QuantiseType.cs" />
     <Compile Include="TruncatedStream.cs" />
-    <Compile Include="Utilities\BitWise.cs" />
+    <Compile Include="Utilities\Bin.cs" />
     <Compile Include="Utilities\DataEncoding.cs" />
     <Compile Include="Utilities\InterleavedFile.cs" />
     <Compile Include="Utilities\Load.cs" />
