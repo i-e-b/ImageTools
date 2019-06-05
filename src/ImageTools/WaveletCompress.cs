@@ -56,10 +56,10 @@ namespace ImageTools
 
         public static Bitmap Planar2ReduceImage(Bitmap src)
         {
-            var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
-
             BitmapTools.ArgbImageToYUVPlanes_ForcePower2(src, out var Y, out var U, out var V, out var width, out var height);
-            WaveletDecomposePlanar2(Y,U,V, width, height);
+            WaveletDecomposePlanar2(Y,U,V, width, height, src.Width, src.Height);
+
+            var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
             BitmapTools.YUVPlanes_To_ArgbImage_Slice(dst, 0, width, Y, U, V);
 
             return dst;
@@ -79,7 +79,6 @@ namespace ImageTools
                 img3d.U[i] -= 127.5f;
             }
 
-            var quantise = 1.0;
             int rounds;
 
             var msY = new MemoryStream();
@@ -149,11 +148,11 @@ namespace ImageTools
 
                 // Reorder, quantise, encode
                 ToStorageOrder3D(buffer, img3d, (int)Math.Log(img3d.Width, 2));
-                Quantise3D(buffer, QuantiseType.Reduce, (int)Math.Log(img3d.MaxDimension, 2), ch);
+                Quantise3D(buffer, QuantiseType.Reduce, ch);
 
                 using (var tmp = new MemoryStream(buffer.Length))
                 {   // byte-by-byte writing to DeflateStream is *very* slow, so we buffer
-                    DataEncoding.FibonacciEncode(buffer, tmp);
+                    DataEncoding.FibonacciEncode(buffer, 0, tmp);
                     using (var gs = new DeflateStream(ms, CompressionLevel.Optimal, true))
                     {
                         tmp.WriteTo(gs);
@@ -228,7 +227,7 @@ namespace ImageTools
                 {
                     DataEncoding.FibonacciDecode(gs, buffer);
                 }
-                Quantise3D(buffer, QuantiseType.Expand, (int)Math.Log(img3d.MaxDimension, 2), ch);
+                Quantise3D(buffer, QuantiseType.Expand, ch);
                 FromStorageOrder3D(buffer, img3d, (int)Math.Log(img3d.Width, 2));
                 
                 
@@ -286,7 +285,7 @@ namespace ImageTools
             return img3d;
         }
 
-        private static void Quantise3D(float[] buffer, QuantiseType mode, int rounds, int ch)
+        private static void Quantise3D(float[] buffer, QuantiseType mode, int ch)
         {
             // ReSharper disable JoinDeclarationAndInitializer
             double[] fYs, fCs;   
@@ -338,7 +337,7 @@ namespace ImageTools
             //fCs = new double[]{ 255, 50, 24, 15, 15, 10, 6, 3.5 };
 
             
-            rounds = (int)Math.Log(buffer.Length, 2);
+            var rounds = (int)Math.Log(buffer.Length, 2);
             for (int r = 0; r <  rounds; r++)
             {
                 var factors = (ch == 0) ? fYs : fCs;
@@ -368,8 +367,6 @@ namespace ImageTools
                 img3d.V[i] -= 127.5f;
                 img3d.U[i] -= 127.5f;
             }
-
-            var quantise = 1.0;
 
             for (int ch = 0; ch < 3; ch++)
             {
@@ -429,14 +426,14 @@ namespace ImageTools
 
                 // Quantise, compress, write
                 var storage = ToMortonOrder3D(buffer, img3d);
-                Quantise3D(storage, QuantiseType.Reduce, rounds, ch);
+                Quantise3D(storage, QuantiseType.Reduce, ch);
 
-                WriteToFileFibonacci(storage, ch, "3D");
+                WriteToFileFibonacci(storage, ch, storage.Length, "3D");
 
                 ReadFromFileFibonacci(storage, ch, "3D");
 
                 // De-quantise
-                Quantise3D(storage, QuantiseType.Expand, rounds, ch);
+                Quantise3D(storage, QuantiseType.Expand, ch);
                 FromMortonOrder3D(storage, buffer, img3d);
 
 
@@ -561,15 +558,15 @@ namespace ImageTools
 
                 // Reorder, quantise, write
                 ToStorageOrder3D(buffer, img3d, (int)Math.Log(img3d.Width, 2));
-                Quantise3D(buffer, QuantiseType.Reduce, (int)Math.Log(img3d.MaxDimension, 2), ch);
-                WriteToFileFibonacci(buffer, ch, "3D");
+                Quantise3D(buffer, QuantiseType.Reduce, ch);
+                WriteToFileFibonacci(buffer, ch, buffer.Length, "3D");
 
                 // clear buffer:
                 for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0.0f; }
 
                 // Read, De-quantise, reorder
                 ReadFromFileFibonacci(buffer, ch, "3D");
-                Quantise3D(buffer, QuantiseType.Expand, (int)Math.Log(img3d.MaxDimension, 2), ch);
+                Quantise3D(buffer, QuantiseType.Expand, ch);
                 FromStorageOrder3D(buffer, img3d, (int)Math.Log(img3d.Width, 2));
                 
                 
@@ -650,7 +647,7 @@ namespace ImageTools
                 //buffer = QuantiseByIndependentRound(si, buffer, ch, rounds, quality);
                 //buffer = QuantiseByEnergyBalance(si, buffer, ch, rounds, quality);
 
-                WriteToFileFibonacci(buffer, ch, "planar");
+                WriteToFileFibonacci(buffer, ch, buffer.Length, "planar");
 
                 
                 ReadFromFileFibonacci(buffer, ch, "planar");
@@ -664,17 +661,24 @@ namespace ImageTools
         }
 
         /// <summary>
-        /// This version is a hybrid between Morton (1 set of Coeffs per round) and Planar (3 sets of Coeffs per round)
+        /// This version is between Morton (1 set of Coeffs per round) and Planar (3 sets of Coeffs per round)
         /// </summary>
-        public static void WaveletDecomposePlanar2(float[] Y, float[] U, float[] V, int srcWidth, int srcHeight)
+        /// <param name="Y">Luminence plane</param>
+        /// <param name="U">color plane</param>
+        /// <param name="V">color plane</param>
+        /// <param name="planeWidth">Width of the YUV planes, in samples. This must be a power-of-two</param>
+        /// <param name="planeHeight">Height of the YUV planes, in samples. This must be a power-of-two</param>
+        /// <param name="imgWidth">Width of the image region of interest. This must be less-or-equal to the plane width. Does not need to be a power of two</param>
+        /// <param name="imgHeight">Height of the image region of interest. This must be less-or-equal to the plane height. Does not need to be a power of two</param>
+        public static void WaveletDecomposePlanar2(float[] Y, float[] U, float[] V, int planeWidth, int planeHeight, int imgWidth, int imgHeight)
         {
             // Current best: 265kb (using input 3.png)
 
-            int rounds = (int)Math.Log(srcWidth, 2) - 1;
+            int rounds = (int)Math.Log(planeWidth, 2);
             Console.WriteLine($"Decomposing with {rounds} rounds");
 
-            var p2Height = (int)Bin.NextPow2((uint) srcHeight);
-            var p2Width = (int)Bin.NextPow2((uint) srcWidth);
+            var p2Height = (int)Bin.NextPow2((uint) planeHeight);
+            var p2Width = (int)Bin.NextPow2((uint) planeWidth);
             var hx = new float[p2Height];
             var wx = new float[p2Width];
 
@@ -694,33 +698,33 @@ namespace ImageTools
                     // Wavelet decompose vertical
                     for (int x = 0; x < width; x++) // each column
                     {
-                        CDF.Fwt97(buffer, hx, height, x, srcWidth);
+                        CDF.Fwt97(buffer, hx, height, x, planeWidth);
                     }
                     
                     // Wavelet decompose HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
                     {
-                        CDF.Fwt97(buffer, wx, width, y * srcWidth, 1);
+                        CDF.Fwt97(buffer, wx, width, y * planeWidth, 1);
                     }
                 }
 
                 // Unquantised: native: 708kb; Ordered:  705kb
                 // Reorder, Quantise and reduce co-efficients
-                ToStorageOrder2D(buffer, srcWidth, srcHeight, rounds);
-                QuantisePlanar2(buffer, ch, rounds, QuantiseType.Reduce);
+                var packedLength = ToStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight);
+                QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Reduce);
 
                 // Write output
-                WriteToFileFibonacci(buffer, ch, "p_2");
+                WriteToFileFibonacci(buffer, ch, packedLength, "p_2");
 
-                                // Prove reading is good:
+                // Prove reading is good:
                 for (int i = 0; i < buffer.Length; i++) { buffer[i] = 0.0f; }
 
                 // read output
                 ReadFromFileFibonacci(buffer, ch, "p_2");
 
                 // Re-expand co-efficients
-                QuantisePlanar2(buffer, ch, rounds, QuantiseType.Expand);
-                FromStorageOrder2D(buffer, srcWidth, srcHeight, rounds);
+                QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Expand);
+                FromStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight);
 
                 // Restore
                 for (int i = rounds - 1; i >= 0; i--)
@@ -731,13 +735,13 @@ namespace ImageTools
                     // Wavelet restore HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
                     {
-                        CDF.Iwt97(buffer, wx, width,  y * srcWidth, 1);
+                        CDF.Iwt97(buffer, wx, width,  y * planeWidth, 1);
                     }
 
                     // Wavelet restore vertical
                     for (int x = 0; x < width; x++) // each column
                     {
-                        CDF.Iwt97(buffer, hx, height, x, srcWidth);
+                        CDF.Iwt97(buffer, hx, height, x, planeWidth);
                     }
                 }
 
@@ -775,7 +779,7 @@ namespace ImageTools
                     CDF.Fwt97(buffer, work, length, 0, 1);
                 }
 
-                WriteToFileFibonacci(buffer, ch, "morton");
+                WriteToFileFibonacci(buffer, ch, buffer.Length, "morton");
                 
                 // read output
                 ReadFromFileFibonacci(buffer, ch, "morton");
@@ -946,15 +950,18 @@ namespace ImageTools
             }
         }
 
-        public static void FromStorageOrder2D(float[] buffer, int srcWidth, int srcHeight, int rounds)
+        public static void FromStorageOrder2D(float[] buffer, int srcWidth, int srcHeight, int rounds, int imgWidth, int imgHeight)
         {
-            var storage = new float[buffer.Length];
+                      var storage = new float[buffer.Length];
+ 
+            // midpoint(top) to lower;
+            // lower is (bottom -  (srcHeight-imgHeight)/2)
 
-            // Plan: Do like the CDF reductions, but put all depths together before the next scale.
+            // Do like the CDF reductions, but put all depths together before the next scale.
             int incrPos = 0;
 
             // first, any unreduced value
-            var height = srcHeight >> rounds;
+            var height = srcWidth >> rounds;
             var width = srcWidth >> rounds;
 
             for (int y = 0; y < height; y++)
@@ -966,6 +973,9 @@ namespace ImageTools
                 }
             }
 
+            var lowerDiff = (srcHeight - imgHeight) / 2;
+            var eastDiff = (srcWidth - imgWidth) / 2;
+
             // now the reduced coefficients in order from most to least significant
             for (int i = rounds - 1; i >= 0; i--)
             {
@@ -973,28 +983,30 @@ namespace ImageTools
                 width = srcWidth >> i;
                 var left = width >> 1;
                 var top = height >> 1;
+                var right = width - (eastDiff >> i);
+                var lowerEnd = height - (lowerDiff >> i);
+                var eastEnd = top - (lowerDiff >> i);
 
-
-                    // vertical block
-                    // from top to the height of the horz block,
-                    // from left=(right most of prev) to right
-                    for (int x = left; x < width; x++) // each column
-                    {
-                        for (int y = 0; y < top; y++)
-                        {
-                            var yo = y * srcWidth;
-                            storage[yo + x] = buffer[incrPos++];
-                        }
-                    }
-
-                    // horizontal block
-                    for (int y = top; y < height; y++) // each row
+                // vertical block
+                // from top to the height of the horz block,
+                // from left=(right most of prev) to right
+                for (int x = left; x < right; x++) // each column
+                {
+                    for (int y = 0; y < eastEnd ;y++)
                     {
                         var yo = y * srcWidth;
-                        for (int x = 0; x < width; x++)
-                        {
-                            storage[yo + x] = buffer[incrPos++];
-                        }
+                        storage[yo + x] = buffer[incrPos++];
+                    }
+                }
+
+                // horizontal block
+                for (int y = top; y < lowerEnd; y++) // each row
+                {
+                    var yo = y * srcWidth;
+                    for (int x = 0; x < right; x++)
+                    {
+                        storage[yo + x] = buffer[incrPos++];
+                    }
                 }
             }
 
@@ -1005,15 +1017,21 @@ namespace ImageTools
             }
         }
 
-        public static void ToStorageOrder2D(float[] buffer, int srcWidth, int srcHeight, int rounds)
+        /// <summary>
+        /// Returns total number of samples used (packed into lower range)
+        /// </summary>
+        public static int ToStorageOrder2D(float[] buffer, int srcWidth, int srcHeight, int rounds, int imgWidth, int imgHeight)
         {
             var storage = new float[buffer.Length];
+ 
+            // midpoint(top) to lower;
+            // lower is (bottom -  (srcHeight-imgHeight)/2)
 
-            // Plan: Do like the CDF reductions, but put all depths together before the next scale.
+            // Do like the CDF reductions, but put all depths together before the next scale.
             int incrPos = 0;
 
             // first, any unreduced value
-            var height = srcHeight >> rounds;
+            var height = srcWidth >> rounds;
             var width = srcWidth >> rounds;
 
             for (int y = 0; y < height; y++)
@@ -1025,6 +1043,9 @@ namespace ImageTools
                 }
             }
 
+            var lowerDiff = (srcHeight - imgHeight) / 2;
+            var eastDiff = (srcWidth - imgWidth) / 2;
+
             // now the reduced coefficients in order from most to least significant
             for (int i = rounds - 1; i >= 0; i--)
             {
@@ -1032,28 +1053,30 @@ namespace ImageTools
                 width = srcWidth >> i;
                 var left = width >> 1;
                 var top = height >> 1;
+                var right = width - (eastDiff >> i);
+                var lowerEnd = height - (lowerDiff >> i);
+                var eastEnd = top - (lowerDiff >> i);
 
-
-                    // vertical block
-                    // from top to the height of the horz block,
-                    // from left=(right most of prev) to right
-                    for (int x = left; x < width; x++) // each column
-                    {
-                        for (int y = 0; y < top; y++)
-                        {
-                            var yo = y * srcWidth;
-                            storage[incrPos++] = buffer[yo + x];
-                        }
-                    }
-
-                    // horizontal block
-                    for (int y = top; y < height; y++) // each row
+                // vertical block
+                // from top to the height of the horz block,
+                // from left=(right most of prev) to right
+                for (int x = left; x < right; x++) // each column
+                {
+                    for (int y = 0; y < eastEnd ;y++)
                     {
                         var yo = y * srcWidth;
-                        for (int x = 0; x < width; x++)
-                        {
-                            storage[incrPos++] = buffer[yo + x];
-                        }
+                        storage[incrPos++] = buffer[yo + x];
+                    }
+                }
+
+                // horizontal block
+                for (int y = top; y < lowerEnd; y++) // each row
+                {
+                    var yo = y * srcWidth;
+                    for (int x = 0; x < right; x++)
+                    {
+                        storage[incrPos++] = buffer[yo + x];
+                    }
                 }
             }
 
@@ -1062,6 +1085,7 @@ namespace ImageTools
             {
                 buffer[i] = storage[i];
             }
+            return incrPos;
         }
 
 
@@ -1105,7 +1129,7 @@ namespace ImageTools
             return swap;
         }
 
-        private static void QuantisePlanar2(float[] buffer, int ch, int rounds, QuantiseType mode)
+        private static void QuantisePlanar2(float[] buffer, int ch, int packedLength, QuantiseType mode)
         {
             // ReSharper disable JoinDeclarationAndInitializer
             double[] fYs, fCs;   
@@ -1128,14 +1152,14 @@ namespace ImageTools
             //fYs = new double[]{ 1, 1, 1, 1, 1, 1, 1, 1, 1};
             //fCs = new double[]{10000, 2, 1, 1, 1, 1, 1, 1, 1};
                         
-            rounds = (int)Math.Log(buffer.Length, 2);
+            var rounds = (int)Math.Log(packedLength, 2);
             for (int r = 0; r < rounds; r++)
             {
                 var factors = (ch == 0) ? fYs : fCs;
                 float factor = (float)((r >= factors.Length) ? factors[factors.Length - 1] : factors[r]);
                 if (mode == QuantiseType.Reduce) factor = 1 / factor;
 
-                var len = buffer.Length >> r;
+                var len = packedLength >> r;
                 for (int i = len >> 1; i < len; i++)
                 {
                     buffer[i] *= factor;
@@ -1148,8 +1172,8 @@ namespace ImageTools
             var pixelBuf2 = (uint*) (d);
             for (int i = 0; i < bufferSize; i++)
             {
-                //pixelBuf2[i] = ColorSpace.Ycbcr32_To_RGB32(pixelBuf2[i]);
-                pixelBuf2[i] = ColorSpace.Ycocg32_To_RGB32(pixelBuf2[i]);
+                pixelBuf2[i] = ColorSpace.Ycbcr32_To_RGB32(pixelBuf2[i]);
+                //pixelBuf2[i] = ColorSpace.Ycocg32_To_RGB32(pixelBuf2[i]);
                 // TODO: Chroma from luma estimation?
             }
         }
@@ -1160,8 +1184,8 @@ namespace ImageTools
             var bufferSize = si.Width * si.Height;
             for (int i = 0; i < bufferSize; i++)
             {
-                //pixelBuf[i] = ColorSpace.RGB32_To_Ycbcr32(pixelBuf[i]);
-                pixelBuf[i] = ColorSpace.RGB32_To_Ycocg32(pixelBuf[i]);
+                pixelBuf[i] = ColorSpace.RGB32_To_Ycbcr32(pixelBuf[i]);
+                //pixelBuf[i] = ColorSpace.RGB32_To_Ycocg32(pixelBuf[i]);
                 // TODO: Chroma from luma estimation?
             }
 
@@ -1289,7 +1313,7 @@ namespace ImageTools
             }
         }
 
-        private static void WriteToFileFibonacci(float[] buffer, int ch, string name)
+        private static void WriteToFileFibonacci(float[] buffer, int ch, int packedLength, string name)
         {
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_fib_test_"+ch+".dat";
             if (File.Exists(testpath)) File.Delete(testpath);
@@ -1299,7 +1323,7 @@ namespace ImageTools
                 // LZMA (better compression, but a lot slower)
                 using (var ms = new MemoryStream())
                 {
-                    DataEncoding.FibonacciEncode(buffer, ms);
+                    DataEncoding.FibonacciEncode(buffer, packedLength, ms);
                     ms.Seek(0, SeekOrigin.Begin);
                     using (var fs2 = File.Open(testpath.Replace(".dat", ".lzma"), FileMode.Create))
                     {
@@ -1313,7 +1337,7 @@ namespace ImageTools
                 // Deflate
                 using (var ms = new MemoryStream(buffer.Length)) // this is bytes/8
                 {   // byte-by-byte input to deflate stream is *very* slow, so we buffer it first
-                    DataEncoding.FibonacciEncode(buffer, ms);
+                    DataEncoding.FibonacciEncode(buffer, packedLength, ms);
                     ms.Seek(0, SeekOrigin.Begin);
 
                     using (var fs = File.Open(testpath, FileMode.Create))

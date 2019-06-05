@@ -190,10 +190,10 @@ namespace ImageTools
 
             var len = height * width;
 
-            // relies on C# setting zeros
             Y = new float[len];
             U = new float[len];
             V = new float[len];
+            double yv=0, u=0, v=0;
             int stride = srcData.Stride / sizeof(uint);
             try
             {
@@ -206,12 +206,27 @@ namespace ImageTools
                     {
                         var src_i = src_yo + x;
                         var dst_i = dst_yo + x;
-                        ColorSpace.RGB32_To_YUV(s[src_i], out var yv, out var u, out var v);
+                        ColorSpace.RGB32_To_YUV(s[src_i], out yv, out u, out v);
                         Y[dst_i] = (float)yv;
                         U[dst_i] = (float)u;
                         V[dst_i] = (float)v;
-                        
-                    }       
+                    }
+                    // Continue filling any extra space with the last sample (stops zero-ringing)
+                    for (int x = srcWidth; x < width; x++)
+                    {
+                        var dst_i = dst_yo + x;
+                        Y[dst_i] = (float)yv;
+                        U[dst_i] = (float)u;
+                        V[dst_i] = (float)v;
+                    }
+                }
+                // TODO: fill any remaining rows with copies of the one above (in the planes, so we get the x-smear too)
+                var end = srcHeight * width;
+                for (int f = end; f < len; f++)
+                {
+                    Y[f] = Y[f-width];
+                    U[f] = U[f-width];
+                    V[f] = V[f-width];
                 }
             }
             finally

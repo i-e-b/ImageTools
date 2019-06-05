@@ -71,7 +71,7 @@ namespace ImageTools.Tests
                 expected[i] = (int)input[i];
             }
             
-            DataEncoding.FibonacciEncode(input, ms);
+            DataEncoding.FibonacciEncode(input, 0, ms);
 
             ms.Seek(0, SeekOrigin.Begin);
             var output = ms.ToArray();

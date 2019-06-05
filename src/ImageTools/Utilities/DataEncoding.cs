@@ -234,20 +234,24 @@ namespace ImageTools.Utilities
         /// The input of double values are truncated during encoding.
         /// </summary>
         /// <param name="buffer">Input buffer. Values will be truncated and must be in the range +- 196418</param>
+        /// <param name="length">Number of smaples to encode. Must be equal-or-less than buffer length. To encode entire buffer, pass zero.</param>
         /// <param name="output">Writable stream for output</param>
-        public static void FibonacciEncode(float[] buffer, Stream output)
+        public static void FibonacciEncode(float[] buffer, int length, Stream output)
         {
             var bf = new byte[8]; // if each bit is set. Value is 0xFF or 0x00
             var v = new byte[]{ 1<<7, 1<<6, 1<<5, 1<<4, 1<<3, 1<<2, 1<<1, 1 }; // values of the flag
             var bytePos = 0;
+
+            if (length <= 0) length = buffer.Length;
 
             // for each number, build up the fib code.
             // any time we exceed a byte we write it out and reset
             // Negative numbers are handled by the same process as `SignedToUnsigned`
             // this streams out numbers MSB-first (?)
 
-            foreach (var inValue in buffer)
+            for (var idx = 0; idx < length; idx++)
             {
+                var inValue = buffer[idx];
                 // Signed to unsigned
                 int n = (int)inValue;
                 n = (n >= 0) ? (n * 2) : (n * -2) - 1; // value to be encoded

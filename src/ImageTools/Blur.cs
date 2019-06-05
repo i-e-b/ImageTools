@@ -267,7 +267,7 @@ namespace ImageTools
                 }
 
                 // this puts coefficients in frequency order
-                WaveletCompress.ToStorageOrder2D(buffer, sourceImage.Width, sourceImage.Height, rounds);
+                WaveletCompress.ToStorageOrder2D(buffer, sourceImage.Width, sourceImage.Height, rounds, sourceImage.Width, sourceImage.Height);
 
                 // Reduce coefficients
                 var factors = new[]{1, 2, 3 };                
@@ -284,7 +284,7 @@ namespace ImageTools
                 }
 
                 // Restore
-                WaveletCompress.FromStorageOrder2D(buffer, sourceImage.Width, sourceImage.Height, rounds);
+                WaveletCompress.FromStorageOrder2D(buffer, sourceImage.Width, sourceImage.Height, rounds, sourceImage.Width, sourceImage.Height);
                 
                 // Restore
                 for (int i = rounds - 1; i >= 0; i--)
