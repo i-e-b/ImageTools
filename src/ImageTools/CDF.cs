@@ -9,7 +9,8 @@
         ///  fwt97 - Forward biorthogonal 9/7 wavelet transform (lifting implementation)
         ///<para></para><list type="bullet">
         ///  <item><description>buf is an input signal, which will be replaced by its output transform.</description></item>
-        ///  <item><description>x is a temporary buffer and is the length of the signal, and must be a power of 2.</description></item>
+        ///  <item><description>x is a temporary buffer provided by caller. It must be at least `n` long</description></item>
+        ///  <item><description>n is the length of the signal, and must be a power of 2.</description></item>
         ///  <item><description>s is the stride across the signal (for multi dimensional signals)</description></item>
         /// </list>
         ///<para></para>
@@ -18,13 +19,12 @@
         ///<para></para>
         ///  See also iwt97.
         /// </summary>
-        public static void Fwt97(float[] buf, float[] x, int offset, int stride)
+        public static void Fwt97(float[] buf, float[] x, int n, int offset, int stride)
         {
             float a;
             int i;
 
             // pick out stride data
-            var n = x.Length;
             for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
 
             // Predict 1
@@ -85,7 +85,7 @@
         /// <para></para>
         /// See also fwt97.
         /// </summary>
-        public static void Iwt97(float[] buf, float[] x, int offset, int stride)
+        public static void Iwt97(float[] buf, float[] x, int n, int offset, int stride)
         {
             float a;
             int i;
@@ -93,7 +93,6 @@
             // Unpack from stride into working buffer
             // The raw input is like [DC][DC]...[AC][AC]
             // we want it as         [DC][AC][DC][AC]...
-            var n = x.Length;
             var hn = n/2;
             for (i = 0; i < hn; i++) {
                 x[i*2] = buf[i * stride + offset];

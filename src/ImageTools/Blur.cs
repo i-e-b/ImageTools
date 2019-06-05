@@ -251,18 +251,18 @@ namespace ImageTools
                     var width = sourceImage.Width >> i;
 
                     var hx = new float[height];
-                    var yx = new float[width];
+                    var wx = new float[width];
 
                     // Wavelet decompose vertical
                     for (int x = 0; x < width; x++) // each column
                     {
-                        CDF.Fwt97(buffer, hx, x, sourceImage.Width);
+                        CDF.Fwt97(buffer, hx, height, x, sourceImage.Width);
                     }
 
                     // Wavelet decompose HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
                     {
-                        CDF.Fwt97(buffer, yx, y * sourceImage.Width, 1);
+                        CDF.Fwt97(buffer, wx, width, y * sourceImage.Width, 1);
                     }
                 }
 
@@ -293,18 +293,18 @@ namespace ImageTools
                     var width = sourceImage.Width >> i;
 
                     var hx = new float[height];
-                    var yx = new float[width];
+                    var wx = new float[width];
 
                     // Wavelet restore HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
                     {
-                        CDF.Iwt97(buffer, yx, y * sourceImage.Width, 1);
+                        CDF.Iwt97(buffer, wx, width, y * sourceImage.Width, 1);
                     }
 
                     // Wavelet restore vertical
                     for (int x = 0; x < width; x++) // each column
                     {
-                        CDF.Iwt97(buffer, hx, x, sourceImage.Width);
+                        CDF.Iwt97(buffer, hx, height, x, sourceImage.Width);
                     }
                 }
                 

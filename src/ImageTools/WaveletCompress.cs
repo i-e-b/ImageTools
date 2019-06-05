@@ -43,20 +43,24 @@ namespace ImageTools
             return dst;
         }
 
-        public static unsafe Bitmap Planar3ReduceImage(Bitmap src)
+        public static Bitmap Planar3ReduceImage(Bitmap src)
         {
             var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
-
-            BitmapTools.RunKernel(src, dst, WaveletDecomposePlanar3);
+            
+            BitmapTools.ArgbImageToYUVPlanes_f(src, out var Y, out var U, out var V);
+            WaveletDecomposePlanar3(Y,U,V, src.Width, src.Height);
+            BitmapTools.YUVPlanes_To_ArgbImage(dst, 0, Y, U, V);
 
             return dst;
         }
 
-        public static unsafe Bitmap Planar2ReduceImage(Bitmap src)
+        public static Bitmap Planar2ReduceImage(Bitmap src)
         {
             var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
 
-            BitmapTools.RunKernel(src, dst, WaveletDecomposePlanar2);
+            BitmapTools.ArgbImageToYUVPlanes_f(src, out var Y, out var U, out var V);
+            WaveletDecomposePlanar2(Y,U,V, src.Width, src.Height);
+            BitmapTools.YUVPlanes_To_ArgbImage(dst, 0, Y, U, V);
 
             return dst;
         }
@@ -110,7 +114,7 @@ namespace ImageTools
                     var depth = img3d.Depth;
 
                     var hx = new float[height];
-                    var yx = new float[width];
+                    var wx = new float[width];
 
                     for (int z = 0; z < depth; z++)
                     {
@@ -119,14 +123,14 @@ namespace ImageTools
                         // Wavelet decompose vertical
                         for (int x = 0; x < width; x++) // each column
                         {
-                            CDF.Fwt97(buffer, hx, zo + x, img3d.Width);
+                            CDF.Fwt97(buffer, hx, height, zo + x, img3d.Width);
                         }
 
                         // Wavelet decompose horizontal
                         for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
-                            CDF.Fwt97(buffer, yx, zo + yo, 1);
+                            CDF.Fwt97(buffer, wx, width, zo + yo, 1);
                         }
                     }
                 }
@@ -138,7 +142,7 @@ namespace ImageTools
                     var dx = new float[depth];
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
-                        CDF.Fwt97(buffer, dx, xy, img3d.zspan);
+                        CDF.Fwt97(buffer, dx, depth, xy, img3d.zspan);
                     }
                 }
 
@@ -237,7 +241,7 @@ namespace ImageTools
                     var dx = new float[depth];
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
-                        CDF.Iwt97(buffer, dx, xy, img3d.zspan);
+                        CDF.Iwt97(buffer, dx, depth, xy, img3d.zspan);
                     }
                 }
                 // each plane independently
@@ -249,7 +253,7 @@ namespace ImageTools
                     var depth = img3d.Depth;
 
                     var hx = new float[height];
-                    var yx = new float[width];
+                    var wx = new float[width];
 
                     for (int z = 0; z < depth; z++)
                     {
@@ -259,13 +263,13 @@ namespace ImageTools
                         for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
-                            CDF.Iwt97(buffer, yx, zo + yo, 1);
+                            CDF.Iwt97(buffer, wx, width, zo + yo, 1);
                         }
 
                         // vertical
                         for (int x = 0; x < width; x++) // each column
                         {
-                            CDF.Iwt97(buffer, hx, zo + x, img3d.Width);
+                            CDF.Iwt97(buffer, hx, height, zo + x, img3d.Width);
                         }
                     }
                 }
@@ -385,7 +389,7 @@ namespace ImageTools
                     var depth = img3d.Depth >> i;
 
                     var hx = new float[height];
-                    var yx = new float[width];
+                    var wx = new float[width];
                     var dx = new float[depth];
 
                     // Try different orderings of XY and Z once compressed output is going
@@ -405,21 +409,21 @@ namespace ImageTools
                         // Wavelet decompose vertical
                         for (int x = 0; x < width; x++) // each column
                         {
-                            CDF.Fwt97(buffer, hx, zo + x, img3d.Width);
+                            CDF.Fwt97(buffer, hx, height, zo + x, img3d.Width);
                         }
 
                         // Wavelet decompose horizontal
                         for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
-                            CDF.Fwt97(buffer, yx, zo + yo, 1);
+                            CDF.Fwt97(buffer, wx, width, zo + yo, 1);
                         }
                     }
 
                     // decompose through depth
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
-                        CDF.Fwt97(buffer, dx, xy, img3d.zspan);
+                        CDF.Fwt97(buffer, dx, depth, xy, img3d.zspan);
                     }
                 }
 
@@ -444,7 +448,7 @@ namespace ImageTools
                     var depth = img3d.Depth >> i;
 
                     var hx = new float[height];
-                    var yx = new float[width];
+                    var wx = new float[width];
                     var dx = new float[depth];
 
                     // Order here must be exact reverse of above
@@ -453,7 +457,7 @@ namespace ImageTools
                     var dz = img3d.zspan;
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
-                        CDF.Iwt97(buffer, dx, xy, dz);
+                        CDF.Iwt97(buffer, dx, depth, xy, dz);
                     }
 
                     // Restore each plane independently
@@ -465,13 +469,13 @@ namespace ImageTools
                         for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
-                            CDF.Iwt97(buffer, yx, zo + yo, 1);
+                            CDF.Iwt97(buffer, wx, width, zo + yo, 1);
                         }
 
                         // Wavelet restore vertical
                         for (int x = 0; x < width; x++) // each column
                         {
-                            CDF.Iwt97(buffer, hx, zo + x, img3d.Width);
+                            CDF.Iwt97(buffer, hx, height, zo + x, img3d.Width);
                         }
                     }
                 }
@@ -522,7 +526,7 @@ namespace ImageTools
                     var depth = img3d.Depth;
 
                     var hx = new float[height];
-                    var yx = new float[width];
+                    var wx = new float[width];
 
                     for (int z = 0; z < depth; z++)
                     {
@@ -531,14 +535,14 @@ namespace ImageTools
                         // Wavelet decompose vertical
                         for (int x = 0; x < width; x++) // each column
                         {
-                            CDF.Fwt97(buffer, hx, zo + x, img3d.Width);
+                            CDF.Fwt97(buffer, hx, height, zo + x, img3d.Width);
                         }
 
                         // Wavelet decompose horizontal
                         for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
-                            CDF.Fwt97(buffer, yx, zo + yo, 1);
+                            CDF.Fwt97(buffer, wx, width, zo + yo, 1);
                         }
                     }
                 }
@@ -550,7 +554,7 @@ namespace ImageTools
                     var dx = new float[depth];
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
-                        CDF.Fwt97(buffer, dx, xy, img3d.zspan);
+                        CDF.Fwt97(buffer, dx, depth, xy, img3d.zspan);
                     }
                 }
 
@@ -578,7 +582,7 @@ namespace ImageTools
                     var dx = new float[depth];
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
-                        CDF.Iwt97(buffer, dx, xy, img3d.zspan);
+                        CDF.Iwt97(buffer, dx, depth, xy, img3d.zspan);
                     }
                 }
                 // each plane independently
@@ -590,7 +594,7 @@ namespace ImageTools
                     var depth = img3d.Depth;
 
                     var hx = new float[height];
-                    var yx = new float[width];
+                    var wx = new float[width];
 
                     for (int z = 0; z < depth; z++)
                     {
@@ -600,13 +604,13 @@ namespace ImageTools
                         for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
-                            CDF.Iwt97(buffer, yx, zo + yo, 1);
+                            CDF.Iwt97(buffer, wx, width, zo + yo, 1);
                         }
 
                         // vertical
                         for (int x = 0; x < width; x++) // each column
                         {
-                            CDF.Iwt97(buffer, hx, zo + x, img3d.Width);
+                            CDF.Iwt97(buffer, hx, height, zo + x, img3d.Width);
                         }
                     }
                 }
@@ -625,24 +629,20 @@ namespace ImageTools
         /// <summary>
         /// Separate scales into 3 sets of coefficients
         /// </summary>
-        public static unsafe void WaveletDecomposePlanar3(byte* s, byte* d, BitmapData si, BitmapData di)
+        public static void WaveletDecomposePlanar3(float[] Y, float[] U, float[] V, int srcWidth, int srcHeight)
         {
-            // Change color space
-            var bufferSize = To_YCxCx_ColorSpace(s, si);
-
-
-            int rounds = (int)Math.Log(si.Width, 2) - 1;
+            int rounds = (int)Math.Log(srcWidth, 2) - 1;
             Console.WriteLine($"Decomposing with {rounds} rounds");
 
             for (int ch = 0; ch < 3; ch++)
             {
-                var buffer = ReadPlane(s, si, ch);
+                var buffer = Pick(ch, Y, U, V);
 
                 // DC to AC
                 for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5f; }
 
                 // Transform
-                PlanarDecompose(si, buffer, rounds);
+                PlanarDecompose(srcWidth, srcHeight, buffer, rounds);
 
 
                 // Test of quantisation:
@@ -656,35 +656,31 @@ namespace ImageTools
                 ReadFromFileFibonacci(buffer, ch, "planar");
 
                 // Restore
-                PlanarRestore(si, buffer, rounds);
+                PlanarRestore(srcWidth, srcHeight, buffer, rounds);
 
                 // AC to DC
                 for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5f; }
-
-                // Write back to image
-                WritePlane(buffer, d, di, ch);
             }
-            
-            // Restore color space
-            To_RGB_ColorSpace(d, bufferSize);
         }
 
         /// <summary>
         /// This version is a hybrid between Morton (1 set of Coeffs per round) and Planar (3 sets of Coeffs per round)
         /// </summary>
-        public static unsafe void WaveletDecomposePlanar2(byte* s, byte* d, BitmapData si, BitmapData di)
+        public static void WaveletDecomposePlanar2(float[] Y, float[] U, float[] V, int srcWidth, int srcHeight)
         {
-            // Change color space
-            var bufferSize = To_YCxCx_ColorSpace(s, si);
+            // Current best: 265kb (using input 3.png)
 
-            // Current best: 265kb
-
-            int rounds = (int)Math.Log(si.Width, 2) - 1;
+            int rounds = (int)Math.Log(srcWidth, 2) - 1;
             Console.WriteLine($"Decomposing with {rounds} rounds");
+
+            var p2Height = (int)Bin.NextPow2((uint) srcHeight);
+            var p2Width = (int)Bin.NextPow2((uint) srcWidth);
+            var hx = new float[p2Height];
+            var wx = new float[p2Width];
 
             for (int ch = 0; ch < 3; ch++)
             {
-                var buffer = ReadPlane(s, si, ch);
+                var buffer = Pick(ch, Y, U, V);
 
                 // DC to AC
                 for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5f; }
@@ -692,28 +688,25 @@ namespace ImageTools
                 // Transform
                 for (int i = 0; i < rounds; i++)
                 {
-                    var height = si.Height >> i;
-                    var width = si.Width >> i;
-
-                    var hx = new float[height];
-                    var yx = new float[width];
+                    var height = p2Height >> i;
+                    var width = p2Width >> i;
 
                     // Wavelet decompose vertical
                     for (int x = 0; x < width; x++) // each column
                     {
-                        CDF.Fwt97(buffer, hx, x, si.Width);
+                        CDF.Fwt97(buffer, hx, height, x, srcWidth);
                     }
                     
                     // Wavelet decompose HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
                     {
-                        CDF.Fwt97(buffer, yx, y * si.Width, 1);
+                        CDF.Fwt97(buffer, wx, width, y * srcWidth, 1);
                     }
                 }
 
                 // Unquantised: native: 708kb; Ordered:  705kb
                 // Reorder, Quantise and reduce co-efficients
-                ToStorageOrder2D(buffer, si.Width, si.Height, rounds);
+                ToStorageOrder2D(buffer, srcWidth, srcHeight, rounds);
                 QuantisePlanar2(buffer, ch, rounds, QuantiseType.Reduce);
 
                 // Write output
@@ -727,40 +720,33 @@ namespace ImageTools
 
                 // Re-expand co-efficients
                 QuantisePlanar2(buffer, ch, rounds, QuantiseType.Expand);
-                FromStorageOrder2D(buffer, si.Width, si.Height, rounds);
+                FromStorageOrder2D(buffer, srcWidth, srcHeight, rounds);
 
                 // Restore
                 for (int i = rounds - 1; i >= 0; i--)
                 {
-                    var height = si.Height >> i;
-                    var width = si.Width >> i;
-
-                    var hx = new float[height];
-                    var yx = new float[width];
+                    var height = p2Height >> i;
+                    var width = p2Width >> i;
 
                     // Wavelet restore HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
                     {
-                        CDF.Iwt97(buffer, yx, y * si.Width, 1);
+                        CDF.Iwt97(buffer, wx, width,  y * srcWidth, 1);
                     }
 
                     // Wavelet restore vertical
                     for (int x = 0; x < width; x++) // each column
                     {
-                        CDF.Iwt97(buffer, hx, x, si.Width);
+                        CDF.Iwt97(buffer, hx, height, x, srcWidth);
                     }
                 }
                 
                 // AC to DC
                 for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5f; }
-
-                // Write back to image
-                WritePlane(buffer, d, di, ch);
             }
-            
-            // Restore color space
-            To_RGB_ColorSpace(d, bufferSize);
         }
+
+        private static T[] Pick<T>(int i, params T[][] opts) { return opts[i]; }
 
         /// <summary>
         /// Separate scales into 1 set of coefficients using a spacefilling curve
@@ -786,7 +772,7 @@ namespace ImageTools
                 {
                     var length = bufferSize >> i;
                     var work = new float[length];
-                    CDF.Fwt97(buffer, work, 0, 1);
+                    CDF.Fwt97(buffer, work, length, 0, 1);
                 }
 
                 WriteToFileFibonacci(buffer, ch, "morton");
@@ -799,7 +785,7 @@ namespace ImageTools
                 {
                     var length = bufferSize >> i;
                     var work = new float[length];
-                    CDF.Iwt97(buffer, work, 0, 1);
+                    CDF.Iwt97(buffer, work, length, 0, 1);
                 }
 
                 buffer = FromMortonOrder(buffer, si.Width, si.Height);
@@ -1214,12 +1200,12 @@ namespace ImageTools
             return dst;
         }
 
-        private static void PlanarDecompose(BitmapData si, float[] buffer, int rounds)
+        private static void PlanarDecompose(int srcWidth, int srcHeight, float[] buffer, int rounds)
         {
             for (int i = 0; i < rounds; i++)
             {
-                var height = si.Height >> i;
-                var width = si.Width >> i;
+                var height = srcHeight >> i;
+                var width = srcWidth >> i;
 
                 var hx = new float[height];
                 var wx = new float[width];
@@ -1227,23 +1213,23 @@ namespace ImageTools
                 // Wavelet decompose vertical
                 for (int x = 0; x < width; x++) // each column
                 {
-                    CDF.Fwt97(buffer, hx, x, si.Width);
+                    CDF.Fwt97(buffer, hx, height, x, srcWidth);
                 }
 
                 // Wavelet decompose horizontal
                 for (int y = 0; y < height; y++) // each row
                 {
-                    CDF.Fwt97(buffer, wx, y * si.Width, 1);
+                    CDF.Fwt97(buffer, wx, width, y * srcWidth, 1);
                 }
             }
         }
 
-        private static void PlanarRestore(BitmapData si, float[] buffer, int rounds)
+        private static void PlanarRestore(int srcWidth, int srcHeight,  float[] buffer, int rounds)
         {
             for (int i = rounds - 1; i >= 0; i--)
             {
-                var height = si.Height >> i;
-                var width = si.Width >> i;
+                var height = srcHeight >> i;
+                var width = srcWidth >> i;
 
                 var hx = new float[height];
                 var wx = new float[width];
@@ -1251,13 +1237,13 @@ namespace ImageTools
                 // Wavelet restore horizontal
                 for (int y = 0; y < height; y++) // each row
                 {
-                    CDF.Iwt97(buffer, wx, y * si.Width, 1);
+                    CDF.Iwt97(buffer, wx, width, y * srcWidth, 1);
                 }
 
                 // Wavelet restore vertical
                 for (int x = 0; x < width; x++) // each column
                 {
-                    CDF.Iwt97(buffer, hx, x, si.Width);
+                    CDF.Iwt97(buffer, hx, height, x, srcWidth);
                 }
             }
         }
@@ -1387,13 +1373,13 @@ namespace ImageTools
                 // Wavelet decompose
                 for (int y = 0; y < si.Height; y++) // each row
                 {
-                    CDF.Fwt97(buffer, work, y * si.Width, 1);
+                    CDF.Fwt97(buffer, work, work.Length, y * si.Width, 1);
                 }
                 
                 // Wavelet restore (half image)
                 for (int y = 0; y < si.Height / 2; y++) // each row
                 {
-                    CDF.Iwt97(buffer, work, y * si.Width, 1);
+                    CDF.Iwt97(buffer, work, work.Length, y * si.Width, 1);
                 }
 
                 // AC to DC
@@ -1417,14 +1403,14 @@ namespace ImageTools
                 // Wavelet decompose
                 for (int x = 0; x < si.Width; x++) // each column
                 {
-                    CDF.Fwt97(buffer, work, x, si.Width);
+                    CDF.Fwt97(buffer, work, work.Length, x, si.Width);
                 }
 
                 
                 // Wavelet restore (half image)
                 for (int x = 0; x < si.Width / 2; x++) // each column
                 {
-                    CDF.Iwt97(buffer, work, x, si.Width);
+                    CDF.Iwt97(buffer, work, work.Length, x, si.Width);
                 }
 
                 // AC to DC

@@ -105,5 +105,19 @@ namespace ImageTools.Tests
 
             Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_4.bmp"));
         }
+
+        [Test]
+        public void compressing_non_power_of_two_image () {
+
+            using (var bmp = Load.FromFile("./inputs/1.jpg"))
+            {
+                using (var bmp2 = WaveletCompress.Planar2ReduceImage(bmp))
+                {
+                    bmp2.SaveBmp("./outputs/Cdf97_Planar2_32bpp_1.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_1.bmp"));
+        }
     }
 }
