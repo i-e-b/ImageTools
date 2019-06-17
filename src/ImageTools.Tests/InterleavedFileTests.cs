@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using ImageTools.Utilities;
 using NUnit.Framework;
 
 namespace ImageTools.Tests

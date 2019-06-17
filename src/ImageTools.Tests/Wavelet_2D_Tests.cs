@@ -134,5 +134,75 @@ namespace ImageTools.Tests
 
             Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_moire.bmp"));
         }
+
+        [Test]
+        public void decompressing_an_image_to_half_size () {
+
+            
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
+
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 0.5f))
+                {
+                    bmp2.SaveBmp("./outputs/Cdf97_3_HALF.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Cdf97_3_HALF.bmp"));
+        }
+        
+        [Test]
+        public void decompressing_an_image_to_half_size_non_power_two () {
+
+            
+            using (var bmp = Load.FromFile("./inputs/1.jpg"))
+            {
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
+
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 0.5f))
+                {
+                    bmp2.SaveBmp("./outputs/Cdf97_1_HALF.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Cdf97_1_HALF.bmp"));
+            Assert.Fail("Scaling non-power two sources is not supported yet");
+        }
+        
+        [Test]
+        public void decompressing_an_image_to_quarter_size () {
+
+            
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
+
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 0.25f))
+                {
+                    bmp2.SaveBmp("./outputs/Cdf97_3_QUARTER.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Cdf97_3_QUARTER.bmp"));
+        }
+        
+        [Test]
+        public void decompressing_an_image_to_75_percent() {
+
+            
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
+
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 0.75f))
+                {
+                    bmp2.SaveBmp("./outputs/Cdf97_3_75pc.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Cdf97_3_75pc.bmp"));
+            Assert.Fail("Non-power two scales aren't supported yet");
+        }
     }
 }

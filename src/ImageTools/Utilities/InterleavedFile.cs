@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace ImageTools.Tests
+namespace ImageTools.Utilities
 {
     /// <summary>
     /// A stream container for progressive image files.

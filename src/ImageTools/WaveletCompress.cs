@@ -6,7 +6,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using ImageTools.DataCompression.LZMA;
-using ImageTools.Tests;
 using ImageTools.Utilities;
 
 namespace ImageTools
@@ -351,6 +350,166 @@ namespace ImageTools
                 }
             }
         }
+
+
+        /// <summary>
+        /// Compress an image to a byte stream
+        /// </summary>
+        public static InterleavedFile ReduceImage2D_ToFile(Bitmap src)
+        {
+            if (src == null) return null;
+            BitmapTools.ArgbImageToYUVPlanes_ForcePower2(src, out var Y, out var U, out var V, out var planeWidth, out var planeHeight);
+            int imgWidth = src.Width;
+            int imgHeight = src.Height;
+
+            int rounds = (int)Math.Log(planeWidth, 2);
+
+            var p2Height = (int)Bin.NextPow2((uint)planeHeight);
+            var p2Width = (int)Bin.NextPow2((uint)planeWidth);
+            var hx = new float[p2Height];
+            var wx = new float[p2Width];
+
+            var msY = new MemoryStream();
+            var msU = new MemoryStream();
+            var msV = new MemoryStream();
+
+            for (int ch = 0; ch < 3; ch++)
+            {
+                var buffer = Pick(ch, Y, U, V);
+                var ms = Pick(ch, msY, msU, msV);
+
+                // DC to AC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5f; }
+
+                // Transform
+                for (int i = 0; i < rounds; i++)
+                {
+                    var height = p2Height >> i;
+                    var width = p2Width >> i;
+
+                    // Wavelet decompose vertical
+                    for (int x = 0; x < width; x++) // each column
+                    {
+                        CDF.Fwt97(buffer, hx, height, x, planeWidth);
+                    }
+
+                    // Wavelet decompose HALF horizontal
+                    for (int y = 0; y < height / 2; y++) // each row
+                    {
+                        CDF.Fwt97(buffer, wx, width, y * planeWidth, 1);
+                    }
+                }
+
+                // Reorder, Quantise and reduce co-efficients
+                var packedLength = ToStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight);
+                QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Reduce);
+
+                // Write output
+                using (var tmp = new MemoryStream(buffer.Length))
+                {   // byte-by-byte writing to DeflateStream is *very* slow, so we buffer
+                    DataEncoding.FibonacciEncode(buffer, 0, tmp);
+                    using (var gs = new DeflateStream(ms, CompressionLevel.Optimal, true))
+                    {
+                        tmp.WriteTo(gs);
+                        gs.Flush();
+                    }
+                }
+            }
+
+            // interleave the files:
+            msY.Seek(0, SeekOrigin.Begin);
+            msU.Seek(0, SeekOrigin.Begin);
+            msV.Seek(0, SeekOrigin.Begin);
+            var container = new InterleavedFile((ushort)imgWidth, (ushort)imgHeight, 1,
+                msY.ToArray(), msU.ToArray(), msV.ToArray());
+
+            msY.Dispose();
+            msU.Dispose();
+            msV.Dispose();
+            return container;
+        }
+
+        /// <summary>
+        /// Restore an image from a byte stream
+        /// </summary>
+        /// <param name="container">Image container</param>
+        /// <param name="scale">Optional, experimental: restore scale. 1.0 is natural size, 0.5 is half size</param>
+        public static Bitmap RestoreImage2D_FromFile(InterleavedFile container, float scale = 1.0f)
+        {
+            if (container == null) return null;
+            var Ybytes = container.Planes?[0];
+            var Ubytes = container.Planes?[1];
+            var Vbytes = container.Planes?[2];
+
+            if (Ybytes == null || Ubytes == null || Vbytes == null) throw new NullReferenceException("Planes were not read from image correctly");
+
+            int imgWidth = container.Width;
+            int imgHeight = container.Height;
+
+            // very experimental:
+            imgWidth = (int)(imgWidth * scale);
+            imgHeight = (int)(imgHeight * scale);
+            
+            var planeWidth = Bin.NextPow2(imgWidth);
+            var planeHeight = Bin.NextPow2(imgHeight);
+
+            var sampleCount = planeHeight * planeWidth;
+
+            var Y = new float[sampleCount];
+            var U = new float[sampleCount];
+            var V = new float[sampleCount];
+
+            var hx = new float[planeHeight];
+            var wx = new float[planeWidth];
+
+            int rounds = (int)Math.Log(planeWidth, 2);
+
+            for (int ch = 0; ch < 3; ch++)
+            {
+
+                var buffer = Pick(ch, Y, U, V);
+                if (buffer == null) continue;
+                var storedData = new MemoryStream(Pick(ch, Ybytes, Ubytes, Vbytes));
+
+                using (var gs = new DeflateStream(storedData, CompressionMode.Decompress))
+                {
+                    DataEncoding.FibonacciDecode(gs, buffer);
+                }
+
+                // Re-expand co-efficients
+                QuantisePlanar2(buffer, ch, (int)(buffer.Length / scale), QuantiseType.Expand);
+                FromStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight);
+
+                // Restore
+                for (int i = rounds - 1; i >= 0; i--)
+                {
+                    var height = planeHeight >> i;
+                    var width = planeWidth >> i;
+
+                    // Wavelet restore HALF horizontal
+                    for (int y = 0; y < height / 2; y++) // each row
+                    {
+                        CDF.Iwt97(buffer, wx, width, y * planeWidth, 1);
+                    }
+
+                    // Wavelet restore vertical
+                    for (int x = 0; x < width; x++) // each column
+                    {
+                        CDF.Iwt97(buffer, hx, height, x, planeWidth);
+                    }
+                }
+
+                // AC to DC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5f; }
+            }
+
+            var dst = new Bitmap(imgWidth, imgHeight, PixelFormat.Format32bppArgb);
+            BitmapTools.YUVPlanes_To_ArgbImage_Slice(dst, 0, imgWidth, Y, U, V);
+            return dst;
+        }
+
+
+
 
         // Reducing image by equal rounds
         public static void ReduceImage3D(Image3d img3d)
@@ -750,7 +909,7 @@ namespace ImageTools
             }
         }
 
-        private static T[] Pick<T>(int i, params T[][] opts) { return opts[i]; }
+        private static T Pick<T>(int i, params T[] opts) { return opts[i]; }
 
         /// <summary>
         /// Separate scales into 1 set of coefficients using a spacefilling curve
@@ -1160,6 +1319,14 @@ namespace ImageTools
                 if (mode == QuantiseType.Reduce) factor = 1 / factor;
 
                 var len = packedLength >> r;
+                
+                // handle scale reductions:
+                //if (len >= buffer.Length) continue; // blurry reductions
+                if (len >= buffer.Length) factor /= 2; // semi-sharp (less ringing, less blur)
+                if (len >> 1 >= buffer.Length) continue; // sharp reductions (has ringing)
+
+                // expand co-efficients
+                if (len >= buffer.Length) len = buffer.Length - 1;
                 for (int i = len >> 1; i < len; i++)
                 {
                     buffer[i] *= factor;

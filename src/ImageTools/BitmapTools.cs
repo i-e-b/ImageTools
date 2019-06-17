@@ -367,5 +367,77 @@ namespace ImageTools
                 src.UnlockBits(srcData);
             }
         }
+
+        
+
+        public static short[] YuvPlanes_To_Rgb565(float[] Y, float[] U, float[] V,
+            int srcWidth, int dstWidth, int dstHeight)
+        {
+            var sampleCount = dstWidth * dstHeight;
+            var s = new short[sampleCount];
+            int stride = srcWidth;
+
+            for (int y = 0; y < dstHeight; y++)
+            {
+                var dst_yo = stride * y;
+                var src_yo = srcWidth * y;
+                for (int x = 0; x < dstWidth; x++)
+                {
+                    var src_i = src_yo + x;
+                    var dst_i = dst_yo + x;
+                    s[dst_i] = ColorSpace.YUV_To_RGB565(Y[src_i], U[src_i], V[src_i]);
+                }
+            }
+            return s;
+        }
+
+        // This handles non-power-two input sizes
+        public static void Rgb565_To_YuvPlanes_ForcePower2(short[] src, int srcWidth, int srcHeight,
+            out float[] Y, out float[] U, out float[] V,
+            out int width, out int height)
+        {
+            width = Bin.NextPow2(srcWidth);
+            height = Bin.NextPow2(srcHeight);
+
+            var len = height * width;
+
+            Y = new float[len];
+            U = new float[len];
+            V = new float[len];
+            float yv = 0, u = 0, v = 0;
+            int stride = srcWidth;
+            var s = src;
+            for (int y = 0; y < srcHeight; y++)
+            {
+                var src_yo = stride * y;
+                var dst_yo = width * y;
+                for (int x = 0; x < srcWidth; x++)
+                {
+                    var src_i = src_yo + x;
+                    var dst_i = dst_yo + x;
+                    ColorSpace.RGB565_To_YUV(s[src_i], out yv, out u, out v);
+                    Y[dst_i] = yv;
+                    U[dst_i] = u;
+                    V[dst_i] = v;
+                }
+                // Continue filling any extra space with the last sample (stops zero-ringing)
+                for (int x = srcWidth; x < width; x++)
+                {
+                    var dst_i = dst_yo + x;
+                    Y[dst_i] = yv;
+                    U[dst_i] = u;
+                    V[dst_i] = v;
+                }
+            }
+            // fill any remaining rows with copies of the one above (full size, so we get the x-smear too)
+            var end = srcHeight * width;
+            for (int f = end; f < len; f++)
+            {
+                Y[f] = Y[f - width];
+                U[f] = U[f - width];
+                V[f] = V[f - width];
+            }
+        }
+
 	}
 }

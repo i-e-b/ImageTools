@@ -554,5 +554,29 @@ namespace ImageTools
             return ComponentToCompound(0, clip(R * 255), clip(G * 255), clip(B * 255));
         }
 
+        public static short YUV_To_RGB565(float Y, float U, float V)
+        {
+            if (Y > 220) return -1; // threshold to white
+
+            var R = 1.164f * (Y - 16) + 0.0f * (U - 127.5f) + 1.596f * (V - 127.5f);
+            var G = 1.164f * (Y - 16) + -0.392f * (U - 127.5f) + -0.813f * (V - 127.5f);
+            var B = 1.164f * (Y - 16) + 2.017f * (U - 127.5f) + 0.0f * (V - 127.5f);
+            int bits = ((clip(R) & 0xF8) << 8)
+                       | ((clip(G) & 0xFC) << 3)
+                       | ((clip(B) & 0xF8) >> 3);
+            return (short)bits;
+        }
+
+        public static void RGB565_To_YUV(short c, out float Y, out float U, out float V)
+        {
+            int R = (c >> 8) & 0xF8;
+            int G = (c >> 3) & 0xFC;
+            int B = (c << 3) & 0xF8;
+
+            Y = 16 + (0.257f * R + 0.504f * G + 0.098f * B);
+            U = 127.5f + (-0.148f * R + -0.291f * G + 0.439f * B);
+            V = 127.5f + (0.439f * R + -0.368f * G + -0.071f * B);
+        }
+
     }
 }
