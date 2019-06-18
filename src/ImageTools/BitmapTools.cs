@@ -79,6 +79,27 @@ namespace ImageTools
             }
         }
 
+        
+        public static unsafe void YCoCgPlanes_To_ArgbImage_f(Bitmap dst, int offset, float[] Y, float[] Co, float[] Cg)
+        {
+            var ri = new Rectangle(Point.Empty, dst.Size);
+            var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            var len = dstData.Height * dstData.Width;
+            try
+            {
+                var s = (uint*)dstData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    s[i] = ColorSpace.Ycocg_To_RGB32(Y[offset+i], Co[offset+i], Cg[offset+i]);
+                }
+            }
+            finally
+            {
+                dst.UnlockBits(dstData);
+            }
+        }
+
+
         public static unsafe void ArgbImageToYCoCgPlanes(Bitmap src, out double[] Y, out double[] Co, out double[] Cg)
         {
             var ri = new Rectangle(Point.Empty, src.Size);
@@ -103,6 +124,32 @@ namespace ImageTools
                 src.UnlockBits(srcData);
             }
         }
+
+        public static unsafe void ArgbImageToYCoCgPlanes_f(Bitmap src, out float[] Y, out float[] Co, out float[] Cg)
+        {
+            var ri = new Rectangle(Point.Empty, src.Size);
+            var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            var len = srcData.Height * srcData.Width;
+            Y = new float[len];
+            Co = new float[len];
+            Cg = new float[len];
+            try
+            {
+                var s = (uint*)srcData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    ColorSpace.RGB32_To_Ycocg(s[i], out var y, out var co, out var cg);
+                    Y[i] = y;
+                    Co[i] = co;
+                    Cg[i] = cg;
+                }
+            }
+            finally
+            {
+                src.UnlockBits(srcData);
+            }
+        }
+
 
         /// <summary>
         /// Copy a managed int array into a new ARGB32 bitmap image.
@@ -439,5 +486,49 @@ namespace ImageTools
             }
         }
 
-	}
+        public static unsafe void ArgbImageToHspPlanes(Bitmap src, out double[] Hp, out double[] Sp, out double[] Bp)
+        {
+            var ri = new Rectangle(Point.Empty, src.Size);
+            var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            var len = srcData.Height * srcData.Width;
+            Hp = new double[len];
+            Sp = new double[len];
+            Bp = new double[len];
+            try
+            {
+                var s = (uint*)srcData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    ColorSpace.RGB32_To_HSP(s[i], out var y, out var u, out var v);
+                    Hp[i] = y;
+                    Sp[i] = u;
+                    Bp[i] = v;
+                }
+            }
+            finally
+            {
+                src.UnlockBits(srcData);
+            }
+        }
+
+        public static unsafe void HspPlanes_To_ArgbImage(Bitmap dst, int offset, double[] Hp, double[] Sp, double[] Pp)
+        {
+            var ri = new Rectangle(Point.Empty, dst.Size);
+            var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            var len = dstData.Height * dstData.Width;
+            try
+            {
+                var s = (uint*)dstData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    s[i] = ColorSpace.HSP_To_RGB32((int)Hp[offset + i], (int)Sp[offset + i], (int)Pp[offset + i]);
+                }
+            }
+            finally
+            {
+                dst.UnlockBits(dstData);
+            }
+        }
+
+    }
 }

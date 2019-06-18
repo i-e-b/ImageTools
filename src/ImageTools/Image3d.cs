@@ -36,6 +36,7 @@ namespace ImageTools
                     if (Y == null) { InitPlanes(bmp, frameCount); }
 
                     BitmapTools.ArgbImageToYUVPlanes_f(bmp, out var srcY, out var srcU, out var srcV);
+                    //BitmapTools.ArgbImageToYCoCgPlanes_f(bmp, out var srcY, out var srcU, out var srcV);
                     for (int i = 0; i < srcY.Length; i++)
                     {
                         Y[zo+i] = srcY[i];
@@ -79,6 +80,7 @@ namespace ImageTools
             var zo = z * zspan;
 
             BitmapTools.YUVPlanes_To_ArgbImage(dst, zo, Y, U, V);
+            //BitmapTools.YCoCgPlanes_To_ArgbImage_f(dst, zo, Y, U, V);
 
             return dst;
         }

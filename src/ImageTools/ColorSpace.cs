@@ -396,69 +396,81 @@ namespace ImageTools
         private const double Pb = 0.114;
 
         /// <summary>
+        /// Experimental color space
+        /// </summary>
+        public static void RGBToExp(double R, double G, double B, out double X, out double Y, out double Z){
+            R /= 255;
+            G /= 255;
+            B /= 255;
+
+            // TODO: reverse the operations below
+
+            const double fX = 0.0714285714285714; // 1/14
+            const double fY = 0.285714285714286; // 2/7
+            const double fZ = 0.142857142857143; // 1/7
+            var g28 = G * 28;
+            var br2 = (2 + B + 2 * R);
+            var br5 = (2 + B + 2 * R);
+            var br11 = (8 + 11 * B + 8 * R);
+
+            X = fX * (br2 - Math.Sqrt(g28 + br2*br2));
+            Y = fY * (br5 + Math.Sqrt(g28 + br2*br2));
+            Z = fZ * (br11 + 3 * Math.Sqrt(g28 + br2*br2));
+
+            X *= 255;
+            Y *= 255;
+            X *= 255;
+
+            /*
+            X= 1/14 (2 + B + 2 R - sqrt(28 G + (2 + B + 2 R)^2))
+            Y= 2/7 (5 - B + 5 R + sqrt(28 G + (2 + B + 2 R)^2))
+            Z= 1/7 (8 + 11 B + 8 R + 3 sqrt(28 G + (2 + B + 2 R)^2))
+            */
+
+
+            // This is the forward transform we're trying to reverse
+            /*
+            G = 2*X*X - 0.5*Y*X - 0.5*Z*X,
+            B = X - 0.5 * Y + 0.5 * Z,
+            R = X * 2 + 0.5 * Y - 1,
+            */
+        }
+
+        /// <summary>
+        /// Experimental color space
+        /// </summary>
+        public static uint ExpToRGB32(double X, double Y, double Z)
+        {
+            // YUV-likes tend to have 2 45-degree coefs, and one 90-degree
+            // This is an attempt to make a 3x60-deg space
+
+            X /= 255;
+            Y /= 255;
+            Z /= 255;
+
+            //var G = X     - 0.5 * Y - 0.5 * Z;
+            var G = 2*X*X - 0.5*Y*X - 0.5*Z*X;
+            var B = X     - 0.5 * Y + 0.5 * Z;
+            var R = X * 2 + 0.5 * Y - 1;
+
+
+
+            return (uint)((clip(R*255) << 16) + (clip(G*255) << 8) + clip(B*255));
+        }
+
+
+        /// <summary>
         /// Convert a compound RGB to compound HSP ( see http://alienryderflex.com/hsp.html )
         /// </summary><remarks>
         /// The internal function expects the passed-in values to be on a scale
         ///  of 0 to 1, and uses that same scale for the return values.
         /// </remarks>
-        public static uint RGB32_To_HSP32(uint c) {
-            CompoundToComponent(c, out _, out var r, out var g, out var b);
-            double R = r / 255.0;
-            double G = g / 255.0;
-            double B = b / 255.0;
-
-            var P = Math.Sqrt(R * R * Pr + G * G * Pg + B * B * Pb);
-
-            // check for greys
-            if (r == g && r == b) { return ComponentToCompound(0, 0, 0, clip(P*255)); }
-
-            double H = 0;
-            double S = 0;
-
-            //  Calculate the Hue and Saturation.  (This part works
-            //  the same way as in the HSV/B and HSL systems???.)
-            if (R >= G && R >= B)
-            {   //  R is largest
-                if (B >= G)
-                {
-                    H = 6.0 / 6.0 - 1.0 / 6.0 * (B - G) / (R - G);
-                    S = 1.0 - G / R;
-                }
-                else
-                {
-                    H = 0.0 / 6.0 + 1.0 / 6.0 * (G - B) / (R - B);
-                    S = 1.0 - B / R;
-                }
-            }
-            else if (G >= R && G >= B)
-            {   //  G is largest
-                if (R >= B)
-                {
-                    H = 2.0 / 6.0 - 1.0 / 6.0 * (R - B) / (G - B);
-                    S = 1.0 - B / G;
-                }
-                else
-                {
-                    H = 2.0 / 6.0 + 1.0 / 6.0 * (B - R) / (G - R);
-                    S = 1.0 - R / G;
-                }
-            }
-            else
-            {   //  B is largest
-                if (G >= R)
-                {
-                    H = 4.0 / 6.0 - 1.0 / 6.0 * (G - R) / (B - R);
-                    S = 1.0 - R / B;
-                }
-                else
-                {
-                    H = 4.0 / 6.0 + 1.0 / 6.0 * (R - G) / (B - G);
-                    S = 1.0 - G / B;
-                }
-            }
-
-            return ComponentToCompound(0, clip(H * 255), clip(S * 255), clip(P * 255));
+        public static uint RGB32_To_HSP32(uint c)
+        {
+            RGB32_To_HSP(c, out var H, out var S, out var P);
+            return ComponentToCompound(0, clip(H), clip(S), clip(P));
         }
+        
         
         /// <summary>
         /// Convert a compound HSP to compound RGB ( see http://alienryderflex.com/hsp.html )
@@ -473,13 +485,28 @@ namespace ImageTools
         /// </remarks>
         public static uint HSP32_To_RGB32(uint c) {
             CompoundToComponent(c, out _, out var h, out var s, out var p);
+            return HSP_To_RGB32(h, s, p);
+        }
+
+        /// <summary>
+        /// Convert a component HSP to compound RGB ( see http://alienryderflex.com/hsp.html )
+        /// </summary><remarks>
+        /// The internal function expects the passed-in values to be on a scale
+        ///  of 0 to 1, and uses that same scale for the return values.
+        ///
+        ///  Note that some combinations of HSP, even if in the scale
+        ///  0-1, may return RGB values that exceed a value of 1.  For
+        ///  example, if you pass in the HSP color 0,1,1, the result
+        ///  will be the RGB color 2.037,0,0.
+        /// </remarks>
+        public static uint HSP_To_RGB32(int h, int s, int p) {
             double H = h / 255.0;
             double S = s / 255.0;
             double P = p / 255.0;
             
-            double R = 0;
-            double G = 0;
-            double B = 0;
+            double R;
+            double G;
+            double B;
 
             double minOverMax = 1.0 - S;
 
@@ -578,5 +605,73 @@ namespace ImageTools
             V = 127.5f + (0.439f * R + -0.368f * G + -0.071f * B);
         }
 
+        public static void RGB32_To_HSP(uint c, out double H, out double S, out double P)
+        {
+            const double NoiseFloor = 0.03;
+            CompoundToComponent(c, out _, out var r, out var g, out var b);
+            double R = r / 255.0;
+            double G = g / 255.0;
+            double B = b / 255.0;
+
+            P = Math.Sqrt(R * R * Pr + G * G * Pg + B * B * Pb);
+
+            H = 0;
+            S = 0;
+
+            // check for greys
+            if (Math.Abs(r - g) < NoiseFloor && Math.Abs(r - b) < NoiseFloor) {
+                P = clip(P * 255);
+                return;
+            }
+
+            //  Calculate the Hue and Saturation.  (This part works
+            //  the same way as in the HSV/B and HSL systems???.)
+            if (R >= G && R >= B)
+            {   //  R is largest
+                if (B >= G)
+                {
+                    H = 6.0 / 6.0 - 1.0 / 6.0 * (B - G) / (R - G);
+                    S = 1.0 - G / R;
+                }
+                else
+                {
+                    H = 0.0 / 6.0 + 1.0 / 6.0 * (G - B) / (R - B);
+                    S = 1.0 - B / R;
+                }
+            }
+            else if (G >= R && G >= B)
+            {   //  G is largest
+                if (R >= B)
+                {
+                    H = 2.0 / 6.0 - 1.0 / 6.0 * (R - B) / (G - B);
+                    S = 1.0 - B / G;
+                }
+                else
+                {
+                    H = 2.0 / 6.0 + 1.0 / 6.0 * (B - R) / (G - R);
+                    S = 1.0 - R / G;
+                }
+            }
+            else
+            {   //  B is largest
+                if (G >= R)
+                {
+                    H = 4.0 / 6.0 - 1.0 / 6.0 * (G - R) / (B - R);
+                    S = 1.0 - R / B;
+                }
+                else
+                {
+                    H = 4.0 / 6.0 + 1.0 / 6.0 * (R - G) / (B - G);
+                    S = 1.0 - G / B;
+                }
+            }
+
+            if (P < NoiseFloor) S = 0; // prevent Saturation noise at very low brightness
+            if (S < NoiseFloor) H = 0; // prevent Hue noise at very low saturation
+
+            H = clip(H * 255);
+            S = clip(S * 255);
+            P = clip(P * 255);
+        }
     }
 }
