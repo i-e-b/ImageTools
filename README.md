@@ -17,7 +17,7 @@ Really don't use this. These are a collection of algorithms for my own play and 
 In no particular order:
 * [ ] Reduce memory footprint (think of a way to not hold an entire 3D image in memory twice...)
 * [ ] Experiment with non-linear quantisation
-* [ ] Find a good way to do non-power-two images
+* [x] Find a good way to do non-power-two images
 * [ ] Bring in the old bits from 'ImageCompress' (color cell compression) and delete that repo
 * [ ] Try indexed entries for CDF coefficients (quantise by buckets)
 * [ ] Attempt using 'wavelet tree' to encode CDF coefficients

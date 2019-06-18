@@ -135,6 +135,24 @@ namespace ImageTools.Tests
             Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_moire.bmp"));
         }
 
+        
+        [Test]
+        public void decompressing_an_image_to_normal_size () {
+
+            
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
+
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 1))
+                {
+                    bmp2.SaveBmp("./outputs/Cdf97_3_1to1.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Cdf97_3_1to1.bmp"));
+        }
+
         [Test]
         public void decompressing_an_image_to_half_size () {
 
@@ -153,9 +171,8 @@ namespace ImageTools.Tests
         }
         
         [Test]
-        public void decompressing_an_image_to_half_size_non_power_two () {
-
-            
+        public void decompressing_an_image_to_half_size_non_power_two()
+        {
             using (var bmp = Load.FromFile("./inputs/1.jpg"))
             {
                 var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
@@ -167,7 +184,22 @@ namespace ImageTools.Tests
             }
 
             Assert.That(Load.FileExists("./outputs/Cdf97_1_HALF.bmp"));
-            Assert.Fail("Scaling non-power two sources is not supported yet");
+        }
+        
+        [Test]
+        public void decompressing_an_image_to_quarter_size_non_power_two()
+        {
+            using (var bmp = Load.FromFile("./inputs/1.jpg"))
+            {
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
+
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 3))
+                {
+                    bmp2.SaveBmp("./outputs/Cdf97_1_QUARTER.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Cdf97_1_QUARTER.bmp"));
         }
         
         [Test]
@@ -185,6 +217,23 @@ namespace ImageTools.Tests
             }
 
             Assert.That(Load.FileExists("./outputs/Cdf97_3_QUARTER.bmp"));
+        }
+        
+        [Test]
+        public void decompressing_an_image_to_eighth_size () {
+
+            
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
+
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 4))
+                {
+                    bmp2.SaveBmp("./outputs/Cdf97_3_EIGHTH.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Cdf97_3_EIGHTH.bmp"));
         }
     }
 }

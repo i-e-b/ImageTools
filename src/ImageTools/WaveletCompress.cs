@@ -446,12 +446,16 @@ namespace ImageTools
             int imgWidth = container.Width;
             int imgHeight = container.Height;
 
+            // the original image source's internal buffer size
+            var packedLength = Bin.NextPow2(imgWidth) * Bin.NextPow2(imgHeight);
+
             // scale by a power of 2
             if (scale < 1) scale = 1;
-            else if (scale > 1)
+            var scaleShift = scale - 1;
+            if (scale > 1)
             {
-                imgWidth = imgWidth >> (scale - 1);
-                imgHeight = imgHeight >> (scale - 1);
+                imgWidth >>= scaleShift;
+                imgHeight >>= scaleShift;
             }
 
             var planeWidth = Bin.NextPow2(imgWidth);
@@ -481,8 +485,8 @@ namespace ImageTools
                 }
 
                 // Re-expand co-efficients
-                QuantisePlanar2(buffer, ch, buffer.Length << (scale), QuantiseType.Expand);
-                FromStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight);
+                QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Expand);
+                FromStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight, scaleShift);
 
                 // Restore
                 for (int i = rounds - 1; i >= 0; i--)
@@ -508,7 +512,7 @@ namespace ImageTools
             }
 
             var dst = new Bitmap(imgWidth, imgHeight, PixelFormat.Format32bppArgb);
-            BitmapTools.YUVPlanes_To_ArgbImage_Slice(dst, 0, imgWidth, Y, U, V);
+            BitmapTools.YUVPlanes_To_ArgbImage_Slice(dst, 0, planeWidth, Y, U, V);
             return dst;
         }
 
@@ -1113,12 +1117,9 @@ namespace ImageTools
             }
         }
 
-        public static void FromStorageOrder2D(float[] buffer, int srcWidth, int srcHeight, int rounds, int imgWidth, int imgHeight)
+        public static void FromStorageOrder2D(float[] buffer, int srcWidth, int srcHeight, int rounds, int imgWidth, int imgHeight, int scale = 0)
         {
-                      var storage = new float[buffer.Length];
- 
-            // midpoint(top) to lower;
-            // lower is (bottom -  (srcHeight-imgHeight)/2)
+            var storage = new float[buffer.Length];
 
             // Do like the CDF reductions, but put all depths together before the next scale.
             int incrPos = 0;
@@ -1139,6 +1140,11 @@ namespace ImageTools
             var lowerDiff = (srcHeight - imgHeight) / 2;
             var eastDiff = (srcWidth - imgWidth) / 2;
 
+            // prevent over-reading on non-power-two images:
+            var limit = (imgHeight / 2) * (imgWidth / 2);
+            if (scale < 1) limit = buffer.Length;
+
+
             // now the reduced coefficients in order from most to least significant
             for (int i = rounds - 1; i >= 0; i--)
             {
@@ -1149,6 +1155,8 @@ namespace ImageTools
                 var right = width - (eastDiff >> i);
                 var lowerEnd = height - (lowerDiff >> i);
                 var eastEnd = top - (lowerDiff >> i);
+
+                if (incrPos > limit) { break; }
 
                 // vertical block
                 // from top to the height of the horz block,
@@ -1294,6 +1302,7 @@ namespace ImageTools
 
         private static void QuantisePlanar2(float[] buffer, int ch, int packedLength, QuantiseType mode)
         {
+            if (packedLength < buffer.Length) packedLength = buffer.Length;
             // ReSharper disable JoinDeclarationAndInitializer
             double[] fYs, fCs;   
             // ReSharper restore JoinDeclarationAndInitializer
