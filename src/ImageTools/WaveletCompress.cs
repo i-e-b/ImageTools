@@ -1141,6 +1141,7 @@ namespace ImageTools
             var eastDiff = (srcWidth - imgWidth) / 2;
 
             // prevent over-reading on non-power-two images:
+            // this knocks-out the last two co-efficient blocks
             var limit = (imgHeight / 2) * (imgWidth / 2);
             if (scale < 1) limit = buffer.Length;
 
