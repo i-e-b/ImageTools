@@ -143,7 +143,7 @@ namespace ImageTools.Tests
             {
                 var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
 
-                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 0.5f))
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 2))
                 {
                     bmp2.SaveBmp("./outputs/Cdf97_3_HALF.bmp");
                 }
@@ -160,7 +160,7 @@ namespace ImageTools.Tests
             {
                 var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
 
-                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 0.5f))
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 2))
                 {
                     bmp2.SaveBmp("./outputs/Cdf97_1_HALF.bmp");
                 }
@@ -178,31 +178,13 @@ namespace ImageTools.Tests
             {
                 var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
 
-                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 0.25f))
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 3))
                 {
                     bmp2.SaveBmp("./outputs/Cdf97_3_QUARTER.bmp");
                 }
             }
 
             Assert.That(Load.FileExists("./outputs/Cdf97_3_QUARTER.bmp"));
-        }
-        
-        [Test]
-        public void decompressing_an_image_to_75_percent() {
-
-            
-            using (var bmp = Load.FromFile("./inputs/3.png"))
-            {
-                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
-
-                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 0.75f))
-                {
-                    bmp2.SaveBmp("./outputs/Cdf97_3_75pc.bmp");
-                }
-            }
-
-            Assert.That(Load.FileExists("./outputs/Cdf97_3_75pc.bmp"));
-            Assert.Fail("Non-power two scales aren't supported yet");
         }
     }
 }

@@ -433,8 +433,8 @@ namespace ImageTools
         /// Restore an image from a byte stream
         /// </summary>
         /// <param name="container">Image container</param>
-        /// <param name="scale">Optional, experimental: restore scale. 1.0 is natural size, 0.5 is half size</param>
-        public static Bitmap RestoreImage2D_FromFile(InterleavedFile container, float scale = 1.0f)
+        /// <param name="scale">Optional: restore scaled down. 1 is natural size, 2 is half size, 3 is quarter size</param>
+        public static Bitmap RestoreImage2D_FromFile(InterleavedFile container, byte scale = 1)
         {
             if (container == null) return null;
             var Ybytes = container.Planes?[0];
@@ -446,10 +446,14 @@ namespace ImageTools
             int imgWidth = container.Width;
             int imgHeight = container.Height;
 
-            // very experimental:
-            imgWidth = (int)(imgWidth * scale);
-            imgHeight = (int)(imgHeight * scale);
-            
+            // scale by a power of 2
+            if (scale < 1) scale = 1;
+            else if (scale > 1)
+            {
+                imgWidth = imgWidth >> (scale - 1);
+                imgHeight = imgHeight >> (scale - 1);
+            }
+
             var planeWidth = Bin.NextPow2(imgWidth);
             var planeHeight = Bin.NextPow2(imgHeight);
 
@@ -477,7 +481,7 @@ namespace ImageTools
                 }
 
                 // Re-expand co-efficients
-                QuantisePlanar2(buffer, ch, (int)(buffer.Length / scale), QuantiseType.Expand);
+                QuantisePlanar2(buffer, ch, buffer.Length << (scale), QuantiseType.Expand);
                 FromStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight);
 
                 // Restore
@@ -1321,9 +1325,7 @@ namespace ImageTools
                 var len = packedLength >> r;
                 
                 // handle scale reductions:
-                //if (len >= buffer.Length) continue; // blurry reductions
-                if (len >= buffer.Length) factor /= 2; // semi-sharp (less ringing, less blur)
-                if (len >> 1 >= buffer.Length) continue; // sharp reductions (has ringing)
+                if (len >> 1 >= buffer.Length) continue;
 
                 // expand co-efficients
                 if (len >= buffer.Length) len = buffer.Length - 1;
