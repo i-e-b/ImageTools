@@ -559,7 +559,7 @@ namespace ImageTools
             }
         }
 
-        public static unsafe void PlanesToImage(Bitmap dst, TripleToTripleSpace conversion, double[] Xs, double[] Ys, double[] Zs)
+        public static unsafe void PlanesToImage(Bitmap dst, TripleToTripleSpace conversion, int offset, double[] Xs, double[] Ys, double[] Zs)
         {
             var ri = new Rectangle(Point.Empty, dst.Size);
             var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
@@ -569,7 +569,27 @@ namespace ImageTools
                 var s = (uint*)dstData.Scan0;
                 for (int i = 0; i < len; i++)
                 {
-                    conversion(Xs[i], Ys[i], Zs[i], out var r, out var g, out var b);
+                    conversion(Xs[offset + i], Ys[offset + i], Zs[offset + i], out var r, out var g, out var b);
+                    s[i] = ColorSpace.ComponentToCompound(0, r, g, b);
+                }
+            }
+            finally
+            {
+                dst.UnlockBits(dstData);
+            }
+        }
+        
+        public static unsafe void PlanesToImage_f(Bitmap dst, TripleToTripleSpace conversion, int offset, float[] Xs, float[] Ys, float[] Zs)
+        {
+            var ri = new Rectangle(Point.Empty, dst.Size);
+            var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            var len = dstData.Height * dstData.Width;
+            try
+            {
+                var s = (uint*)dstData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    conversion(Xs[offset + i], Ys[offset + i], Zs[offset + i], out var r, out var g, out var b);
                     s[i] = ColorSpace.ComponentToCompound(0, r, g, b);
                 }
             }

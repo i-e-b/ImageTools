@@ -402,39 +402,19 @@ namespace ImageTools
             R /= 255;
             G /= 255;
             B /= 255;
+            
+            X = 0.1 * B + 0.4 * G + 0.5 * R - 0.1;
+            Y = -0.4 * B - 1.6 * G + 2 * R + 0.4;
+            Z = 1.6 * B - 1.6 * G + 0.4;
 
-            // TODO: reverse the operations below
-
-
-            /*
-            X= 1/14 (2 + B + 2 R - sqrt(28 G + (2 + B + 2 R)^2))
-            Y= 2/7 (5 - B + 5 R + sqrt(28 G + (2 + B + 2 R)^2))
-            Z= 1/7 (8 + 11 B + 8 R + 3 sqrt(28 G + (2 + B + 2 R)^2))
-            */
-
-
-            X = 0.142857 * B + 0.142857 * G + 0.285714 * R + 0.285714;
-            Y = -0.571429 * B - 0.571429 * G + 0.857143 * R + 0.857143;
-            Z = 1.14286 * B - 0.857143 * G + 0.285714 * R + 0.285714;
+            Y = (Y + 1) / 3;
+            Z = (Z + 1) / 3;
 
             X = clip(X * 255);
             Y = clip(Y * 255);
             Z = clip(Z * 255);
-
-            // This is the forward transform we're trying to reverse
-            /*
-            G = 2*X*X - 0.5*Y*X - 0.5*Z*X,
-            B = X - 0.5 * Y + 0.5 * Z,
-            R = X * 2 + 0.5 * Y - 1,
-
-            or
-
-            G = X * 2 - 0.5 * Y - 0.5 * Z,
-            B = X     - 0.5 * Y + 0.5 * Z,
-            R = X * 2 + 0.5 * Y - 1
-            */
         }
-        
+
         /// <summary>
         /// Experimental color space
         /// </summary>
@@ -447,9 +427,12 @@ namespace ImageTools
             Y /= 255;
             Z /= 255;
 
-            G = X * 2 - 0.5 * Y - 0.5 * Z;
-            B = X     - 0.5 * Y + 0.5 * Z;
-            R = X * 2 + 0.5 * Y - 1;
+            Y = (Y * 3) - 1;
+            Z = (Z * 3) - 1;
+
+            R = X + 0.25 * Y;
+            G = X - 0.25 * Y - 0.125 * Z + 0.25;
+            B = X - 0.25 * Y + 0.5   * Z;
 
             R = clip(R * 255);
             G = clip(G * 255);
@@ -461,20 +444,8 @@ namespace ImageTools
         /// </summary>
         public static uint ExpToRGB32(double X, double Y, double Z)
         {
-            // YUV-likes tend to have 2 45-degree coefs, and one 90-degree
-            // This is an attempt to make a 3x60-deg space
-
-            X /= 255;
-            Y /= 255;
-            Z /= 255;
-
-            //var G = 2*X*X - 0.5*Y*X - 0.5*Z*X;
-
-            var G = X * 2 - 0.5 * Y - 0.5 * Z;
-            var B = X     - 0.5 * Y + 0.5 * Z;
-            var R = X * 2 + 0.5 * Y - 1;
-
-            return (uint)((clip(R*255) << 16) + (clip(G*255) << 8) + clip(B*255));
+            ExpToRGB(X,Y,Z, out var R, out var G, out var B);
+            return (uint)((clip(R) << 16) + (clip(G) << 8) + clip(B));
         }
 
 

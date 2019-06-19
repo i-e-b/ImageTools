@@ -10,7 +10,6 @@ namespace ImageTools
     /// </summary>
     public class Image3d
     {
-        private readonly BitmapTools.TripleToTripleSpace _convertFrom;
         public float[] Y;
         public float[] U;
         public float[] V;
@@ -37,7 +36,6 @@ namespace ImageTools
                     if (Y == null) { InitPlanes(bmp, frameCount); }
 
                     BitmapTools.ArgbImageToYUVPlanes_f(bmp, out var srcY, out var srcU, out var srcV);
-                    //BitmapTools.ArgbImageToYCoCgPlanes_f(bmp, out var srcY, out var srcU, out var srcV);
                     for (int i = 0; i < srcY.Length; i++)
                     {
                         Y[zo+i] = srcY[i];
@@ -49,9 +47,8 @@ namespace ImageTools
             }
         }
 
-        public Image3d(string[] frames, BitmapTools.TripleToTripleSpace convertTo, BitmapTools.TripleToTripleSpace convertFrom)
+        public Image3d(string[] frames, BitmapTools.TripleToTripleSpace colorSpace)
         {
-            _convertFrom = convertFrom;
             var frameCount = frames.Length;
             var zo = 0;
             foreach (var frame in frames)
@@ -60,8 +57,7 @@ namespace ImageTools
                 {
                     if (Y == null) { InitPlanes(bmp, frameCount); }
 
-                    BitmapTools.ImageToPlanes(bmp, convertTo, out var srcY, out var srcU, out var srcV);
-                    //BitmapTools.ArgbImageToYCoCgPlanes_f(bmp, out var srcY, out var srcU, out var srcV);
+                    BitmapTools.ImageToPlanes(bmp, colorSpace, out var srcY, out var srcU, out var srcV);
                     for (int i = 0; i < srcY.Length; i++)
                     {
                         Y[zo+i] = (float)srcY[i];
@@ -99,13 +95,19 @@ namespace ImageTools
         /// Read a Z slice back to a 2D bitmap image.
         /// Caller should dispose.
         /// </summary>
-        public Bitmap ReadSlice(int z)
+        public Bitmap ReadSlice(int z, BitmapTools.TripleToTripleSpace colorSpace = null)
         {
             var dst = new Bitmap(Width, Height, PixelFormat.Format32bppArgb);
             var zo = z * zspan;
 
-            BitmapTools.YUVPlanes_To_ArgbImage(dst, zo, Y, U, V);
-            //BitmapTools.YCoCgPlanes_To_ArgbImage_f(dst, zo, Y, U, V);
+            if (colorSpace == null)
+            {
+                BitmapTools.YUVPlanes_To_ArgbImage(dst, zo, Y, U, V);
+            }
+            else
+            {
+                BitmapTools.PlanesToImage_f(dst, colorSpace, zo, Y, U, V);
+            }
 
             return dst;
         }
