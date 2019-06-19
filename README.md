@@ -1,8 +1,7 @@
 ImageTools
 ==========
 
-A few image algorithms in C#. Nothing novel, just a place to put things.
-
+A few image algorithms in C#
 
 ## What?
 
@@ -11,6 +10,17 @@ A few image algorithms in C#. Nothing novel, just a place to put things.
 
 Really don't use this. These are a collection of algorithms for my own play and research.
 
+## Contents
+
+Experiments covering
+* Color space mappings
+* Compound/Planar format conversion
+* Image compression/storage/decompression experiments
+* Data stream interleaving
+* CDF and Haar wavelet tests
+* Morton and Hilbert space filling curve reordering
+* Box Blur
+* Image scaling
 
 ## Plans and To-do
 
