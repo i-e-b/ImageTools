@@ -398,45 +398,44 @@ namespace ImageTools
         /// <summary>
         /// Experimental color space
         /// </summary>
-        public static void RGBToExp(double R, double G, double B, out double X, out double Y, out double Z){
+        public static void RGBToExp(double R, double G, double B, out double c1, out double c2, out double c3)
+        {
+            /*c1 = 16 + (0.257 * R + 0.504 * G + 0.098 * B);
+            c2 = 128 + (-0.148 * R + -0.291 * G + 0.439 * B);
+            c3 = 128 + (0.439 * R + -0.368 * G + -0.071 * B);*/
             R /= 255;
             G /= 255;
             B /= 255;
-            
-            X = 0.1 * B + 0.4 * G + 0.5 * R - 0.1;
-            Y = -0.4 * B - 1.6 * G + 2 * R + 0.4;
-            Z = 1.6 * B - 1.6 * G + 0.4;
 
-            Y = (Y + 1) / 3;
-            Z = (Z + 1) / 3;
+            var X = 0.1666 * B + 0.333 * G + 0.5 * R + 0.0416;
+            var Y = -0.333 * B - 0.666 * G + R + 0.416;
+            var Z = 1.333 * B - 1.333 * G + 0.333;
 
-            X = clip(X * 255);
-            Y = clip(Y * 255);
-            Z = clip(Z * 255);
+            c1 = clip(X * 255);
+            c2 = clip(Y * 255);
+            c3 = clip(Z * 255);
         }
 
         /// <summary>
         /// Experimental color space
         /// </summary>
-        public static void ExpToRGB(double X, double Y, double Z, out double R, out double G, out double B)
+        public static void ExpToRGB(double c1, double c2, double c3, out double R, out double G, out double B)
         {
-            // YUV-likes tend to have 2 45-degree coefs, and one 90-degree
-            // This is an attempt to make a 3x60-deg space
+            /*R = 1.164 * (c1 - 16) + 0.0 * (c2 - 128) + 1.596 * (c3 - 128);
+            G = 1.164 * (c1 - 16) + -0.392 * (c2 - 128) + -0.813 * (c3 - 128);
+            B = 1.164 * (c1 - 16) + 2.017 * (c2 - 128) + 0.0 * (c3 - 128);*/
 
-            X /= 255;
-            Y /= 255;
-            Z /= 255;
+            var X = c1 / 255;
+            var Y = c2 / 255;
+            var Z = c3 / 255;
 
-            Y = (Y * 3) - 1;
-            Z = (Z * 3) - 1;
+            R = -0.25 + X + 0.5 * Y;
+            G =  0.25 + X - 0.5 * Y - 0.25 * Z;
+            B =         X - 0.5 * Y + 0.5  * Z;
 
-            R = X + 0.25 * Y;
-            G = X - 0.25 * Y - 0.125 * Z + 0.25;
-            B = X - 0.25 * Y + 0.5   * Z;
-
-            R = clip(R * 255);
-            G = clip(G * 255);
-            B = clip(B * 255);
+            R = clip(R*255);
+            G = clip(G*255);
+            B = clip(B*255);
         }
 
         /// <summary>

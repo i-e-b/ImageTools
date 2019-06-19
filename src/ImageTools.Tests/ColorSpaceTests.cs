@@ -263,11 +263,11 @@ namespace ImageTools.Tests
 
                 ColorSpace.CompoundToComponent(c_out, out _, out var R_out, out var G_out, out var B_out);
                 Console.WriteLine($"R = {R_out}; G = {G_out}; B = {B_out};");
-            }
 
-            //Assert.That(R_out, Is.InRange(R_in - 2, R_in + 2));
-            //Assert.That(G_out, Is.InRange(G_in - 2, G_in + 2));
-            //Assert.That(B_out, Is.InRange(B_in - 2, B_in + 2));
+                Assert.That(R_out, Is.InRange(R_in - 2, R_in + 2));
+                Assert.That(G_out, Is.InRange(G_in - 2, G_in + 2));
+                Assert.That(B_out, Is.InRange(B_in - 2, B_in + 2));
+            }
         }
 
         [Test, Description("Outputs a sample image showing the color planes")]

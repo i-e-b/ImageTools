@@ -570,7 +570,7 @@ namespace ImageTools
                 for (int i = 0; i < len; i++)
                 {
                     conversion(Xs[offset + i], Ys[offset + i], Zs[offset + i], out var r, out var g, out var b);
-                    s[i] = ColorSpace.ComponentToCompound(0, r, g, b);
+                    s[i] = ColorSpace.ComponentToCompound(255, r, g, b);
                 }
             }
             finally
@@ -590,7 +590,7 @@ namespace ImageTools
                 for (int i = 0; i < len; i++)
                 {
                     conversion(Xs[offset + i], Ys[offset + i], Zs[offset + i], out var r, out var g, out var b);
-                    s[i] = ColorSpace.ComponentToCompound(0, r, g, b);
+                    s[i] = ColorSpace.ComponentToCompound(255, r, g, b);
                 }
             }
             finally

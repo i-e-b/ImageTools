@@ -99,7 +99,7 @@ namespace ImageTools.Tests
                 .ToArray();
 
             Assert.That(frames.Length, Is.GreaterThan(5), "Not enough frames");
-            var img3d = new Image3d(frames, ColorSpace.ExpToRGB);
+            var img3d = new Image3d(frames, ColorSpace.RGBToExp);
 
             // Raw frames as doubles is *big*
             Console.WriteLine($"3D image memory size: {img3d.ByteSize() / 1048576L} MB");
@@ -124,7 +124,7 @@ namespace ImageTools.Tests
             // STEP 4: output frames for inspection
             for (int z = 0; z < result.Depth; z++)
             {
-                using (Bitmap f = result.ReadSlice(z, ColorSpace.RGBToExp))
+                using (Bitmap f = result.ReadSlice(z, ColorSpace.ExpToRGB))
                 {
                     f.SaveBmp($"./outputs/w3d_f{z}.bmp");
                 }
