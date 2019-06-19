@@ -99,15 +99,16 @@ namespace ImageTools.Tests
                 {
                     BitmapTools.ArgbImageToHspPlanes(bmp, out var Hp, out var Sp, out var Pp);
                     var zeroP = new double[Hp.Length]; // to zero out other planes
-                    for (int i = 0; i < zeroP.Length; i++) { zeroP[i] = 255; }
+                    var maxP = new double[Hp.Length]; // to zero out other planes
+                    for (int i = 0; i < zeroP.Length; i++) { zeroP[i] = 0; maxP[i] = 255; }
 
-                    BitmapTools.HspPlanes_To_ArgbImage(dst, 0, Hp, zeroP, zeroP);
+                    BitmapTools.HspPlanes_To_ArgbImage(dst, 0, Hp, maxP, maxP);
                     dst.SaveBmp("./outputs/3_HSP_H-only.bmp");
                     
-                    BitmapTools.HspPlanes_To_ArgbImage(dst, 0, zeroP, Sp, zeroP);
+                    BitmapTools.HspPlanes_To_ArgbImage(dst, 0, zeroP, zeroP, Sp);
                     dst.SaveBmp("./outputs/3_HSP_S-only.bmp");
                     
-                    BitmapTools.HspPlanes_To_ArgbImage(dst, 0, zeroP, zeroP, Pp);
+                    BitmapTools.HspPlanes_To_ArgbImage(dst, 0, maxP, zeroP, Pp);
                     dst.SaveBmp("./outputs/3_HSP_P-only.bmp");
                     
                     BitmapTools.HspPlanes_To_ArgbImage(dst, 0, Hp, Sp, Pp);
