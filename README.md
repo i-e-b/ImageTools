@@ -17,9 +17,10 @@ Experiments covering
 * Compound/Planar format conversion
 * Image compression/storage/decompression experiments
 * Data stream interleaving
+* Fibonacci encode/decode streams
 * CDF and Haar wavelet tests
 * Morton and Hilbert space filling curve reordering
-* Box Blur
+* Box Blur / Soft-focus / sharpen
 * Image scaling
 
 ## Plans and To-do

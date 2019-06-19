@@ -48,5 +48,20 @@ namespace ImageTools.Tests
 
             Assert.That(Load.FileExists("./outputs/4_soft.jpg"));
         }
+        
+
+        [Test]
+        public void sharpen_an_image () {
+
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                using (var bmp2 = Blur.Sharpen(bmp))
+                {
+                    bmp2.SaveJpeg("./outputs/3_sharp.jpg");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/3_sharp.jpg"));
+        }
 	}
 }
