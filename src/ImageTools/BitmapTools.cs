@@ -8,6 +8,8 @@ namespace ImageTools
 {
 	public class BitmapTools
 	{
+        public delegate void TripleToTripleSpace(double i1, double i2, double i3, out double o1, out double o2, out double o3);
+
 		public unsafe delegate void Kernel32To64(byte* src, ushort* dst, BitmapData srcData, BitmapData dstData);
 		public unsafe delegate void Kernel32To32(byte* src, byte* dst, BitmapData srcData, BitmapData dstData);
 
@@ -268,7 +270,7 @@ namespace ImageTools
                         V[dst_i] = (float)v;
                     }
                 }
-                // TODO: fill any remaining rows with copies of the one above (in the planes, so we get the x-smear too)
+                // fill any remaining rows with copies of the one above (in the planes, so we get the x-smear too)
                 var end = srcHeight * width;
                 for (int f = end; f < len; f++)
                 {
@@ -531,7 +533,6 @@ namespace ImageTools
             }
         }
 
-        public delegate void TripleToTripleSpace(double R, double G, double B, out double X, out double Y, out double Z);
 
         public static unsafe void ImageToPlanes(Bitmap src, TripleToTripleSpace conversion, out double[] Xs, out double[] Ys, out double[] Zs)
         {
@@ -598,5 +599,99 @@ namespace ImageTools
                 dst.UnlockBits(dstData);
             }
         }
+
+        public static unsafe void ImageToPlanes_ForcePower2(Bitmap src, TripleToTripleSpace conversion,
+            out float[] Y, out float[] U, out float[] V,
+            out int width, out int height)
+        {
+             var ri = new Rectangle(Point.Empty, src.Size);
+            var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+
+            var srcHeight = srcData.Height;
+            var srcWidth = srcData.Width;
+            width = Bin.NextPow2(srcData.Width);
+            height = Bin.NextPow2(srcData.Height);
+
+            var len = height * width;
+
+            Y = new float[len];
+            U = new float[len];
+            V = new float[len];
+            double yv=0, u=0, v=0;
+            int stride = srcData.Stride / sizeof(uint);
+            try
+            {
+                var s = (uint*)srcData.Scan0;
+                for (int y = 0; y < srcHeight; y++)
+                {
+                    var src_yo = stride * y;
+                    var dst_yo = width * y;
+                    for (int x = 0; x < srcWidth; x++)
+                    {
+                        var src_i = src_yo + x;
+                        var dst_i = dst_yo + x;
+                        ColorSpace.CompoundToComponent(s[src_i], out _, out var r, out var g, out var b);
+                        conversion(r,g,b, out yv, out u, out v);
+                        Y[dst_i] = (float)yv;
+                        U[dst_i] = (float)u;
+                        V[dst_i] = (float)v;
+                    }
+                    // Continue filling any extra space with the last sample (stops zero-ringing)
+                    for (int x = srcWidth; x < width; x++)
+                    {
+                        var dst_i = dst_yo + x;
+                        Y[dst_i] = (float)yv;
+                        U[dst_i] = (float)u;
+                        V[dst_i] = (float)v;
+                    }
+                }
+                // fill any remaining rows with copies of the one above (in the planes, so we get the x-smear too)
+                var end = srcHeight * width;
+                for (int f = end; f < len; f++)
+                {
+                    Y[f] = Y[f-width];
+                    U[f] = U[f-width];
+                    V[f] = V[f-width];
+                }
+            }
+            finally
+            {
+                src.UnlockBits(srcData);
+            }
+        }
+
+        public static unsafe void PlanesToImage_Slice(Bitmap dst, TripleToTripleSpace conversion,
+            int offset, int srcWidth,
+            float[] Y, float[] U, float[] V)
+        {
+            var ri = new Rectangle(Point.Empty, dst.Size);
+            var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+
+            var dstHeight = dstData.Height;
+            var dstWidth = dstData.Width;
+            try
+            {
+                int stride = dstData.Stride / sizeof(uint);
+                var s = (uint*)dstData.Scan0;
+                
+                for (int y = 0; y < dstHeight; y++)
+                {
+                    var dst_yo = stride * y;
+                    var src_yo = offset + (srcWidth * y);
+                    for (int x = 0; x < dstWidth; x++)
+                    {
+                        var src_i = src_yo + x;
+                        var dst_i = dst_yo + x;
+                        conversion(Y[src_i], U[src_i], V[src_i], out var r, out var g, out var b);
+                        s[dst_i] = ColorSpace.ComponentToCompound(255,r,g,b);
+                    }       
+                }
+            }
+            finally
+            {
+                dst.UnlockBits(dstData);
+            }
+        }
+
     }
 }

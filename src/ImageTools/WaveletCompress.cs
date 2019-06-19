@@ -55,11 +55,11 @@ namespace ImageTools
 
         public static Bitmap Planar2ReduceImage(Bitmap src)
         {
-            BitmapTools.ArgbImageToYUVPlanes_ForcePower2(src, out var Y, out var U, out var V, out var width, out var height);
+            BitmapTools.ImageToPlanes_ForcePower2(src, ColorSpace.RGBToExp, out var Y, out var U, out var V, out var width, out var height);
             WaveletDecomposePlanar2(Y,U,V, width, height, src.Width, src.Height);
 
             var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
-            BitmapTools.YUVPlanes_To_ArgbImage_Slice(dst, 0, width, Y, U, V);
+            BitmapTools.PlanesToImage_Slice(dst, ColorSpace.ExpToRGB, 0, width, Y, U, V);
 
             return dst;
         }
@@ -1476,7 +1476,7 @@ namespace ImageTools
                     {
                         // reduce factor to demonstrate shortened files
                         var length = (int)(fs.Length * 1.0);
-                        Console.WriteLine($"Reading {length} bytes of a total {fs.Length}");
+                        Console.WriteLine($"Reading {Bin.Human(length)} bytes of a total {Bin.Human(fs.Length)}");
                         var trunc_sim = new TruncatedStream(fs, length);
 
                         using (var gs = new DeflateStream(trunc_sim, CompressionMode.Decompress))

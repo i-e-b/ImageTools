@@ -396,46 +396,33 @@ namespace ImageTools
         private const double Pb = 0.114;
 
         /// <summary>
-        /// Experimental color space
+        /// Experimental color space.
+        /// This is biased to allow more error in red and blue, less in green.
         /// </summary>
         public static void RGBToExp(double R, double G, double B, out double c1, out double c2, out double c3)
         {
-            /*c1 = 16 + (0.257 * R + 0.504 * G + 0.098 * B);
-            c2 = 128 + (-0.148 * R + -0.291 * G + 0.439 * B);
-            c3 = 128 + (0.439 * R + -0.368 * G + -0.071 * B);*/
-            R /= 255;
-            G /= 255;
-            B /= 255;
+            var X = 0.0638407 * B + 0.291612 * G + 0.144547 * R + 64;
+            var Y = 0.435098 * B - 0.270198 * G - 0.1649 * R + 128;
+            var Z = -0.0527391 * B - 0.382359 * G + 0.435098 * R + 128;
 
-            var X = 0.1666 * B + 0.333 * G + 0.5 * R + 0.0416;
-            var Y = -0.333 * B - 0.666 * G + R + 0.416;
-            var Z = 1.333 * B - 1.333 * G + 0.333;
-
-            c1 = clip(X * 255);
-            c2 = clip(Y * 255);
-            c3 = clip(Z * 255);
+            c1 = clip(X);
+            c2 = clip(Y);
+            c3 = clip(Z);
         }
 
         /// <summary>
-        /// Experimental color space
+        /// Experimental color space.
+        /// This is biased to allow more error in red and blue, less in green.
         /// </summary>
-        public static void ExpToRGB(double c1, double c2, double c3, out double R, out double G, out double B)
+        public static void ExpToRGB(double x, double y, double z, out double R, out double G, out double B)
         {
-            /*R = 1.164 * (c1 - 16) + 0.0 * (c2 - 128) + 1.596 * (c3 - 128);
-            G = 1.164 * (c1 - 16) + -0.392 * (c2 - 128) + -0.813 * (c3 - 128);
-            B = 1.164 * (c1 - 16) + 2.017 * (c2 - 128) + 0.0 * (c3 - 128);*/
+            R = 2 * (x - 64) -  0.1   * (y - 128) +  1.596 * (z - 128);
+            G = 2 * (x - 64) + -0.392 * (y - 128) + -0.813 * (z - 128);
+            B = 2 * (x - 64) +  2.017 * (y - 128) +  0.1   * (z - 128);
 
-            var X = c1 / 255;
-            var Y = c2 / 255;
-            var Z = c3 / 255;
-
-            R = -0.25 + X + 0.5 * Y;
-            G =  0.25 + X - 0.5 * Y - 0.25 * Z;
-            B =         X - 0.5 * Y + 0.5  * Z;
-
-            R = clip(R*255);
-            G = clip(G*255);
-            B = clip(B*255);
+            R = clip(R);
+            G = clip(G);
+            B = clip(B);
         }
 
         /// <summary>

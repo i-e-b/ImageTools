@@ -254,7 +254,7 @@ namespace ImageTools.Tests
                 var G_in = rnd.Next(0, 256);
                 var B_in = rnd.Next(0, 256);
 
-                Console.WriteLine($"R = {R_in}; G = {G_in}; B = {B_in};");
+                Console.Write($"R = {R_in}; G = {G_in}; B = {B_in};");
 
                 ColorSpace.RGBToExp(R_in, G_in, B_in, out var X, out var Y, out var Z);
 
@@ -262,11 +262,12 @@ namespace ImageTools.Tests
                 var c_out = ColorSpace.ExpToRGB32(X, Y, Z);
 
                 ColorSpace.CompoundToComponent(c_out, out _, out var R_out, out var G_out, out var B_out);
-                Console.WriteLine($"R = {R_out}; G = {G_out}; B = {B_out};");
+                Console.WriteLine($"R = {R_out}; G = {G_out}; B = {B_out};\r\n");
 
-                Assert.That(R_out, Is.InRange(R_in - 2, R_in + 2));
-                Assert.That(G_out, Is.InRange(G_in - 2, G_in + 2));
-                Assert.That(B_out, Is.InRange(B_in - 2, B_in + 2));
+                // range test are weighted to relative visual importance
+                Assert.That(R_out, Is.InRange(R_in - 4, R_in + 4), "Red out of range");
+                Assert.That(G_out, Is.InRange(G_in - 2, G_in + 2), "Green out of range");
+                Assert.That(B_out, Is.InRange(B_in - 6, B_in + 6), "Blue out of range");
             }
         }
 

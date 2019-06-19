@@ -109,7 +109,7 @@ namespace ImageTools.Tests
             // STEP 2: Do the decomposition
             var sw = new Stopwatch();
             sw.Start();
-            var targetPath = Path.Combine(basePath, "outputs/w3d_a_packed.bin");
+            var targetPath = Path.Combine(basePath, "outputs/expcol_w3d.bin");
             WaveletCompress.ReduceImage3D_ToFile(img3d, targetPath);
             sw.Stop();
             Console.WriteLine($"Compression took {sw.Elapsed}. Written to {targetPath}");
@@ -126,7 +126,7 @@ namespace ImageTools.Tests
             {
                 using (Bitmap f = result.ReadSlice(z, ColorSpace.ExpToRGB))
                 {
-                    f.SaveBmp($"./outputs/w3d_f{z}.bmp");
+                    f.SaveBmp($"./outputs/expcol_w3d_f{z}.bmp");
                 }
             }
         }
