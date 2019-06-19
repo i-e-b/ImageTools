@@ -10,6 +10,7 @@ namespace ImageTools
     /// </summary>
     public class Image3d
     {
+        private readonly BitmapTools.TripleToTripleSpace _convertFrom;
         public float[] Y;
         public float[] U;
         public float[] V;
@@ -42,6 +43,30 @@ namespace ImageTools
                         Y[zo+i] = srcY[i];
                         U[zo+i] = srcU[i];
                         V[zo+i] = srcV[i];
+                    }
+                }
+                zo += zspan;
+            }
+        }
+
+        public Image3d(string[] frames, BitmapTools.TripleToTripleSpace convertTo, BitmapTools.TripleToTripleSpace convertFrom)
+        {
+            _convertFrom = convertFrom;
+            var frameCount = frames.Length;
+            var zo = 0;
+            foreach (var frame in frames)
+            {
+                using (var bmp = Load.FromFile(frame))
+                {
+                    if (Y == null) { InitPlanes(bmp, frameCount); }
+
+                    BitmapTools.ImageToPlanes(bmp, convertTo, out var srcY, out var srcU, out var srcV);
+                    //BitmapTools.ArgbImageToYCoCgPlanes_f(bmp, out var srcY, out var srcU, out var srcV);
+                    for (int i = 0; i < srcY.Length; i++)
+                    {
+                        Y[zo+i] = (float)srcY[i];
+                        U[zo+i] = (float)srcU[i];
+                        V[zo+i] = (float)srcV[i];
                     }
                 }
                 zo += zspan;

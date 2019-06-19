@@ -405,21 +405,6 @@ namespace ImageTools
 
             // TODO: reverse the operations below
 
-            const double fX = 0.0714285714285714; // 1/14
-            const double fY = 0.285714285714286; // 2/7
-            const double fZ = 0.142857142857143; // 1/7
-            var g28 = G * 28;
-            var br2 = (2 + B + 2 * R);
-            var br5 = (2 + B + 2 * R);
-            var br11 = (8 + 11 * B + 8 * R);
-
-            X = fX * (br2 - Math.Sqrt(g28 + br2*br2));
-            Y = fY * (br5 + Math.Sqrt(g28 + br2*br2));
-            Z = fZ * (br11 + 3 * Math.Sqrt(g28 + br2*br2));
-
-            X *= 255;
-            Y *= 255;
-            X *= 255;
 
             /*
             X= 1/14 (2 + B + 2 R - sqrt(28 G + (2 + B + 2 R)^2))
@@ -428,12 +413,47 @@ namespace ImageTools
             */
 
 
+            X = 0.142857 * B + 0.142857 * G + 0.285714 * R + 0.285714;
+            Y = -0.571429 * B - 0.571429 * G + 0.857143 * R + 0.857143;
+            Z = 1.14286 * B - 0.857143 * G + 0.285714 * R + 0.285714;
+
+            X = clip(X * 255);
+            Y = clip(Y * 255);
+            Z = clip(Z * 255);
+
             // This is the forward transform we're trying to reverse
             /*
             G = 2*X*X - 0.5*Y*X - 0.5*Z*X,
             B = X - 0.5 * Y + 0.5 * Z,
             R = X * 2 + 0.5 * Y - 1,
+
+            or
+
+            G = X * 2 - 0.5 * Y - 0.5 * Z,
+            B = X     - 0.5 * Y + 0.5 * Z,
+            R = X * 2 + 0.5 * Y - 1
             */
+        }
+        
+        /// <summary>
+        /// Experimental color space
+        /// </summary>
+        public static void ExpToRGB(double X, double Y, double Z, out double R, out double G, out double B)
+        {
+            // YUV-likes tend to have 2 45-degree coefs, and one 90-degree
+            // This is an attempt to make a 3x60-deg space
+
+            X /= 255;
+            Y /= 255;
+            Z /= 255;
+
+            G = X * 2 - 0.5 * Y - 0.5 * Z;
+            B = X     - 0.5 * Y + 0.5 * Z;
+            R = X * 2 + 0.5 * Y - 1;
+
+            R = clip(R * 255);
+            G = clip(G * 255);
+            B = clip(B * 255);
         }
 
         /// <summary>
@@ -448,12 +468,11 @@ namespace ImageTools
             Y /= 255;
             Z /= 255;
 
-            //var G = X     - 0.5 * Y - 0.5 * Z;
-            var G = 2*X*X - 0.5*Y*X - 0.5*Z*X;
+            //var G = 2*X*X - 0.5*Y*X - 0.5*Z*X;
+
+            var G = X * 2 - 0.5 * Y - 0.5 * Z;
             var B = X     - 0.5 * Y + 0.5 * Z;
             var R = X * 2 + 0.5 * Y - 1;
-
-
 
             return (uint)((clip(R*255) << 16) + (clip(G*255) << 8) + clip(B*255));
         }

@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using ImageTools.Utilities;
@@ -530,5 +531,52 @@ namespace ImageTools
             }
         }
 
+        public delegate void TripleToTripleSpace(double R, double G, double B, out double X, out double Y, out double Z);
+
+        public static unsafe void ImageToPlanes(Bitmap src, TripleToTripleSpace conversion, out double[] Xs, out double[] Ys, out double[] Zs)
+        {
+            var ri = new Rectangle(Point.Empty, src.Size);
+            var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            var len = srcData.Height * srcData.Width;
+            Xs = new double[len];
+            Ys = new double[len];
+            Zs = new double[len];
+            try
+            {
+                var s = (uint*)srcData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    ColorSpace.CompoundToComponent(s[i], out _, out var r, out var g, out var b);
+                    conversion(r,g,b, out var x, out var y, out var z);
+                    Xs[i] = x;
+                    Ys[i] = y;
+                    Zs[i] = z;
+                }
+            }
+            finally
+            {
+                src.UnlockBits(srcData);
+            }
+        }
+
+        public static unsafe void PlanesToImage(Bitmap dst, TripleToTripleSpace conversion, double[] Xs, double[] Ys, double[] Zs)
+        {
+            var ri = new Rectangle(Point.Empty, dst.Size);
+            var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            var len = dstData.Height * dstData.Width;
+            try
+            {
+                var s = (uint*)dstData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    conversion(Xs[i], Ys[i], Zs[i], out var r, out var g, out var b);
+                    s[i] = ColorSpace.ComponentToCompound(0, r, g, b);
+                }
+            }
+            finally
+            {
+                dst.UnlockBits(dstData);
+            }
+        }
     }
 }

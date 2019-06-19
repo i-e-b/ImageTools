@@ -244,13 +244,16 @@ namespace ImageTools.Tests
 
 
         [Test]
-        public void Experimental () {
-            var R_in = 127;
-            var G_in = 20;
-            var B_in = 30;
+        public void Experimental_ColorSpace () {
+            var rnd = new Random();
+            var R_in = rnd.Next(0, 256);
+            var G_in = rnd.Next(0, 256);
+            var B_in = rnd.Next(0, 256);
 
+            Console.WriteLine($"R = {R_in}; G = {G_in}; B = {B_in};");
 
             ColorSpace.RGBToExp(R_in, G_in, B_in, out var X, out var Y, out var Z);
+
             Console.WriteLine($"X = {X}; Y = {Y}; Z = {Z};");
             var c_out = ColorSpace.ExpToRGB32(X, Y, Z);
 
@@ -292,6 +295,32 @@ namespace ImageTools.Tests
                 }
 
                 bmp.SaveBmp("./outputs/EXP_Swatch.bmp");
+            }
+        }
+        
+        [Test, Description("show the result of just one plane at a time from an image")]
+        public void Experimental__separations()
+        {
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                using (var dst = new Bitmap(bmp))
+                {
+                    BitmapTools.ImageToPlanes(bmp, ColorSpace.RGBToExp, out var X, out var Y, out var Z);
+                    var zeroP = new double[X.Length]; // to zero out other planes
+                    for (int i = 0; i < zeroP.Length; i++) { zeroP[i] = 127.5; }
+
+                    BitmapTools.PlanesToImage(dst, ColorSpace.ExpToRGB, X, zeroP, zeroP);
+                    dst.SaveBmp("./outputs/3_EXP_X.bmp");
+                    
+                    BitmapTools.PlanesToImage(dst, ColorSpace.ExpToRGB, zeroP, Y, zeroP);
+                    dst.SaveBmp("./outputs/3_EXP_Y.bmp");
+                    
+                    BitmapTools.PlanesToImage(dst, ColorSpace.ExpToRGB, zeroP, zeroP, Z);
+                    dst.SaveBmp("./outputs/3_EXP_Z.bmp");
+                    
+                    BitmapTools.PlanesToImage(dst, ColorSpace.ExpToRGB, X, Y, Z);
+                    dst.SaveBmp("./outputs/3_EXP_Full.bmp");
+                }
             }
         }
     }
