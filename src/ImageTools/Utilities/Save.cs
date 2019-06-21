@@ -20,7 +20,7 @@ namespace ImageTools
 			}
 			using (var fs = new FileStream(filePath, FileMode.Create))
 			{
-				src.JpegStream(fs);
+				src.JpegStream(fs, quality);
 				fs.Close();
 			}
 		}
@@ -43,7 +43,7 @@ namespace ImageTools
 		{
 			var encoder = ImageCodecInfo.GetImageEncoders().First(c => c.FormatID == ImageFormat.Jpeg.Guid);
 			var parameters = new EncoderParameters(1);
-			parameters.Param[0] = new EncoderParameter(Encoder.Quality, 95L);
+			parameters.Param[0] = new EncoderParameter(Encoder.Quality, quality);
 
 			src.Save(outputStream, encoder, parameters);
 			outputStream.Flush();
