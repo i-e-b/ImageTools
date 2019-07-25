@@ -252,6 +252,7 @@ namespace ImageTools.Utilities
             for (var idx = 0; idx < length; idx++)
             {
                 var inValue = buffer[idx];
+
                 // Signed to unsigned
                 int n = (int)inValue;
                 n = (n >= 0) ? (n * 2) : (n * -2) - 1; // value to be encoded
