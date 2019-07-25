@@ -604,7 +604,7 @@ namespace ImageTools
             out float[] Y, out float[] U, out float[] V,
             out int width, out int height)
         {
-             var ri = new Rectangle(Point.Empty, src.Size);
+            var ri = new Rectangle(Point.Empty, src.Size);
             var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
 
             var srcHeight = srcData.Height;

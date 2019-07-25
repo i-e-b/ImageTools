@@ -26,11 +26,13 @@ Experiments covering
 ## Plans and To-do
 
 In no particular order:
+* [ ] Try image compression with Haar wavelet, to see how bad it is
+* [ ] Pixel-art style up-scaling
 * [ ] Reduce memory footprint (think of a way to not hold an entire 3D image in memory twice...)
-* [ ] Experiment with non-linear quantisation
+* [x] Experiment with non-linear quantisation
 * [x] Find a good way to do non-power-two images
 * [ ] Bring in the old bits from 'ImageCompress' (color cell compression) and delete that repo
 * [ ] Try indexed entries for CDF coefficients (quantise by buckets)
 * [ ] Attempt using 'wavelet tree' to encode CDF coefficients
 * [ ] Attempt using the color cell algorithm for CDF coefficients
-* [ ] 3D-image compress a larger video and compare size (requires non-power-two images)
+* [ ] 3D-image compress a larger video and compare size (requires non-power-two 3D images)

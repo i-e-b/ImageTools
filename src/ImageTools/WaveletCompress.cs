@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using ImageTools.DataCompression.LZMA;
 using ImageTools.Utilities;
 
@@ -351,6 +349,24 @@ namespace ImageTools
             }
         }
 
+        private static void DC_to_AC(float[] buffer) {
+            for (int i = 0; i < buffer.Length; i++) { 
+                buffer[i] -= 127.5f;
+                
+                // Experimental: square values (keeping sign)
+                buffer[i] *= Math.Abs(buffer[i]);
+            }
+        }
+
+        private static void AC_to_DC(float[] buffer) {
+            for (int i = 0; i < buffer.Length; i++) { 
+                // Experiment: reduce power (matches encode side)
+                var sign = buffer[i] < 0 ? -1.0f : 1.0f;
+                buffer[i] = (float)Math.Sqrt(Math.Abs(buffer[i])) * sign;
+
+                buffer[i] += 127.5f;
+            }
+        }
 
         /// <summary>
         /// Compress an image to a byte stream
@@ -378,8 +394,7 @@ namespace ImageTools
                 var buffer = Pick(ch, Y, U, V);
                 var ms = Pick(ch, msY, msU, msV);
 
-                // DC to AC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5f; }
+                DC_to_AC(buffer);
 
                 // Transform
                 for (int i = 0; i < rounds; i++)
@@ -507,8 +522,7 @@ namespace ImageTools
                     }
                 }
 
-                // AC to DC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5f; }
+                AC_to_DC(buffer);
             }
 
             var dst = new Bitmap(imgWidth, imgHeight, PixelFormat.Format32bppArgb);
@@ -853,8 +867,7 @@ namespace ImageTools
             {
                 var buffer = Pick(ch, Y, U, V);
 
-                // DC to AC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5f; }
+                DC_to_AC(buffer);
 
                 // Transform
                 for (int i = 0; i < rounds; i++)
@@ -912,8 +925,7 @@ namespace ImageTools
                     }
                 }
 
-                // AC to DC
-                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5f; }
+                AC_to_DC(buffer);
             }
         }
 
@@ -1314,9 +1326,13 @@ namespace ImageTools
             // Fibonacci coding strongly prefers small numbers
 
             // pretty good:
-            fYs = new double[]{12, 9, 4, 2.3, 1.5 };
-            fCs = new double[]{15, 10, 2 };
+            //fYs = new double[]{12, 9, 4, 2.3, 1.5 };
+            //fCs = new double[]{15, 10, 2 };
             
+            // for squared input
+            fYs = new double[]{20, 15, 10, 5, 2.5, 1.25 };
+            fCs = fYs;
+
             // heavily crushed
             //fYs = new double[]{ 180, 150, 100, 40, 8, 5, 3.5, 1.5 };
             //fCs = new double[]{1000, 200, 200, 50, 20, 10, 4};
@@ -1331,6 +1347,9 @@ namespace ImageTools
                 var factors = (ch == 0) ? fYs : fCs;
                 float factor = (float)((r >= factors.Length) ? factors[factors.Length - 1] : factors[r]);
                 if (mode == QuantiseType.Reduce) factor = 1 / factor;
+
+                // match experimental squaring
+                //factor *= factor;
 
                 var len = packedLength >> r;
                 

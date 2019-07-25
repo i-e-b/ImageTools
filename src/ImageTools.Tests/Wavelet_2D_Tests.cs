@@ -47,8 +47,6 @@ namespace ImageTools.Tests
             Assert.That(Load.FileExists("./outputs/Cdf97_32bpp_3_VT.jpg"));
         }
 
-        
-        
         [Test]
         public void cdf97_morton_reduce_test()
         {
@@ -62,7 +60,6 @@ namespace ImageTools.Tests
 
             Assert.That(Load.FileExists("./outputs/Cdf97_Morton_32bpp_3.bmp"));
         }
-        
         
         [Test]
         public void cdf97_planar_reduce_test()
@@ -120,7 +117,6 @@ namespace ImageTools.Tests
             Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_1.bmp"));
         }
         
-
         [Test]
         public void compressing_non_power_of_two_image_large () {
 
@@ -135,7 +131,6 @@ namespace ImageTools.Tests
             Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_moire.bmp"));
         }
 
-        
         [Test]
         public void decompressing_an_image_to_normal_size () {
 
