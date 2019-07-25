@@ -61,7 +61,67 @@ namespace ImageTools
 
                 d[i] = (ushort)(aver << 4);
 				d[i+length] = (ushort)(diff << 4);
-			}*/
+			}
+            //*/
 		}
-	}
+
+        public static void Forward (float[] buf, float[] x, int n, int offset, int stride) {
+            int i;
+
+            if (n <= 4) return; // haar breaks down at very small scales
+
+            // pick out stride data
+            for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
+
+            // Do the Haar transform in place (left is average, right is difference)
+            for (i = 0; i < n; i+=2) {
+                var left = x[i];
+                var right = x[i+1];
+
+                var ave = (left + right) / 2;
+                var diff = right - ave;
+                x[i] = ave;
+                x[i+1] = diff;
+            }
+            
+            // Pack into buffer (using stride and offset)
+            // The raw output is like [DC][AC][DC][AC]...
+            // we want it as          [DC][DC]...[AC][AC]
+            var hn = n/2;
+            for (i = 0; i < hn; i++) {
+                buf[i * stride + offset] = x[i*2];
+                buf[(i + hn) * stride + offset] = x[1 + i * 2];
+            }
+        }
+
+        public static void Inverse (float[] buf, float[] x, int n, int offset, int stride) {
+            int i;
+
+            if (n <= 4) return;
+                        
+            // Unpack from stride into working buffer
+            // The raw input is like [DC][DC]...[AC][AC]
+            // we want it as         [DC][AC][DC][AC]...
+            var hn = n/2;
+            for (i = 0; i < hn; i++) {
+                x[i*2] = buf[i * stride + offset];
+                x[1 + i * 2] = buf[(i + hn) * stride + offset];
+            }
+
+            // reverse the Haar transform
+            for (i = 0; i < n; i+=2) {
+                var ave = x[i];
+                var diff = x[i+1];
+
+                var right = ave + diff;
+                var left = (ave * 2) - right;
+                x[i] = left;
+                x[i+1] = right;
+            }
+
+            
+            // write back stride data
+            for (i = 0; i < n; i++) { buf[i * stride + offset] = x[i]; }
+        }
+    }
 }

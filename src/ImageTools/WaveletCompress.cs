@@ -5,6 +5,7 @@ using System.IO;
 using System.IO.Compression;
 using ImageTools.DataCompression.LZMA;
 using ImageTools.Utilities;
+// ReSharper disable UnusedMember.Local
 
 namespace ImageTools
 {
@@ -13,6 +14,31 @@ namespace ImageTools
     /// </summary>
     public class WaveletCompress
     {
+        /// <summary>
+        /// Delegate for multi-dimensional wavelet decomposition.
+        /// This should have a matching `GeneralRestore`
+        /// See Haar.cs and CDF.cs for examples
+        /// </summary>
+        /// <param name="buf">input signal, which will be replaced by its output transform</param>
+        /// <param name="x">a temporary buffer provided by caller. It must be at least `n` long</param>
+        /// <param name="n">the length of the signal, and must be a power of 2</param>
+        /// <param name="offset">the start position in `buf` for the signal (for multi dimensional signals)</param>
+        /// <param name="stride">the stride across the signal (for multi dimensional signals)</param>
+        public delegate void GeneralDecompose(float[] buf, float[] x, int n, int offset, int stride);
+        
+        /// <summary>
+        /// Delegate for multi-dimensional wavelet restoration.
+        /// This should be the inverse of `GeneralDecompose`
+        /// See Haar.cs and CDF.cs for examples
+        /// </summary>
+        /// <param name="buf">input signal, which will be replaced by its output transform</param>
+        /// <param name="x">a temporary buffer provided by caller. It must be at least `n` long</param>
+        /// <param name="n">the length of the signal, and must be a power of 2</param>
+        /// <param name="offset">the start position in `buf` for the signal (for multi dimensional signals)</param>
+        /// <param name="stride">the stride across the signal (for multi dimensional signals)</param>
+        public delegate void GeneralRestore(float[] buf, float[] x, int n, int offset, int stride);
+
+
         public static unsafe Bitmap HorizontalGradients(Bitmap src)
         {
             var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
@@ -372,9 +398,11 @@ namespace ImageTools
         /// <summary>
         /// Compress an image to a byte stream
         /// </summary>
-        public static InterleavedFile ReduceImage2D_ToFile(Bitmap src)
+        /// <param name="src">Original image</param>
+        /// <param name="wavelet">Wavelet inverse function (CDF.Fwt97 or Haar.Forward)</param>
+        public static InterleavedFile ReduceImage2D_ToFile(Bitmap src, GeneralDecompose wavelet)
         {
-            if (src == null) return null;
+            if (src == null || wavelet == null) return null;
             BitmapTools.ImageToPlanes_ForcePower2(src, ColorSpace.RGBToExp, out var Y, out var U, out var V, out var planeWidth, out var planeHeight);
             int imgWidth = src.Width;
             int imgHeight = src.Height;
@@ -406,13 +434,13 @@ namespace ImageTools
                     // Wavelet decompose vertical
                     for (int x = 0; x < width; x++) // each column
                     {
-                        CDF.Fwt97(buffer, hx, height, x, planeWidth);
+                        wavelet(buffer, hx, height, x, planeWidth);
                     }
 
                     // Wavelet decompose HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
                     {
-                        CDF.Fwt97(buffer, wx, width, y * planeWidth, 1);
+                        wavelet(buffer, wx, width, y * planeWidth, 1);
                     }
                 }
 
@@ -449,10 +477,11 @@ namespace ImageTools
         /// Restore an image from a byte stream
         /// </summary>
         /// <param name="container">Image container</param>
+        /// <param name="wavelet">Wavelet inverse function (CDF.Iwt97 or Haar.Inverse)</param>
         /// <param name="scale">Optional: restore scaled down. 1 is natural size, 2 is half size, 3 is quarter size</param>
-        public static Bitmap RestoreImage2D_FromFile(InterleavedFile container, byte scale = 1)
+        public static Bitmap RestoreImage2D_FromFile(InterleavedFile container, GeneralRestore wavelet, byte scale = 1)
         {
-            if (container == null) return null;
+            if (container == null || wavelet == null) return null;
             var Ybytes = container.Planes?[0];
             var Ubytes = container.Planes?[1];
             var Vbytes = container.Planes?[2];
@@ -513,13 +542,13 @@ namespace ImageTools
                     // Wavelet restore HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
                     {
-                        CDF.Iwt97(buffer, wx, width, y * planeWidth, 1);
+                        wavelet(buffer, wx, width, y * planeWidth, 1);
                     }
 
                     // Wavelet restore vertical
                     for (int x = 0; x < width; x++) // each column
                     {
-                        CDF.Iwt97(buffer, hx, height, x, planeWidth);
+                        wavelet(buffer, hx, height, x, planeWidth);
                     }
                 }
 
@@ -1308,10 +1337,6 @@ namespace ImageTools
             fYs = new double[]{12, 9, 4, 2.3, 1.5 };
             fCs = new double[]{15, 10, 2 };
             
-            // for squared input
-            //fYs = new double[]{40, 30, 10, 5, 2.5, 1.25 };
-            //fCs = fYs;
-
             // heavily crushed
             //fYs = new double[]{ 180, 150, 100, 40, 8, 5, 3.5, 1.5 };
             //fCs = new double[]{1000, 200, 200, 50, 20, 10, 4};

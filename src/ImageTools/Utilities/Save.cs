@@ -8,10 +8,14 @@ namespace ImageTools
 {
 	public static class Save
 	{
+        public static string ToPath(string filePath) {
+            var basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            return Path.Combine(basePath, filePath);
+        }
+
 		public static void SaveJpeg(this Bitmap src, string filePath, int quality = 95)
 		{
-            var basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            filePath = Path.Combine(basePath, filePath);
+            filePath = ToPath(filePath);
 
 			var p = Path.GetDirectoryName(filePath);
 			if (!string.IsNullOrEmpty(p))
@@ -27,8 +31,7 @@ namespace ImageTools
         
         public static void SaveBmp(this Bitmap src, string filePath)
         {
-            var basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            filePath = Path.Combine(basePath, filePath);
+            filePath = ToPath(filePath);
 
             var p = Path.GetDirectoryName(filePath);
             if (!string.IsNullOrEmpty(p))

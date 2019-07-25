@@ -1,4 +1,9 @@
-﻿using NUnit.Framework;
+﻿using System;
+using System.IO;
+using ImageTools.Utilities;
+using NUnit.Framework;
+// ReSharper disable AssignNullToNotNullAttribute
+// ReSharper disable PossibleNullReferenceException
 
 namespace ImageTools.Tests
 {
@@ -18,7 +23,39 @@ namespace ImageTools.Tests
 
             Assert.That(Load.FileExists("./outputs/Haar_64bpp_1.jpg"));
         }
-        
+
+        [Test]
+        public void haar_reduce_to_disk() {
+
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                var interleavedFile = WaveletCompress.ReduceImage2D_ToFile(bmp, Haar.Forward);
+                using (var fs = File.Open(Save.ToPath("./outputs/Haar_Planar2_32bpp_3.bin"), FileMode.Create))
+                {
+                    interleavedFile.WriteToStream(fs);
+                    Console.WriteLine("Result size: " + Bin.Human(fs.Length));
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Haar_Planar2_32bpp_3.bin"));
+        }
+
+        [Test]
+        public void haar_reduce_test() {
+
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, Haar.Forward);
+                
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, Haar.Inverse))
+                {
+                    bmp2.SaveBmp("./outputs/Haar_3.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Haar_3.bmp"));
+        }
+                
         [Test]
         public void cdf97_horz_test()
         {
@@ -89,6 +126,23 @@ namespace ImageTools.Tests
             Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_3.bmp"));
         }
         
+
+        [Test]
+        public void cdf97_reduce_to_disk() {
+
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                var interleavedFile = WaveletCompress.ReduceImage2D_ToFile(bmp, CDF.Fwt97);
+                using (var fs = File.Open(Save.ToPath("./outputs/CDF_Planar2_32bpp_3.bin"), FileMode.Create))
+                {
+                    interleavedFile.WriteToStream(fs);
+                    Console.WriteLine("Result size: " + Bin.Human(fs.Length));
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/CDF_Planar2_32bpp_3.bin"));
+        }
+        
         [Test]
         public void cdf97_planar_2_reduce_test_natural_image()
         {
@@ -132,14 +186,14 @@ namespace ImageTools.Tests
         }
 
         [Test]
-        public void decompressing_an_image_to_normal_size () {
-
-            
+        public void decompressing_an_image_to_normal_size()
+        {
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
-                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, CDF.Fwt97);
 
-                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 1))
+                // ReSharper disable once RedundantArgumentDefaultValue
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, CDF.Iwt97, scale: 1))
                 {
                     bmp2.SaveBmp("./outputs/Cdf97_3_1to1.bmp");
                 }
@@ -154,9 +208,9 @@ namespace ImageTools.Tests
             
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
-                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, CDF.Fwt97);
 
-                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 2))
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, CDF.Iwt97, scale: 2))
                 {
                     bmp2.SaveBmp("./outputs/Cdf97_3_HALF.bmp");
                 }
@@ -170,9 +224,9 @@ namespace ImageTools.Tests
         {
             using (var bmp = Load.FromFile("./inputs/1.jpg"))
             {
-                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, CDF.Fwt97);
 
-                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 2))
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, CDF.Iwt97, scale: 2))
                 {
                     bmp2.SaveBmp("./outputs/Cdf97_1_HALF.bmp");
                 }
@@ -186,9 +240,9 @@ namespace ImageTools.Tests
         {
             using (var bmp = Load.FromFile("./inputs/1.jpg"))
             {
-                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, CDF.Fwt97);
 
-                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 3))
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, CDF.Iwt97, scale: 3))
                 {
                     bmp2.SaveBmp("./outputs/Cdf97_1_QUARTER.bmp");
                 }
@@ -203,9 +257,9 @@ namespace ImageTools.Tests
             
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
-                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, CDF.Fwt97);
 
-                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 3))
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, CDF.Iwt97, scale: 3))
                 {
                     bmp2.SaveBmp("./outputs/Cdf97_3_QUARTER.bmp");
                 }
@@ -220,9 +274,9 @@ namespace ImageTools.Tests
             
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
-                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp);
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, CDF.Fwt97);
 
-                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, scale: 4))
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, CDF.Iwt97, scale: 4))
                 {
                     bmp2.SaveBmp("./outputs/Cdf97_3_EIGHTH.bmp");
                 }

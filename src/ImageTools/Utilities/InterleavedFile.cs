@@ -15,7 +15,7 @@ namespace ImageTools.Utilities
 
         public byte[][] Planes { get; }
 
-        // NOTE: not sure if it's better to compress-then-interleave or the other way around
+        // NOTE: it's better to compress the streams and then interleave, not the other way around
 
         // Format:
         // [xSize:uint_16], [ySize:uint_16], [zSize:uint_16],

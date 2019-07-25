@@ -352,6 +352,15 @@ namespace ImageTools
 
             return new ColorYUV { Y = Y, U = U, V = V };
         }
+
+        
+        
+        public static void RGBToYUV(double R, double G, double B, out double Y, out double U, out double V)
+        {
+            Y = 16 + (0.257 * R + 0.504 * G + 0.098 * B);
+            U = 128 + (-0.148 * R + -0.291 * G + 0.439 * B);
+            V = 128 + (0.439 * R + -0.368 * G + -0.071 * B);
+        }
         
         /// <summary>
         /// Lossless conversion to YUV
@@ -374,6 +383,18 @@ namespace ImageTools
             var B = 1.164 * (Y - 16) + 2.017 * (U - 128) + 0.0 * (V - 128);
 
             return (uint)((clip(R) << 16) | (clip(G) << 8) | clip(B));
+        }
+
+        
+        /// <summary>
+        /// Experimental color space.
+        /// This is biased to allow more error in red and blue, less in green.
+        /// </summary>
+        public static void YUVToRGB(double Y, double U, double V, out double R, out double G, out double B)
+        {
+            R = 1.164 * (Y - 16) + 0.0 * (U - 128) + 1.596 * (V - 128);
+            G = 1.164 * (Y - 16) + -0.392 * (U - 128) + -0.813 * (V - 128);
+            B = 1.164 * (Y - 16) + 2.017 * (U - 128) + 0.0 * (V - 128);
         }
 
         /// <summary>
