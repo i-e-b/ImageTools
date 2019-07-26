@@ -264,6 +264,22 @@ namespace ImageTools.Tests
 
 
         
+        [Test]
+        public void FastScale_75pc_sketch()
+        {
+            using (var bmp = Load.FromFile("./inputs/sketch.jpg"))
+            {
+                var targetWidth = (int)(bmp.Width * 0.75);
+                var targetHeight = (int)(bmp.Height * 0.75);
+                using (var bmp2 = FastScale.DisregardAspect(bmp, targetWidth, targetHeight))
+                {
+                    bmp2.SaveJpeg("./outputs/sketch_075.jpg");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/sketch_075.jpg"));
+        }
+        
 
         [Test, Explicit("Resizes inputs for other tests")]
         public void frame_resize()

@@ -57,6 +57,23 @@ namespace ImageTools.Tests
             }
             Console.WriteLine("Go check the build output and ensure that \"/outputs/pixart_double.jpg\" looks ok");
         }
+        [Test]
+        public void FastScale_double_sketch()
+        {
+            int targetWidth;
+            int targetHeight;
+            using (var bmp = Load.FromFile("./inputs/sketch.jpg"))
+            {
+                targetWidth = bmp.Width * 2;
+                targetHeight = bmp.Height * 2;
+                using (var bmp2 = FastScale.DisregardAspect(bmp, targetWidth, targetHeight))
+                {
+                    bmp2.SaveJpeg("./outputs/sketch_double.jpg");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/sketch_double.jpg"));
+        }
 
 
 		
@@ -75,17 +92,45 @@ namespace ImageTools.Tests
         }
 		
         [Test]
-        public void EPX_double_natural()
+        public void EPX_with_threshold_double_natural()
         {
             using (var bmp = Load.FromFile("./inputs/1.jpg"))
             {
-                using (var bmp2 = PixelScale.EPX_2x(bmp))
+                using (var bmp2 = PixelScale.EPXT_2x(bmp, 64))
                 {
                     bmp2.SaveJpeg("./outputs/1_epx2x.jpg");
                 }
             }
 
             Assert.That(Load.FileExists("./outputs/1_epx2x.jpg"));
+        }
+		
+        [Test]
+        public void EPX_double_sketch()
+        {
+            using (var bmp = Load.FromFile("./inputs/sketch.jpg"))
+            {
+                using (var bmp2 = PixelScale.EPX_2x(bmp))
+                {
+                    bmp2.SaveJpeg("./outputs/sketch_epx2x.jpg");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/sketch_epx2x.jpg"));
+        }
+		
+        [Test]
+        public void EPX_with_threshold_double_sketch()
+        {
+            using (var bmp = Load.FromFile("./inputs/sketch.jpg"))
+            {
+                using (var bmp2 = PixelScale.EPXT_2x(bmp, 40))
+                {
+                    bmp2.SaveJpeg("./outputs/sketch_epx2x.jpg");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/sketch_epx2x.jpg"));
         }
 
 
