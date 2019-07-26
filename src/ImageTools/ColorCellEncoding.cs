@@ -7,6 +7,11 @@ using System.IO;
 
 namespace ImageTools
 {
+    /// <summary>
+    /// Color cell compression is simple, and gives a very reliable output.
+    /// It's best suited to noisy natural images. It performs poorly with
+    /// subtle gradients and antialiased synthetic images.
+    /// </summary>
     public class ColorCellEncoding
     {
         /// <summary>
@@ -24,7 +29,6 @@ namespace ImageTools
             int height = src.Height;
 
             // TODO: boundary condition for non-multiple-4 images
-            // TODO: Better color reproduction
 
             var block = new TripleFloat[16];
 
@@ -38,18 +42,22 @@ namespace ImageTools
             w.Write((ushort)width);
             w.Write((ushort)height);
 
-            for (int by = 0; by < height; by += 4) // block y axis
+            var blockH = height - (height % 4);
+            var blockW = width - (width % 4);
+
+            for (int by = 0; by < blockH; by += 4) // block y axis
             {
-                for (int bx = 0; bx < width; bx += 4) // block x axis
+                for (int bx = 0; bx < blockW; bx += 4) // block x axis
                 {
                     // pick 4x4 block into an array
                     PickBlock(by, width, bx, block, Y, U, V);
                     // calculate the upper and lower colors, and the bit pattern
-                    AveBlock(block, out var upper, out var lower, out var bits);
+                    AveBlock(block, out var upperY, out var lowerY, out var aveU, out var aveV, out var bits);
 
                     // encode colors
-                    var encUpper = YUV_to_YUV844(upper);
-                    var encLower = YUV_to_YUV844(lower);
+                    // we share the color across the two (better color repo, less spatial)
+                    var encUpper = YUV_to_YC88(upperY, aveU);
+                    var encLower = YUV_to_YC88(lowerY, aveV);
 
                     // write data
                     w.Write((ushort)encUpper);
@@ -76,17 +84,19 @@ namespace ImageTools
             var U = new float[sampleCount];
             var V = new float[sampleCount];
 
-            
-            for (int by = 0; by < height; by += 4) // block y axis
+            var blockH = height - (height % 4);
+            var blockW = width - (width % 4);
+
+            for (int by = 0; by < blockH; by += 4) // block y axis
             {
-                for (int bx = 0; bx < width; bx += 4) // block x axis
+                for (int bx = 0; bx < blockW; bx += 4) // block x axis
                 {
                     var encUpper = r.ReadUInt16();
                     var encLower = r.ReadUInt16();
                     var bits = r.ReadUInt16();
 
-                    var upper = YUV844_to_YUV(encUpper);
-                    var lower = YUV844_to_YUV(encLower);
+                    YC88_to_YC(encUpper, out var upper, out var aveU);
+                    YC88_to_YC(encLower, out var lower, out var aveV);
 
                     // write pixel colors
                     for (int y = 0; y < 4; y++)
@@ -97,13 +107,13 @@ namespace ImageTools
                             var xo = x + bx;
 
                             if ((bits & 1) > 0) {
-                                Y[yo + xo] = upper.Y;
-                                U[yo + xo] = upper.U;
-                                V[yo + xo] = upper.V;
+                                Y[yo + xo] = upper;
+                                U[yo + xo] = aveU;
+                                V[yo + xo] = aveV;
                             } else {
-                                Y[yo + xo] = lower.Y;
-                                U[yo + xo] = lower.U;
-                                V[yo + xo] = lower.V;
+                                Y[yo + xo] = lower;
+                                U[yo + xo] = aveU;
+                                V[yo + xo] = aveV;
                             }
                             bits >>= 1;
                         }
@@ -116,40 +126,38 @@ namespace ImageTools
             return dst;
         }
 
-        private static TripleFloat YUV844_to_YUV(ushort encoded)
+        private static void YC88_to_YC(ushort encoded, out float Y, out float C)
         {
-            return new TripleFloat{
-                Y = encoded >> 8,
-                U = encoded & 0xf0,
-                V = (encoded & 0x0f) << 4
-            };
-        }
-        
-        private static int YUV_to_YUV844(TripleFloat upper)
-        {
-            var y = (ColorSpace.clip(upper.Y) << 8) & 0xff00;
-            var u =  ColorSpace.clip(upper.U)       & 0x00f0;
-            var v = (ColorSpace.clip(upper.V) >> 4) & 0x000f;
-            return y | u | v;
+            Y = encoded >> 8;
+            C = encoded & 0xff;
         }
 
-        private static void AveBlock(TripleFloat[] block, out TripleFloat upper, out TripleFloat lower, out int bits)
+        private static int YUV_to_YC88(float Y, float C)
         {
+            var y = (ColorSpace.clip(Y) << 8) & 0xff00;
+            var c =  ColorSpace.clip(C)       & 0x00ff;
+            return y | c;
+        }
+
+        private static void AveBlock(TripleFloat[] block, out float upperY, out float lowerY, out float U, out float V, out int bits)
+        {
+            // set outputs to starting condition
+            upperY = 0;
+            lowerY = 0;
+            bits = 0;
+            U = 0;
+            V = 0;
+
             // calculate average brightness
             float aveY = 0.0f;
-            for (int i = 0; i < 16; i++) { aveY += block[i].Y; }
+            for (int i = 0; i < 16; i++) { 
+                aveY += block[i].Y;
+                U += block[i].U;
+                V += block[i].V;
+            }
             aveY /= 16;
-
-            // set outputs to starting condition
-            upper.Y = 0;
-            upper.U = 0;
-            upper.V = 0;
-
-            lower.Y = 0;
-            lower.U = 0;
-            lower.V = 0;
-
-            bits = 0;
+            U /= 16;
+            V /= 16;
 
             int countUpper = 0;
             int countLower = 0;
@@ -160,28 +168,20 @@ namespace ImageTools
                 var sample = block[i];
                 if (sample.Y >= aveY) {
                     countUpper++;
-                    upper.Y += sample.Y;
-                    upper.U += sample.U;
-                    upper.V += sample.V;
+                    upperY += sample.Y;
                     bits |= 1 << i;
                 } else {
                     countLower++;
-                    lower.Y += sample.Y;
-                    lower.U += sample.U;
-                    lower.V += sample.V;
+                    lowerY += sample.Y;
                 }
             }
 
             if (countLower > 0) {
-                lower.Y /= countLower;
-                lower.U /= countLower;
-                lower.V /= countLower;
+                lowerY /= countLower;
             }
 
             if (countUpper > 0) {
-                upper.Y /= countUpper;
-                upper.U /= countUpper;
-                upper.V /= countUpper;
+                upperY /= countUpper;
             }
         }
 

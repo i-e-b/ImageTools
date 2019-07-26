@@ -77,6 +77,9 @@
     <Content Include="inputs\4.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="inputs\6.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="inputs\moire_sample.PNG">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

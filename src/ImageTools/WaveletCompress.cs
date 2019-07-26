@@ -10,7 +10,19 @@ using ImageTools.Utilities;
 namespace ImageTools
 {
     /// <summary>
-    /// Image compression and decompression using the CDF97 wavelet transform
+    /// Image compression and decompression using the CDF97 wavelet transform.
+    /// This supports both static images and video (as 3D image blocks).
+    ///
+    /// This implementation contains a "Planar2" scheme and coefficient reordering
+    /// which is uncommon in other solutions, but provides significantly better
+    /// compression for a given quality.
+    ///
+    /// The reordering also allows us to truncate the end of an input stream at an
+    /// arbitrary point, and still recover a complete (but degraded) image.
+    /// There is a minimum data requirement, but it is very low.
+    ///
+    /// Erasures in the data stream should be replaced with zero-value coefficients.
+    /// Truncation of early data will significantly damage the resulting image.
     /// </summary>
     public class WaveletCompress
     {
@@ -364,14 +376,6 @@ namespace ImageTools
                 {
                     buffer[i] *= factor;
                 }
-            }
-        }
-
-        
-        private static void Unsquare(float[] buffer) {
-            for (int i = 0; i < buffer.Length; i++) { 
-                var sign = buffer[i] < 0 ? -1.0f : 1.0f;
-                buffer[i] = (float)Math.Sqrt(Math.Abs(buffer[i])) * sign;
             }
         }
 

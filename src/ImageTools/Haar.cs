@@ -1,9 +1,12 @@
-﻿using System;
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Imaging;
 
 namespace ImageTools
 {
+    /// <summary>
+    /// Supplies an implementation of the Haar wavelet and its inverse for use with `WaveletCompress`.
+    /// The Haar wavelet is very simple to understand, but produces much poorer results than the CDF 9/7 implementation.
+    /// </summary>
 	public class Haar
 	{
 		/// <summary>
@@ -70,10 +73,10 @@ namespace ImageTools
 
             if (n <= 4) return; // haar breaks down at very small scales
 
-            // pick out stride data
+            // pick out stride data into a contiguous array
             for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
 
-            // Do the Haar transform in place (left is average, right is difference)
+            // Do the Haar transform in place
             for (i = 0; i < n; i+=2) {
                 var left = x[i];
                 var right = x[i+1];

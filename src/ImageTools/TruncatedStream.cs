@@ -3,6 +3,9 @@ using System.IO;
 
 namespace ImageTools
 {
+    /// <summary>
+    /// Wrapper for input streams to simulate truncating of that stream.
+    /// </summary>
     public class TruncatedStream : Stream
     {
         private readonly Stream _input;
