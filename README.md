@@ -28,7 +28,7 @@ Experiments covering
 In no particular order:
 * [x] Try image compression with Haar wavelet, to see how bad it is
     - Pretty bad. The compression ratio is good, but the quantisation artefacts are horrible.
-* [ ] Pixel-art style up-scaling
+* [x] Pixel-art style up-scaling
 * [ ] Reduce memory footprint (think of a way to not hold an entire 3D image in memory twice...)
 * [x] Experiment with non-linear quantisation
 * [x] Find a good way to do non-power-two images

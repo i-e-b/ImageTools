@@ -7,8 +7,7 @@ namespace ImageTools
 {
 	internal unsafe delegate void FenceScale (byte* Src, byte* Dst, int SrcStart, int SrcStride, int SrcLength, int DstStart, int DstStride, int DstLength);
 
-
-	/// <summary>
+    /// <summary>
 	/// Pure .Net scaling -- mainly just for interest.
 	/// </summary>
 	public static class FastScale

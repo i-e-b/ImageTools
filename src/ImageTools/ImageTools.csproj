@@ -40,6 +40,7 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="PixelScale.cs" />
     <Compile Include="Utilities\BitmapTools.cs" />
     <Compile Include="Blur.cs" />
     <Compile Include="WaveletTransforms\CDF.cs" />

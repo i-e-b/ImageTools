@@ -52,7 +52,7 @@
     <Compile Include="SpaceFillingCurveTests.cs" />
     <Compile Include="Wavelet_3D_Tests.cs" />
     <Compile Include="SampleDownscales.cs" />
-    <Compile Include="UpscalingImages.cs" />
+    <Compile Include="UpscalingImagesTests.cs" />
     <Compile Include="DownscalingImages.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SavingImages.cs" />
@@ -82,6 +82,9 @@
     </Content>
     <Content Include="inputs\moire_sample.PNG">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="inputs\pixart.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
   <ItemGroup>
