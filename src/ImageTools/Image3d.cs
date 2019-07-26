@@ -74,6 +74,10 @@ namespace ImageTools
             return (Y.LongLength + U.LongLength + V.LongLength) * TypeSize.Of(Y.GetType().GetElementType());
         }
 
+        public long PixelCount() {
+            return Y.LongLength;
+        }
+
         public Image3d(int width, int height, int depth)
         {
             Width = width;

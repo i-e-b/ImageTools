@@ -136,7 +136,9 @@ namespace ImageTools.Tests
                 using (var fs = File.Open(Save.ToPath("./outputs/CDF_Planar2_32bpp_3.bin"), FileMode.Create))
                 {
                     interleavedFile.WriteToStream(fs);
-                    Console.WriteLine("Result size: " + Bin.Human(fs.Length));
+                    
+                    var bpp = (fs.Length*8.0) / (bmp.Width * bmp.Height);
+                    Console.WriteLine($"Result size: {Bin.Human(fs.Length)} ({bpp} bpp)");
                 }
             }
 

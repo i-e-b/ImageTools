@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using ImageTools.Utilities;
 using NUnit.Framework;
 
 namespace ImageTools.Tests
@@ -113,6 +114,9 @@ namespace ImageTools.Tests
             WaveletCompress.ReduceImage3D_ToFile(img3d, targetPath);
             sw.Stop();
             Console.WriteLine($"Compression took {sw.Elapsed}. Written to {targetPath}");
+
+            var bpp = (new System.IO.FileInfo(targetPath).Length * 8.0) / (img3d.PixelCount());
+            Console.WriteLine($"BPP: {bpp}");
 
             // STEP 3: Restore original from file
             sw.Reset();

@@ -43,6 +43,7 @@
     <Compile Include="BitmapTools.cs" />
     <Compile Include="Blur.cs" />
     <Compile Include="CDF.cs" />
+    <Compile Include="ColorCellEncoding.cs" />
     <Compile Include="WaveletCompress.cs" />
     <Compile Include="ColorSpace.cs" />
     <Compile Include="DataCompression\LZMA\Lzma.cs" />

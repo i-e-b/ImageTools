@@ -533,7 +533,10 @@ namespace ImageTools
             }
         }
 
-
+        /// <summary>
+        /// Convert a bitmap image to a set of color planes, given a space conversion.
+        /// Output ranges are 0..255 doubles
+        /// </summary>
         public static unsafe void ImageToPlanes(Bitmap src, TripleToTripleSpace conversion, out double[] Xs, out double[] Ys, out double[] Zs)
         {
             var ri = new Rectangle(Point.Empty, src.Size);
@@ -552,6 +555,35 @@ namespace ImageTools
                     Xs[i] = x;
                     Ys[i] = y;
                     Zs[i] = z;
+                }
+            }
+            finally
+            {
+                src.UnlockBits(srcData);
+            }
+        }
+        /// <summary>
+        /// Convert a bitmap image to a set of color planes, given a space conversion.
+        /// Output ranges are 0..255 floats
+        /// </summary>
+        public static unsafe void ImageToPlanesf(Bitmap src, TripleToTripleSpace conversion, out float[] Xs, out float[] Ys, out float[] Zs)
+        {
+            var ri = new Rectangle(Point.Empty, src.Size);
+            var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            var len = srcData.Height * srcData.Width;
+            Xs = new float[len];
+            Ys = new float[len];
+            Zs = new float[len];
+            try
+            {
+                var s = (uint*)srcData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    ColorSpace.CompoundToComponent(s[i], out _, out var r, out var g, out var b);
+                    conversion(r,g,b, out var x, out var y, out var z);
+                    Xs[i] = (float)x;
+                    Ys[i] = (float)y;
+                    Zs[i] = (float)z;
                 }
             }
             finally

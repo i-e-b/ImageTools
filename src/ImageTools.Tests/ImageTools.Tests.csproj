@@ -46,6 +46,7 @@
   <ItemGroup>
     <Compile Include="BlurringImages.cs" />
     <Compile Include="ByteEncodingTests.cs" />
+    <Compile Include="ColorCellTests.cs" />
     <Compile Include="ColorSpaceTests.cs" />
     <Compile Include="InterleavedFileTests.cs" />
     <Compile Include="SpaceFillingCurveTests.cs" />

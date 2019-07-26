@@ -149,6 +149,27 @@ namespace ImageTools
             return (uint)((clip(R) << 16) + (clip(G) << 8) + clip(B));
         }
         
+        public static void YCoCgToRGB(double Y, double Co, double Cg, out double R, out double G, out double B) {
+            Co = (Co - 127) * 2;
+            Cg = (Cg - 127) * 2;
+
+            var tmp = Y - (Cg / 2);
+            G   = Cg + tmp;
+            B   = tmp - (Co / 2);
+            R   = B + Co;
+        }
+        public static void RGBToYCoCg(double R, double G, double B, out double Y, out double Co, out double Cg) {
+            Co = R - B;
+            var tmp = B + (Co / 2);
+            Cg = G - tmp;
+            Y = tmp + (Cg / 2);
+
+            // if you don't do this step, it's a lossless transform,
+            // but you need 2 extra bits to store the color data
+            Co = (Co / 2) + 127;
+            Cg = (Cg / 2) + 127;
+        }
+
         /// <summary>
         /// Lossy conversion from RGB to YCoCg (both 24 bit, stored as 32).
         /// This is a (luma + blue/orange + purple/green) space
@@ -229,6 +250,15 @@ namespace ImageTools
         /// Force a double into the integral range [0..255]
         /// </summary>
         public static int clip(double v) {
+            if (v > 255) return 255;
+            if (v < 0) return 0;
+            return (int)v;
+        }
+        
+        /// <summary>
+        /// Force a double into the integral range [0..255]
+        /// </summary>
+        public static int clip(float v) {
             if (v > 255) return 255;
             if (v < 0) return 0;
             return (int)v;
@@ -353,8 +383,6 @@ namespace ImageTools
             return new ColorYUV { Y = Y, U = U, V = V };
         }
 
-        
-        
         public static void RGBToYUV(double R, double G, double B, out double Y, out double U, out double V)
         {
             Y = 16 + (0.257 * R + 0.504 * G + 0.098 * B);
