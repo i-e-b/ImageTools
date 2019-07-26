@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 
-namespace ImageTools
+namespace ImageTools.DataCompression
 {
     /// <summary>
     /// DON'T USE THIS.

@@ -1,4 +1,4 @@
-﻿namespace ImageTools
+﻿namespace ImageTools.SpaceFillingCurves
 {
     /// <summary>
     /// Hilbert curve encoding and decoding

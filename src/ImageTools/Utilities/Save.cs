@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
-namespace ImageTools
+namespace ImageTools.Utilities
 {
 	public static class Save
 	{

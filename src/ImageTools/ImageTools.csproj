@@ -40,24 +40,24 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BitmapTools.cs" />
+    <Compile Include="Utilities\BitmapTools.cs" />
     <Compile Include="Blur.cs" />
-    <Compile Include="CDF.cs" />
+    <Compile Include="WaveletTransforms\CDF.cs" />
     <Compile Include="ColorCellEncoding.cs" />
     <Compile Include="WaveletCompress.cs" />
-    <Compile Include="ColorSpace.cs" />
+    <Compile Include="ImageDataFormats\ColorSpace.cs" />
     <Compile Include="DataCompression\LZMA\Lzma.cs" />
-    <Compile Include="Haar.cs" />
-    <Compile Include="Hilbert.cs" />
-    <Compile Include="Image3d.cs" />
-    <Compile Include="QuantiseType.cs" />
-    <Compile Include="TruncatedStream.cs" />
+    <Compile Include="WaveletTransforms\Haar.cs" />
+    <Compile Include="SpaceFillingCurves\Hilbert.cs" />
+    <Compile Include="Utilities\Image3d.cs" />
+    <Compile Include="Utilities\QuantiseType.cs" />
+    <Compile Include="Utilities\TruncatedStream.cs" />
     <Compile Include="Utilities\Bin.cs" />
-    <Compile Include="Utilities\DataEncoding.cs" />
-    <Compile Include="Utilities\InterleavedFile.cs" />
+    <Compile Include="ImageDataFormats\DataEncoding.cs" />
+    <Compile Include="ImageDataFormats\InterleavedFile.cs" />
     <Compile Include="Utilities\Load.cs" />
     <Compile Include="DataCompression\LzoCompression.cs" />
-    <Compile Include="Morton.cs" />
+    <Compile Include="SpaceFillingCurves\Morton.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utilities\Save.cs" />
     <Compile Include="FastScale.cs" />

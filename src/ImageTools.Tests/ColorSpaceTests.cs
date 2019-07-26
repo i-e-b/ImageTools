@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using ImageTools.ImageDataFormats;
+using ImageTools.Utilities;
 using NUnit.Framework;
 
 namespace ImageTools.Tests

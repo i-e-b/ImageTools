@@ -1,4 +1,4 @@
-﻿namespace ImageTools
+﻿namespace ImageTools.Utilities
 {
     internal enum QuantiseType
     {

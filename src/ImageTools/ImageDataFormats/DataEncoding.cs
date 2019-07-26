@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 
-namespace ImageTools.Utilities
+namespace ImageTools.ImageDataFormats
 {
     /// <summary>
     /// Tools to convert arrays to different encodings

@@ -4,7 +4,11 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.IO.Compression;
 using ImageTools.DataCompression.LZMA;
+using ImageTools.ImageDataFormats;
+using ImageTools.SpaceFillingCurves;
 using ImageTools.Utilities;
+using ImageTools.WaveletTransforms;
+
 // ReSharper disable UnusedMember.Local
 
 namespace ImageTools
@@ -24,6 +28,12 @@ namespace ImageTools
     /// Erasures in the data stream should be replaced with zero-value coefficients.
     /// Truncation of early data will significantly damage the resulting image.
     /// </summary>
+    /// <remarks>
+    /// This compression type is well suited to general imagery, but has relatively
+    /// high memory demands -- the entire image to be encoded must be held in memory.
+    /// This is not suitable for highly constrained embedded systems.
+    /// </remarks>
+
     public class WaveletCompress
     {
         /// <summary>

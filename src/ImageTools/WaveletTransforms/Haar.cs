@@ -1,7 +1,8 @@
 ﻿using System.Drawing;
 using System.Drawing.Imaging;
+using ImageTools.Utilities;
 
-namespace ImageTools
+namespace ImageTools.WaveletTransforms
 {
     /// <summary>
     /// Supplies an implementation of the Haar wavelet and its inverse for use with `WaveletCompress`.

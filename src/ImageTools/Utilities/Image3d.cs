@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
-using ImageTools.Utilities;
 
-namespace ImageTools
+namespace ImageTools.Utilities
 {
     /// <summary>
     /// Load image sequence into a planar 3d image

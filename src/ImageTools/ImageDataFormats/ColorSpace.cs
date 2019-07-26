@@ -1,8 +1,7 @@
-﻿
-using System;
+﻿using System;
 using System.Linq;
 
-namespace ImageTools
+namespace ImageTools.ImageDataFormats
 {
     /// <summary>
     /// RGB colour components

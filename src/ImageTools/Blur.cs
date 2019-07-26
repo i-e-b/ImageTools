@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using ImageTools.Utilities;
+using ImageTools.WaveletTransforms;
 
 namespace ImageTools
 {

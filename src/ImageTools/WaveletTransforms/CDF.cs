@@ -1,4 +1,4 @@
-﻿namespace ImageTools
+﻿namespace ImageTools.WaveletTransforms
 {
     /// <summary>
     /// https://en.wikipedia.org/wiki/Cohen%E2%80%93Daubechies%E2%80%93Feauveau_wavelet

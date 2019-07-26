@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using ImageTools;
+using ImageTools.Utilities;
 
 namespace ProfileApp
 {

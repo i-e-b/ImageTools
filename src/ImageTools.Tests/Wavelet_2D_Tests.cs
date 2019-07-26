@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using ImageTools.Utilities;
+using ImageTools.WaveletTransforms;
 using NUnit.Framework;
 // ReSharper disable AssignNullToNotNullAttribute
 // ReSharper disable PossibleNullReferenceException

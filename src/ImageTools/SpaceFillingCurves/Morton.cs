@@ -1,4 +1,4 @@
-﻿namespace ImageTools
+﻿namespace ImageTools.SpaceFillingCurves
 {
     /// <summary>
     /// Morton order (Z-curve) encoding and decoding

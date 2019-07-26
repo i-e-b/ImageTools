@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using ImageTools.ImageDataFormats;
 using ImageTools.Utilities;
 using NUnit.Framework;
 // ReSharper disable PossibleNullReferenceException

@@ -2,6 +2,8 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using ImageTools.ImageDataFormats;
+using ImageTools.Utilities;
 
 // ReSharper disable SuggestBaseTypeForParameter
 
@@ -12,6 +14,14 @@ namespace ImageTools
     /// It's best suited to noisy natural images. It performs poorly with
     /// subtle gradients and antialiased synthetic images.
     /// </summary>
+    /// <remarks>
+    /// This compression type is very simple. It requires minimal working memory
+    /// and needs very little of the image to be held in memory during encoding.
+    /// Typically only 4 lines of input need to be held at once.
+    /// This makes it a good choice for highly constrained embedded systems.
+    /// The poor encoding efficiency and image quality makes it unsuitable for
+    /// large scale general imagery.
+    /// </remarks>
     public class ColorCellEncoding
     {
         /// <summary>
@@ -19,16 +29,12 @@ namespace ImageTools
         /// The output is always in blocks of 48 bits (6 bytes).
         /// Has a fixed compression ratio of 3bpp output.
         /// </summary>
-        /// <param name="src"></param>
-        /// <returns></returns>
         public static byte[] EncodeImage2D(Bitmap src)
         {
             if (src == null) return null;
             BitmapTools.ImageToPlanesf(src, ColorSpace.RGBToYCoCg, out var Y, out var U, out var V);
             int width = src.Width;
             int height = src.Height;
-
-            // TODO: boundary condition for non-multiple-4 images
 
             var block = new TripleFloat[16];
 

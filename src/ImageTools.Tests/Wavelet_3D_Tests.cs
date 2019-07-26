@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using ImageTools.ImageDataFormats;
 using ImageTools.Utilities;
 using NUnit.Framework;
 

@@ -32,7 +32,7 @@ In no particular order:
 * [ ] Reduce memory footprint (think of a way to not hold an entire 3D image in memory twice...)
 * [x] Experiment with non-linear quantisation
 * [x] Find a good way to do non-power-two images
-* [ ] Bring in the old bits from 'ImageCompress' (color cell compression) and delete that repo
+* [x] Bring in the old bits from 'ImageCompress' (color cell compression) and delete that repo
 * [ ] Try indexed entries for CDF coefficients (quantise by buckets)
 * [ ] Attempt using 'wavelet tree' to encode CDF coefficients
 * [ ] Attempt using the color cell algorithm for CDF coefficients

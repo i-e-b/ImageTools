@@ -2,7 +2,7 @@
 using System.IO;
 using System.Reflection;
 
-namespace ImageTools
+namespace ImageTools.Utilities
 {
 	public static class Load
 	{

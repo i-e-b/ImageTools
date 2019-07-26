@@ -1,10 +1,9 @@
-﻿using System;
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
-using ImageTools.Utilities;
+using ImageTools.ImageDataFormats;
 
-namespace ImageTools
+namespace ImageTools.Utilities
 {
 	public class BitmapTools
 	{
