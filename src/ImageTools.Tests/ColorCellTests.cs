@@ -64,6 +64,25 @@ namespace ImageTools.Tests
 
             Assert.That(Load.FileExists("./outputs/CC_32bpp_3.bmp"));
         }
+
+        [Test]
+        public void compressing_and_restoring_a_color_cell_image__mixed_image__low_quality () {
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                var bytes = ColorCellEncoding.EncodeImage2D_Tight(bmp);
+
+                using (var bmp2 = ColorCellEncoding.DecodeImage2D_Tight(bytes))
+                {
+                    bmp2.SaveBmp("./outputs/CC_16bpp_3.bmp");
+                }
+
+                var bpp = (bytes.Length*8.0) / (bmp.Width * bmp.Height);
+
+                Console.WriteLine($"Encoded to {Bin.Human(bytes.Length)} ({bpp} bpp)");
+            }
+
+            Assert.That(Load.FileExists("./outputs/CC_16bpp_3.bmp"));
+        }
         
         [Test]
         public void compressing_and_restoring_a_color_cell_image__natural_image () {
@@ -82,6 +101,25 @@ namespace ImageTools.Tests
             }
 
             Assert.That(Load.FileExists("./outputs/CC_32bpp_4.bmp"));
+        }
+        
+        [Test]
+        public void compressing_and_restoring_a_color_cell_image__natural_image__low_quality () {
+            using (var bmp = Load.FromFile("./inputs/4.png"))
+            {
+                var bytes = ColorCellEncoding.EncodeImage2D_Tight(bmp);
+
+                using (var bmp2 = ColorCellEncoding.DecodeImage2D_Tight(bytes))
+                {
+                    bmp2.SaveBmp("./outputs/CC_16bpp_4.bmp");
+                }
+
+                var bpp = (bytes.Length*8.0) / (bmp.Width * bmp.Height);
+
+                Console.WriteLine($"Encoded to {Bin.Human(bytes.Length)} ({bpp} bpp)");
+            }
+
+            Assert.That(Load.FileExists("./outputs/CC_16bpp_4.bmp"));
         }
 
         /// <summary>
@@ -106,6 +144,26 @@ namespace ImageTools.Tests
             }
 
             Assert.That(Load.FileExists("./outputs/CC_32bpp_6.bmp"));
+        }
+        
+        [Test]
+        public void compressing_and_restoring_a_color_cell_image__noise_image__low_quality()
+        {
+            using (var bmp = Load.FromFile("./inputs/6.png"))
+            {
+                var bytes = ColorCellEncoding.EncodeImage2D_Tight(bmp);
+
+                using (var bmp2 = ColorCellEncoding.DecodeImage2D_Tight(bytes))
+                {
+                    bmp2.SaveBmp("./outputs/CC_16bpp_6.bmp");
+                }
+
+                var bpp = (bytes.Length*8.0) / (bmp.Width * bmp.Height);
+
+                Console.WriteLine($"Encoded to {Bin.Human(bytes.Length)} ({bpp} bpp)");
+            }
+
+            Assert.That(Load.FileExists("./outputs/CC_16bpp_6.bmp"));
         }
         
         [Test]
