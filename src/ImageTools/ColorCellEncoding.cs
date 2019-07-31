@@ -144,7 +144,8 @@ namespace ImageTools
         /// </summary>
         public static byte[] EncodeImage2D_Tight(Bitmap src) {
             if (src == null) return null;
-            BitmapTools.ImageToPlanesf(src, ColorSpace.RGBToYCoCg, out var Y, out var U, out var V);
+            //BitmapTools.ImageToPlanesf(src, ColorSpace.RGBToYUV, out var Y, out var U, out var V);
+            BitmapTools.ImageToPlanesf(src, ColorSpace.RGB_To_HSP, out var U, out var V, out var Y);
             int width = src.Width;
             int height = src.Height;
 
@@ -244,7 +245,8 @@ namespace ImageTools
             }
 
             var dst = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-            BitmapTools.PlanesToImage_f(dst, ColorSpace.YCoCgToRGB, 0, Y, U, V);
+            //BitmapTools.PlanesToImage_f(dst, ColorSpace.YUVToRGB, 0, Y, U, V);
+            BitmapTools.PlanesToImage_f(dst, ColorSpace.HSP_To_RGB, 0, U, V, Y);
             return dst;
         }
 

@@ -523,15 +523,11 @@ namespace ImageTools.ImageDataFormats
         ///  example, if you pass in the HSP color 0,1,1, the result
         ///  will be the RGB color 2.037,0,0.
         /// </remarks>
-        public static uint HSP_To_RGB32(int h, int s, int p) {
+        public static void HSP_To_RGB(double h, double s, double p, out double R, out double G, out double B) {
             double H = h / 255.0;
             double S = s / 255.0;
             double P = p / 255.0;
             
-            double R;
-            double G;
-            double B;
-
             double minOverMax = 1.0 - S;
 
             if (minOverMax > 0)
@@ -602,7 +598,15 @@ namespace ImageTools.ImageDataFormats
                 }
             }
 
-            return ComponentToCompound(0, clip(R * 255), clip(G * 255), clip(B * 255));
+            R *= 255;
+            G*=255;
+            B *= 255;
+        }
+
+        public static uint HSP_To_RGB32(int h, int s, int p)
+        {
+            HSP_To_RGB(h, s, p, out var R, out var G, out var B);
+            return ComponentToCompound(0, clip(R), clip(G), clip(B));
         }
 
         public static short YUV_To_RGB565(float Y, float U, float V)
@@ -629,10 +633,14 @@ namespace ImageTools.ImageDataFormats
             V = 127.5f + (0.439f * R + -0.368f * G + -0.071f * B);
         }
 
-        public static void RGB32_To_HSP(uint c, out double H, out double S, out double P)
+        public static void RGB32_To_HSP(uint c, out double H, out double S, out double P){
+            CompoundToComponent(c, out _, out var r, out var g, out var b);
+            RGB_To_HSP(r, g, b, out H, out S, out P);
+        }
+
+        public static void RGB_To_HSP(double r, double g, double b, out double H, out double S, out double P)
         {
             const double NoiseFloor = 0.03;
-            CompoundToComponent(c, out _, out var r, out var g, out var b);
             double R = r / 255.0;
             double G = g / 255.0;
             double B = b / 255.0;
