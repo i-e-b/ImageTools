@@ -32,7 +32,7 @@ namespace ImageTools
         public static byte[] EncodeImage2D(Bitmap src)
         {
             if (src == null) return null;
-            BitmapTools.ImageToPlanesf(src, ColorSpace.RGBToExp, out var Y, out var U, out var V);
+            BitmapTools.ImageToPlanesf(src, ColorSpace.RGBToYiq, out var Y, out var U, out var V);
             int width = src.Width;
             int height = src.Height;
 
@@ -132,7 +132,7 @@ namespace ImageTools
             }
 
             var dst = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-            BitmapTools.PlanesToImage_f(dst, ColorSpace.ExpToRGB, 0, Y, U, V);
+            BitmapTools.PlanesToImage_f(dst, ColorSpace.YiqToRGB, 0, Y, U, V);
             return dst;
         }
 
@@ -144,8 +144,7 @@ namespace ImageTools
         /// </summary>
         public static byte[] EncodeImage2D_Tight(Bitmap src) {
             if (src == null) return null;
-            //BitmapTools.ImageToPlanesf(src, ColorSpace.RGBToYUV, out var Y, out var U, out var V);
-            BitmapTools.ImageToPlanesf(src, ColorSpace.RGB_To_HSP, out var U, out var V, out var Y);
+            BitmapTools.ImageToPlanesf(src, ColorSpace.RGBToYiq, out var Y, out var U, out var V);
             int width = src.Width;
             int height = src.Height;
 
@@ -175,8 +174,12 @@ namespace ImageTools
                     // calculate the upper and lower colors, and the bit pattern
                     AveBlock64(block, out var upperY, out var lowerY, out var aveU, out var aveV, out var bits);
 
+                    // alter green/purple balance (to compensate for bit loss)
+                    aveV = ColorSpace.clip(aveV + 12);
+
+
                     // encode color and brightness difference
-                    var encLower = YUV_to_YC655(lowerY, aveU, aveV);
+                    var encLower = YUV_to_YC664(lowerY, aveU, aveV);
                     var encDiff = ColorSpace.clip(upperY - lowerY);
 
                     // write data
@@ -218,7 +221,7 @@ namespace ImageTools
                     var encDiff = r.ReadByte();
                     var bits = r.ReadUInt64();
 
-                    YC655_to_YUV(encLower, out var lower, out var aveU, out var aveV);
+                    YC664_to_YUV(encLower, out var lower, out var aveU, out var aveV);
                     var upper = lower + encDiff;
 
                     // write pixel colors
@@ -245,8 +248,7 @@ namespace ImageTools
             }
 
             var dst = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-            //BitmapTools.PlanesToImage_f(dst, ColorSpace.YUVToRGB, 0, Y, U, V);
-            BitmapTools.PlanesToImage_f(dst, ColorSpace.HSP_To_RGB, 0, U, V, Y);
+            BitmapTools.PlanesToImage_f(dst, ColorSpace.YiqToRGB, 0, Y, U, V);
             return dst;
         }
 
@@ -263,19 +265,19 @@ namespace ImageTools
             return y | c;
         }
 
-        private static int YUV_to_YC655(float Y, float U, float V)
+        private static int YUV_to_YC664(float Y, float U, float V)
         {
             var y = (ColorSpace.clip(Y) & 0xfc) << 8;
-            var u = (ColorSpace.clip(U) & 0xF8) << 2;
-            var v = (ColorSpace.clip(V) & 0xF8) >> 3;
+            var u = (ColorSpace.clip(U) & 0xfc) << 2;
+            var v = (ColorSpace.clip(V) & 0xf0) >> 4;
 
             return y | u | v;
         }
-        private static void YC655_to_YUV(ushort encoded, out float Y, out float U, out float V)
+        private static void YC664_to_YUV(ushort encoded, out float Y, out float U, out float V)
         {
             Y = (encoded >> 8) & 0xfc;
             U = (encoded >> 2) & 0xF8;
-            V = (encoded << 3) & 0xF8;
+            V = (encoded << 4) & 0xF0;
         }
 
 

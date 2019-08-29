@@ -170,6 +170,39 @@ namespace ImageTools.ImageDataFormats
         }
 
         /// <summary>
+        /// Approximation of NTSC/FCC YIQ space.
+        /// This expects `i` to be stored/transmitted with twice the bandwidth of q
+        /// </summary>
+        public static void YiqToRGB(double Y, double i, double q, out double R, out double G, out double B) {
+            i = (i - 127) * 1.1914;
+            q = (q - 127) * 1.0452;
+
+            R = Y + (0.9469 * i) + (0.6236 * q);
+            G = Y - (0.2748 * i) - (0.6357 * q);
+            B = Y - (1.1000 * i) + (1.7000 * q);
+        }
+        
+        /// <summary>
+        /// Approximation of NTSC/FCC YIQ space.
+        /// This expects `i` to be stored/transmitted with twice the bandwidth of q
+        /// </summary>
+        public static void RGBToYiq(double R, double G, double B, out double Y, out double i, out double q){
+            Y = (0.30 * R) + (0.59 * G) + (0.11 * B);
+            i = (-0.27 * (B - Y)) + (0.74 * (R - Y));
+            q = (0.41 * (B - Y)) + (0.48 * (R - Y));
+
+            i = (i * 0.8393) + 127;
+            q = (q * 0.9567) + 127;
+        }
+
+        public static uint Yiq_To_RGB32(int Y, int i, int q)
+        {
+            YiqToRGB(Y, i, q, out var R, out var G, out var B);
+
+            return (uint)((clip(R) << 16) + (clip(G) << 8) + clip(B));
+        }
+
+        /// <summary>
         /// Lossy conversion from RGB to YCoCg (both 24 bit, stored as 32).
         /// This is a (luma + blue/orange + purple/green) space
         /// </summary>
