@@ -12,11 +12,6 @@ namespace ImageTools
     /// This is intended for very large upscaling (4x and greater)
     /// </summary>
     public static class ErrorDiffusionScale {
-        /*
-         Plan:
-         Do a simple `float` based scale. floor(interp+error) to nearest source, and accumulate the lost error.
-         
-        */
         
         /// <summary>
         /// Scale up using error simple diffusion
@@ -48,21 +43,20 @@ namespace ImageTools
                 if (small == null || large == null) continue;
                 for (int y = 0; y < dstHeight; y++)
                 {
-                        // TODO: a better diffusion algorithm.
-
                     var sy = y * invScale;
-                    var isy = (int)sy;
-                    err += sy - isy;
-                    if (err >= 1) { isy++; err -= 1; }
+                    err += sy - (int)sy;
+                    //if (err >= 1) { sy+= 1; err -= 1.414f; }
 
                     for (int x = 0; x < dstWidth; x++)
                     {
                         var sx = x * invScale;
+
+                        err += sx - (int)sx;
+                        //if (err >= 1) { sx += 1; sy += 1; err -= 1; }
+                        if (err >= 1) { sx += 1; err -= 1.414f; }
+
                         var isx = (int)sx;
-
-                        err += sx - isx;
-                        if (err >= 1) { isx++; err -= 1; }
-
+                        var isy = (int)sy;
                         if (isx >= srcWidth) isx = srcWidth - 1;
                         if (isy >= srcHeight) isy = srcHeight - 1;
 

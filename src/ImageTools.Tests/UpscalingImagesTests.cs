@@ -78,17 +78,17 @@ namespace ImageTools.Tests
 
         
         [Test]
-        public void Error_scale_4x_pixelart()
+        public void Error_scale_9x_pixelart()
         {
             using (var bmp = Load.FromFile("./inputs/pixart.png"))
             {
-                using (var bmp2 = ErrorDiffusionScale.Upscale(bmp, 4))
+                using (var bmp2 = ErrorDiffusionScale.Upscale(bmp, 9))
                 {
-                    bmp2.SaveJpeg("./outputs/pixart_err4x.jpg");
+                    bmp2.SaveJpeg("./outputs/pixart_err9x.jpg");
                 }
             }
 
-            Assert.That(Load.FileExists("./outputs/pixart_err4x.jpg"));
+            Assert.That(Load.FileExists("./outputs/pixart_err9x.jpg"));
         }
         
         [Test]
