@@ -39,24 +39,27 @@ namespace ImageTools
                 var large = Pick(plane, dstY, dstU, dstV);
 
                 var err = 0.0f;
+                var yaccum = 0.0f;
 
                 if (small == null || large == null) continue;
                 for (int y = 0; y < dstHeight; y++)
                 {
                     var sy = y * invScale;
-                    err += sy - (int)sy;
-                    //if (err >= 1) { sy+= 1; err -= 1.414f; }
+                    var yerr = sy - (int)sy;
+                    err += yerr;
+                    yaccum += yerr;
 
                     for (int x = 0; x < dstWidth; x++)
                     {
                         var sx = x * invScale;
-
                         err += sx - (int)sx;
-                        //if (err >= 1) { sx += 1; sy += 1; err -= 1; }
-                        if (err >= 1) { sx += 1; err -= 1.414f; }
+
+                        if (err >= 1) { sx += 1;  err -= 1.414f; }
+                        yaccum += yerr;
+                        if (yaccum >= 1) {yaccum -= 1; }
 
                         var isx = (int)sx;
-                        var isy = (int)sy;
+                        var isy = (int)(sy + yaccum);
                         if (isx >= srcWidth) isx = srcWidth - 1;
                         if (isy >= srcHeight) isy = srcHeight - 1;
 
