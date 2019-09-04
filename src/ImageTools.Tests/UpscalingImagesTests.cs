@@ -76,6 +76,34 @@ namespace ImageTools.Tests
         }
 
 
+        
+        [Test]
+        public void Error_scale_4x_pixelart()
+        {
+            using (var bmp = Load.FromFile("./inputs/pixart.png"))
+            {
+                using (var bmp2 = ErrorDiffusionScale.Upscale(bmp, 4))
+                {
+                    bmp2.SaveJpeg("./outputs/pixart_err4x.jpg");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/pixart_err4x.jpg"));
+        }
+        
+        [Test]
+        public void Error_scale_6p4x_pixelart()
+        {
+            using (var bmp = Load.FromFile("./inputs/pixart.png"))
+            {
+                using (var bmp2 = ErrorDiffusionScale.Upscale(bmp, 6.4f))
+                {
+                    bmp2.SaveJpeg("./outputs/pixart_err6x4.jpg");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/pixart_err6x4.jpg"));
+        }
 		
         [Test]
         public void EPX_double_pixelart()

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Imaging;
 using ImageTools.ImageDataFormats;
 using ImageTools.Utilities;
@@ -34,6 +33,7 @@ namespace ImageTools
                 var small = Pick(plane, srcY, srcU, srcV);
                 var large = Pick(plane, dstY, dstU, dstV);
 
+                if (small == null || large == null) continue;
                 for (int y = 0; y < srcHeight; y++)
                 {
                     var dyo = 2 * y * dstWidth;
@@ -76,7 +76,7 @@ namespace ImageTools
 
         private static T Pick<T>(int i, params T[] stuff)
         {
-            return stuff[i];
+            return stuff == null ? default : stuff[i];
         }
 
         /// <summary>
@@ -102,6 +102,7 @@ namespace ImageTools
                 var small = Pick(plane, srcY, srcU, srcV);
                 var large = Pick(plane, dstY, dstU, dstV);
 
+                if (small == null || large == null) continue;
                 for (int y = 0; y < srcHeight; y++)
                 {
                     var dyo = 2 * y * dstWidth;
