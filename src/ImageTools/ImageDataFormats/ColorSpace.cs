@@ -738,5 +738,13 @@ namespace ImageTools.ImageDataFormats
             S = clip(S * 255);
             P = clip(P * 255);
         }
+
+        /// <summary>
+        /// Pass through color space unchanged
+        /// </summary>
+        public static void Native(double i1, double i2, double i3, out double o1, out double o2, out double o3)
+        {
+            o1 = i1; o2 = i2; o3 = i3;
+        }
     }
 }

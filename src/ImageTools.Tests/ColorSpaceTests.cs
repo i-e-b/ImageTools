@@ -118,7 +118,53 @@ namespace ImageTools.Tests
                 }
             }
         }
+        
+        [Test, Description("show the result of just one plane at a time from an image")]
+        public void RGB__separations()
+        {
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                using (var dst = new Bitmap(bmp))
+                {
+                    BitmapTools.ImageToPlanes(bmp, ColorSpace.Native , out var R, out var G, out var B);
 
+
+                    BitmapTools.PlanesToImage(dst, ColorSpace.Native, 0, R, R, R);
+                    dst.SaveBmp("./outputs/3_RGB_R-only.bmp");
+                    
+                    BitmapTools.PlanesToImage(dst, ColorSpace.Native, 0, G, G, G);
+                    dst.SaveBmp("./outputs/3_RGB_G-only.bmp");
+                    
+                    BitmapTools.PlanesToImage(dst, ColorSpace.Native, 0, B, B, B);
+                    dst.SaveBmp("./outputs/3_RGB_B-only.bmp");
+                }
+            }
+        }
+
+        
+        [Test, Description("show the result of just one plane at a time from an image")]
+        public void YIQ__separations()
+        {
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                using (var dst = new Bitmap(bmp))
+                {
+                    BitmapTools.ImageToPlanes(bmp, ColorSpace.RGBToYiq , out var Yp, out var Ip, out var Qp);
+
+                    var zeroP = new double[Yp.Length]; // to zero out other planes
+                    for (int i = 0; i < zeroP.Length; i++) { zeroP[i] = 127.5; }
+
+                    BitmapTools.PlanesToImage(dst, ColorSpace.YiqToRGB, 0, Yp, zeroP, zeroP);
+                    dst.SaveBmp("./outputs/3_YIQ_Y-only.bmp");
+                    
+                    BitmapTools.PlanesToImage(dst, ColorSpace.YiqToRGB, 0, zeroP, Ip, zeroP);
+                    dst.SaveBmp("./outputs/3_YIQ_I-only.bmp");
+                    
+                    BitmapTools.PlanesToImage(dst, ColorSpace.YiqToRGB, 0, zeroP, zeroP, Qp);
+                    dst.SaveBmp("./outputs/3_YIQ_Q-only.bmp");
+                }
+            }
+        }
         [Test, Description("Outputs a sample image showing the color planes")]
         public void YCoCg_Swatch()
         {
