@@ -746,5 +746,83 @@ namespace ImageTools.ImageDataFormats
         {
             o1 = i1; o2 = i2; o3 = i3;
         }
+
+        public static uint HCL_To_RGB32(int h, int c, int l)
+        {
+            HCL_To_RGB(h, c, l, out var R, out var G, out var B);
+            return ComponentToCompound(0, clip(R), clip(G), clip(B));
+        }
+
+        public static void RGB_To_HCL(double r, double g, double b, out double H, out double C, out double L){
+            const double tolerance = 0.0001;
+
+            L = (0.30 * r + 0.59 * g + 0.11 * b) / 255.0;
+            if (Math.Abs(r - g) < tolerance && Math.Abs(g - b) < tolerance)
+            {
+                H = 0; C = 0;
+                return;
+            }
+
+            var M = r;
+            var m = r;
+            if (M < g) M = g;
+            if (M < b) M = b;
+            if (m > g) m = g;
+            if (m > b) m = b;
+            C = M - m;
+            if (Math.Abs(M - r) < tolerance)
+            {
+                H = (g - b) / C;
+                while (H < 0) H += 6;
+                H %= 6;
+            }
+            else if (Math.Abs(M - g) < tolerance)
+            {
+                H = (b - r) / C + 2;
+            }
+            else
+            {
+                H = (r - g) / C + 4;
+            }
+
+            H *= 60.0;
+            C /= 255.0;
+        }
+
+        public static void HCL_To_RGB(double hue, double chroma, double luma, out double R, out double G, out double B)
+        {
+            // 255-space adjustment
+            chroma *= 1.0 / 255.0;
+            luma *= 1.0 / 255.0;
+
+            if (chroma <= 0)
+            {
+                R = G = B = luma * 255;
+                return;
+            }
+
+            var hm = hue / 60;
+            while (hm < 0)
+            {
+                hm += 6;
+            }
+            hm %= 6;
+            var x = chroma * (1 - Math.Abs(hm % 2 - 1));
+
+            double rm, gm, bm;
+            if (hm < 1) { rm = chroma; gm = x; bm = 0; }
+            else if (hm < 2) { rm = x; gm = chroma; bm = 0; }
+            else if (hm < 3) { rm = 0; gm = chroma; bm = x; }
+            else if (hm < 4) { rm = 0; gm = x; bm = chroma; }
+            else if (hm < 5) { rm = x; gm = 0; bm = chroma; }
+            else { rm = chroma; gm = 0; bm = x; }
+
+            var m = luma - (0.30 * rm + 0.59 * gm + 0.11 * bm);
+
+
+            R = clip(255 * (rm + m));
+            G = clip(255 * (gm + m));
+            B = clip(255 * (bm + m));
+        }
     }
 }

@@ -325,6 +325,37 @@ namespace ImageTools.Tests
             }
         }
 
+        [Test, Description("Outputs a sample image showing the color planes")]
+        public void HCL_Swatch() {
+            var width = 512;
+            var height = 128;
+
+            using (var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb))
+            {
+                var qwidth = width >> 2;
+                var dy = 255.0f / height;
+                var dx = 255.0f / qwidth;
+                for (int y = 0; y < height; y++)
+                {
+                    for (int x = 0; x < qwidth; x++)
+                    {
+                        var c = Color.FromArgb((int) ColorSpace.HCL_To_RGB32((int)(y * dy), (int)(x * dx), 0));
+                        bmp.SetPixel(x, y, c);
+                        
+                        c = Color.FromArgb((int) ColorSpace.HCL_To_RGB32((int)(y * dy), (int)(x * dx), 100));
+                        bmp.SetPixel(x + qwidth, y, c);
+
+                        c = Color.FromArgb((int) ColorSpace.HCL_To_RGB32((int)(y * dy), (int)(x * dx), 180));
+                        bmp.SetPixel(x + (qwidth*2), y, c);
+
+                        c = Color.FromArgb((int) ColorSpace.HCL_To_RGB32((int)(y * dy), (int)(x * dx), 255));
+                        bmp.SetPixel(x + (qwidth*3), y, c);
+                    }
+                }
+
+                bmp.SaveBmp("./outputs/HCL_Swatch.bmp");
+            }
+        }
 
         [Test]
         public void Experimental_ColorSpace()
