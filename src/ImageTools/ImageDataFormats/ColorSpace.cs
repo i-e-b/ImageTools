@@ -37,6 +37,7 @@ namespace ImageTools.ImageDataFormats
     /// Tools for reading and converting color spaces
     /// </summary>
     public static class ColorSpace
+        // TODO: This could do with cleaning up. Separate the packed and unpacked versions
     {
         /// <summary>
         /// Lossy conversion from RGB to Ycbcr (both 24 bit, stored as 32)

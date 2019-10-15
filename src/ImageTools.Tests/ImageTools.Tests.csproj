@@ -44,6 +44,7 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ArithmeticEncodingTests.cs" />
     <Compile Include="BlurringImages.cs" />
     <Compile Include="ByteEncodingTests.cs" />
     <Compile Include="ColorCellTests.cs" />
