@@ -1,7 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using ImageTools.DataCompression.Encoding;
 using NUnit.Framework;
 
@@ -15,18 +14,6 @@ namespace ImageTools.Tests
                               $"Symbol bits = {ArithmeticEncode.CODE_VALUE_BITS}, Frequency bits = {ArithmeticEncode.FREQUENCY_BITS},\r\n" +
                               $"Max code value = {ArithmeticEncode.MAX_CODE:X}, Max frequency value = {ArithmeticEncode.MAX_FREQ:X},\r\n" +
                               $"1/4 threshold = {ArithmeticEncode.ONE_QUARTER:X}, 2/4 threshold = {ArithmeticEncode.ONE_HALF:X}, 3/4 threshold = {ArithmeticEncode.THREE_QUARTERS:X}");
-
-/*
-            Assert.That(ArithmeticEncode.BIT_SIZE, Is.EqualTo(32), nameof(ArithmeticEncode.BIT_SIZE));
-            Assert.That(ArithmeticEncode.PRECISION, Is.EqualTo(31), nameof(ArithmeticEncode.PRECISION));
-            Assert.That(ArithmeticEncode.CODE_VALUE_BITS, Is.EqualTo(16), nameof(ArithmeticEncode.CODE_VALUE_BITS));
-            Assert.That(ArithmeticEncode.FREQUENCY_BITS, Is.EqualTo(14), nameof(ArithmeticEncode.FREQUENCY_BITS));
-            Assert.That(ArithmeticEncode.MAX_CODE, Is.EqualTo(0x0001FFFF), nameof(ArithmeticEncode.MAX_CODE));
-            Assert.That(ArithmeticEncode.MAX_FREQ, Is.EqualTo(0x00003FFF), nameof(ArithmeticEncode.MAX_FREQ));
-            Assert.That(ArithmeticEncode.ONE_QUARTER, Is.EqualTo(0x00008000), nameof(ArithmeticEncode.ONE_QUARTER));
-            Assert.That(ArithmeticEncode.ONE_HALF, Is.EqualTo(0x00010000), nameof(ArithmeticEncode.ONE_HALF));
-            Assert.That(ArithmeticEncode.THREE_QUARTERS, Is.EqualTo(0x00018000), nameof(ArithmeticEncode.THREE_QUARTERS));
-*/
         }
 
         [Test]
@@ -34,64 +21,57 @@ namespace ImageTools.Tests
         {
             var rnd = new Random();
 
-            var result = new ListIO();
-            var subject = new ArithmeticEncode(new TestModel(), result);
+            var subject = new ArithmeticEncode(new SimpleLearningModel());
+            var result = new MemoryStream();
 
             var bytes = new byte[100];
             rnd.NextBytes(bytes);
             var data = new MemoryStream(bytes);
             data.Seek(0,SeekOrigin.Begin);
 
-            subject.Encode(data);
+            subject.Encode(data, result);
 
-            var str = string.Join("", result.BitList());
-            Console.WriteLine($"Encoded {result.ByteLength()} bytes for {bytes.Length} bytes of input");
-            Console.WriteLine(str);
+            Console.WriteLine($"Encoded {result.Length} bytes for {bytes.Length} bytes of input");
         }
         
         [Test]
-        public void encoding_a_trivial_dataset_takes_few_bytes ()
+        public void encoding_a_low_entropy_dataset_takes_few_bytes ()
         {
-            var result = new ListIO();
-            var subject = new ArithmeticEncode(new TestModel(), result);
+            var subject = new ArithmeticEncode(new SimpleLearningModel());
+            var result = new MemoryStream();
 
             var bytes = new byte[100]; // all zeros
             var data = new MemoryStream(bytes);
             data.Seek(0,SeekOrigin.Begin);
 
-            subject.Encode(data);
+            subject.Encode(data, result);
 
-            Assert.That(result.ByteLength(), Is.LessThan(50)); // really, it's the model that has the biggest effect
+            Console.WriteLine($"Encoded {result.Length} bytes for {bytes.Length} bytes of input");
+            Assert.That(result.Length, Is.LessThan(50)); // really, it's the model that has the biggest effect
         }
 
         [Test]
         public void can_recover_an_encoded_byte_stream (){
             var rnd = new Random();
 
-            var result = new ListIO();
-            var subject = new ArithmeticEncode(new TestModel(), result);
+            var subject = new ArithmeticEncode(new SimpleLearningModel());
+            var result = new MemoryStream();
 
             var inputBytes = new byte[100];
             rnd.NextBytes(inputBytes);
-            /*for (int i = 0; i < inputBytes.Length; i++)
-            {
-                inputBytes[i] = (byte) (i % 10);
-                //inputBytes[i] = 127;
-            }*/
             var data = new MemoryStream(inputBytes);
             data.Seek(0,SeekOrigin.Begin);
 
-            subject.Encode(data);
+            subject.Encode(data, result);
 
-            var str = string.Join("", result.BitList());
-            Console.WriteLine($"Encoded {result.ByteLength()} bytes for {inputBytes.Length} bytes of input");
-            Console.WriteLine(str);
+            Console.WriteLine($"Encoded {result.Length} bytes for {inputBytes.Length} bytes of input");
 
             subject.Reset();
             var final = new MemoryStream();
             try
             {
-                subject.Decode(final);
+                result.Seek(0,SeekOrigin.Begin);
+                subject.Decode(result, final);
             }
             catch (Exception ex)
             {
@@ -103,55 +83,115 @@ namespace ImageTools.Tests
 
             Assert.That(finalData, Is.EquivalentTo(inputBytes), "Decoded data was not the same as the input");
         }
-    }
 
-    public class ListIO : IBitwiseIO
-    {
-        private readonly List<bool> _list;
-        private int readPos;
-        private int _runout;
+        [Test]
+        public void encoder_supports_multiple_models () {
 
-        public ListIO()
-        {
-            readPos = 0;
-            _runout = 0;
-            _list = new List<bool>();
-        }
+            var rnd = new Random();
 
-        public IEnumerable<char> BitList() {
-            return _list.Select(v=>v?'1':'0');
-        }
+            var subject = new ArithmeticEncode(new BraindeadModel());
+            var result = new MemoryStream();
 
-        public int ByteLength() {
-            return (_list.Count / 8) + 1;
-        }
-
-        /// <inheritdoc />
-        public void OutputBit(bool value)
-        {
-            _list.Add(value);
-        }
-
-        /// <inheritdoc />
-        public uint GetBit()
-        {
-            if (readPos >= _list.Count) {
-                if (_runout++ < 32) return 0; // allow us to run off the end of the input a bit.
-                throw new Exception("End of data before EOL symbol found"); // EOL
+            var inputBytes = new byte[100];
+            rnd.NextBytes(inputBytes);
+            for (int i = 25; i < 75; i++) // shove in a lot of zeros
+            {
+                inputBytes[i] = 0;
             }
-            return _list[readPos++] ? 1u : 0u;
+            var data = new MemoryStream(inputBytes);
+            data.Seek(0,SeekOrigin.Begin);
+
+            subject.Encode(data, result);
+
+            Console.WriteLine($"Encoded {result.Length} bytes for {inputBytes.Length} bytes of input");
+
+            subject.Reset();
+            var final = new MemoryStream();
+            try
+            {
+                result.Seek(0, SeekOrigin.Begin);
+                subject.Decode(result, final);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Decode failed: " + ex);
+            }
+            final.Seek(0, SeekOrigin.Begin);
+
+            var finalData = final.ToArray();
+
+            Assert.That(finalData, Is.EquivalentTo(inputBytes), "Decoded data was not the same as the input");
+        }
+        
+        [Test]
+        public void encoder_supports_large_input_data () {
+            var sw = new Stopwatch();
+
+            var subject = new ArithmeticEncode(new BraindeadModel());
+            var result = new MemoryStream();
+
+            sw.Restart();
+            var inputBytes = new byte[1_000_000];
+            for (int i = 0; i < inputBytes.Length; i++) { inputBytes[i] = (byte)(i&0xE0); } // bias to zeros
+            var data = new MemoryStream(inputBytes);
+            data.Seek(0,SeekOrigin.Begin);
+            sw.Stop();
+            Console.WriteLine($"Generating test data took {sw.Elapsed}");
+
+
+            sw.Restart();
+            subject.Encode(data, result);
+            sw.Stop();
+
+            Console.WriteLine($"Encoded {result.Length} bytes for {inputBytes.Length} bytes of input in {sw.Elapsed}");
+
+            subject.Reset();
+            var final = new MemoryStream();
+            try
+            {
+                result.Seek(0, SeekOrigin.Begin);
+                sw.Restart();
+                subject.Decode(result, final);
+                sw.Stop();
+                Console.WriteLine($"Decoded in {sw.Elapsed}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Decode failed: " + ex);
+            }
+            final.Seek(0, SeekOrigin.Begin);
+            var finalData = final.ToArray();
+
+            sw.Restart();
+            Assert.That(finalData.Length, Is.EqualTo(inputBytes.Length), "Decoded data was the wrong length");
+            for (int i = 0; i < finalData.Length; i++)
+            {
+                if (finalData[i] != inputBytes[i]) Assert.Fail("Data differed at index "+i);
+            }
+            sw.Stop();
+            Console.WriteLine($"Testing result data took {sw.Elapsed}");
+
+
+            // This is taking 20+ seconds:
+            /*
+            sw.Restart();
+            var finalData = final.ToArray();
+            Assert.That(finalData, Is.EquivalentTo(inputBytes), "Decoded data was not the same as the input");
+            sw.Stop();
+            Console.WriteLine($"Testing result data took {sw.Elapsed}");
+            */
         }
     }
 
     /// <summary>
     /// A really simple model for testing
     /// </summary>
-    public class TestModel : IProbabilityModel
+    public class SimpleLearningModel : IProbabilityModel
     {
         private readonly uint[] cumulative_frequency;
         private bool _frozen;
 
-        public TestModel()
+        public SimpleLearningModel()
         {
             cumulative_frequency = new uint[258];
             Reset();
@@ -206,6 +246,66 @@ namespace ImageTools.Tests
         {
             for (uint i = 0; i < 258; i++) cumulative_frequency[i] = i;
             _frozen = false;
+        }
+
+        /// <inheritdoc />
+        public uint GetCount()
+        {
+            return cumulative_frequency[257];
+        }
+
+        /// <inheritdoc />
+        public int RequiredSymbolBits() { return 9; } // 8 bits for values, 1 for stop
+    }
+
+    
+    /// <summary>
+    /// A model that never updates, and treats 0 as the most likely symbol
+    /// </summary>
+    public class BraindeadModel : IProbabilityModel
+    {
+        private readonly uint[] cumulative_frequency;
+
+        public BraindeadModel()
+        {
+            cumulative_frequency = new uint[258];
+            Reset();
+        }
+
+        /// <inheritdoc />
+        public SymbolProbability GetCurrentProbability(int symbol)
+        {
+            var p = new SymbolProbability
+            {
+                low = cumulative_frequency[symbol],
+                high = cumulative_frequency[symbol + 1],
+                count = cumulative_frequency[257]
+            };
+            return p;
+        }
+
+        /// <inheritdoc />
+        public SymbolProbability GetChar(long scaledValue, ref int decodedSymbol)
+        {
+            for ( int i = 0 ; i < 257 ; i++ )
+                if ( scaledValue < cumulative_frequency[i+1] ) {
+                    decodedSymbol = i;
+                    var p = new SymbolProbability
+                    {
+                        low = cumulative_frequency[i],
+                        high = cumulative_frequency[i + 1],
+                        count = cumulative_frequency[257]
+                    };
+                    return p;
+                }
+            throw new Exception("Decoder model found no symbol range for scaled value = "+scaledValue);
+        }
+
+        /// <inheritdoc />
+        public void Reset()
+        {
+            cumulative_frequency[0] = 0;
+            for (uint i = 1; i < 258; i++) cumulative_frequency[i] = i + 128;
         }
 
         /// <inheritdoc />

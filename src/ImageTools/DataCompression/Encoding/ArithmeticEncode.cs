@@ -5,6 +5,79 @@ using System.IO;
 
 namespace ImageTools.DataCompression.Encoding
 {
+    /// <summary>
+    /// A bitwise wrapper around a byte stream. Also provides run-out
+    /// </summary>
+    public class BitwiseStreamWrapper {
+        private readonly Stream _original;
+        private int _runoutBits;
+
+        private bool inRunOut;
+        private byte readMask, writeMask;
+        private int nextOut, currentIn;
+
+        public BitwiseStreamWrapper(Stream original, int runoutBits)
+        {
+            _original = original ?? throw new Exception("Must not wrap a null stream");
+            _runoutBits = runoutBits;
+
+            inRunOut = false;
+            readMask = 1;
+            writeMask = 0x80;
+            nextOut = 0;
+            currentIn = 0;
+        }
+
+        /// <summary>
+        /// Write the current pending output byte (if any)
+        /// </summary>
+        public void Flush() {
+            if (writeMask == 0x80) return; // no pending byte
+            _original.WriteByte((byte)nextOut);
+            writeMask = 0x80;
+            nextOut = 0;
+        }
+
+        public void WriteBit(bool value){
+            if (value) nextOut |= writeMask;
+            writeMask >>= 1;
+
+            if (writeMask == 0)
+            {
+                _original.WriteByte((byte)nextOut);
+                writeMask = 0x80;
+                nextOut = 0;
+            }
+        }
+
+        public int ReadBit()
+        {
+            if (inRunOut)
+            {
+                if (_runoutBits-- > 0) return 0;
+                throw new Exception("End of input stream");
+            }
+
+            if (readMask == 1)
+            {
+                currentIn = _original.ReadByte();
+                if (currentIn < 0)
+                {
+                    inRunOut = true;
+                    if (_runoutBits-- > 0) return 0;
+                    throw new Exception("End of input stream");
+                }
+                readMask = 0x80;
+            }
+            else
+            {
+                readMask >>= 1;
+            }
+            return ((currentIn & readMask) != 0) ? 1 : 0;
+        }
+    }
+
+
     public class ArithmeticEncode
     {
         // Assuming a code value of UInt32
@@ -21,24 +94,23 @@ namespace ImageTools.DataCompression.Encoding
 
 
         private readonly IProbabilityModel _model;
-        private readonly IBitwiseIO _inout;
 
-        public ArithmeticEncode(IProbabilityModel model, IBitwiseIO inout)
+        public ArithmeticEncode(IProbabilityModel model)
         {
             _model = model ?? throw new Exception("Probability model must be supplied");
             if (PRECISION < model.RequiredSymbolBits()) throw new Exception($"Probability model requires more symbol bits than this encoder provides (Requires {model.RequiredSymbolBits()}, {PRECISION} available)");
-            _inout = inout ?? throw new Exception("Bitwise I/O must be supplied");
         }
+
 
         /// <summary>
         /// Encode the data from a stream into the supplied bitwise IO container
         /// </summary>
-        /// <remarks>
-        /// TODO: drop the bitwise container and output to another stream?
-        /// </remarks>
-        public void Encode(Stream data)
+        public void Encode(Stream source, Stream destination)
         {
-            if (data == null || data.CanRead == false) throw new Exception("Invalid stream passed to encoder");
+            if (source == null || source.CanRead == false) throw new Exception("Invalid input stream passed to encoder");
+            if (destination == null || destination.CanWrite == false) throw new Exception("Invalid output stream passed to encoder");
+
+            var target = new BitwiseStreamWrapper(destination, BIT_SIZE);
 
             long high = MAX_CODE;
             long low = 0;
@@ -46,7 +118,7 @@ namespace ImageTools.DataCompression.Encoding
 
             while (true) // data loop
             {
-                int c = data.ReadByte();
+                int c = source.ReadByte();
                 if (c < 0) c = 256; // EOF symbol
 
                 var p = _model.GetCurrentProbability(c);
@@ -57,10 +129,10 @@ namespace ImageTools.DataCompression.Encoding
                 while (true) // symbol encoding loop
                 {
                     if ( high < ONE_HALF ) { // Converging
-                        output_bit_plus_pending(0, ref pending_bits);
+                        output_bit_plus_pending(target, 0, ref pending_bits);
                     }
                     else if ( low >= ONE_HALF ) { // Converging
-                        output_bit_plus_pending(1, ref pending_bits);
+                        output_bit_plus_pending(target, 1, ref pending_bits);
                     }
                     else if ( low >= ONE_QUARTER && high < THREE_QUARTERS ) { // Near converging
                         pending_bits++;
@@ -83,20 +155,21 @@ namespace ImageTools.DataCompression.Encoding
             
             // Ensure we pump out enough bits to have an unambiguous result
             pending_bits++;
-            if ( low < ONE_QUARTER ) output_bit_plus_pending(0, ref pending_bits);
-            else output_bit_plus_pending(1, ref pending_bits);
+            if ( low < ONE_QUARTER ) output_bit_plus_pending(target, 0, ref pending_bits);
+            else output_bit_plus_pending(target, 1, ref pending_bits);
 
-            // Done
+            // Done. Write out final data
+            target.Flush();
         }
         
         /// <summary>
         /// Decode the data from a supplied bitwise IO container into a byte stream
         /// </summary>
-        /// <remarks>
-        /// TODO: drop the bitwise container and input from another stream?
-        /// </remarks>
-        public void Decode(Stream target) {
-            if (target == null || target.CanWrite == false) throw new Exception("Invalid stream passed to decoder");
+        public void Decode(Stream source, Stream destination) {
+            if (source == null || source.CanRead == false) throw new Exception("Invalid input stream passed to encoder");
+            if (destination == null || destination.CanWrite == false) throw new Exception("Invalid output stream passed to decoder");
+
+            var src = new BitwiseStreamWrapper(source, BIT_SIZE);
 
             long high = MAX_CODE;
             long low = 0;
@@ -104,7 +177,7 @@ namespace ImageTools.DataCompression.Encoding
 
             for ( int i = 0 ; i < CODE_VALUE_BITS ; i++ ) {
                 value <<= 1;
-                value += _inout.GetBit();
+                value += src.ReadBit();
             }
             while (true) { // data loop
                 var range = high - low + 1;
@@ -112,7 +185,7 @@ namespace ImageTools.DataCompression.Encoding
                 int c = 0;
                 var p = _model.GetChar( scaled_value, ref c );
                 if ( c >= 256 ) break;
-                target.WriteByte((byte)c);
+                destination.WriteByte((byte)c);
 
                 high = low + (range * p.high) / p.count - 1;
                 low = low + (range * p.low) / p.count;
@@ -135,7 +208,7 @@ namespace ImageTools.DataCompression.Encoding
                     high <<= 1;
                     high++;
                     value <<= 1;
-                    value += _inout.GetBit();
+                    value += src.ReadBit();
 
                 } // end of symbol decoding loop
             } // end of data loop
@@ -150,10 +223,10 @@ namespace ImageTools.DataCompression.Encoding
             _model.Reset();
         }
         
-        void output_bit_plus_pending(int bit, ref int pending_bits)
+        void output_bit_plus_pending(BitwiseStreamWrapper target, int bit, ref int pending_bits)
         {
-            _inout.OutputBit( bit == 1 );
-            while ( pending_bits-- > 0 ) _inout.OutputBit( bit == 0 );
+            target.WriteBit( bit == 1 );
+            while ( pending_bits-- > 0 ) target.WriteBit( bit == 0 );
             pending_bits = 0;
         }
     }
