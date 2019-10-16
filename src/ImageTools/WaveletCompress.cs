@@ -575,6 +575,74 @@ namespace ImageTools
         }
 
 
+        /// <summary>
+        /// Decompose an image to a set of byte streams.
+        /// This does *NOT* do compression. It *does* do quantisation and fibonacci encoding
+        /// </summary>
+        /// <param name="src">Original image</param>
+        /// <param name="wavelet">Wavelet inverse function (CDF.Fwt97 or Haar.Forward)</param>
+        /// <param name="Ycoefs">Writable stream that will be given the Y plane coefficients</param>
+        /// <param name="Ucoefs">Writable stream that will be given the U plane coefficients</param>
+        /// <param name="Vcoefs">Writable stream that will be given the V plane coefficients</param>
+        public static void ReduceImage2D_ToStreams(Bitmap src, GeneralDecompose wavelet, Stream Ycoefs, Stream Ucoefs, Stream Vcoefs)
+        {
+            if (src == null || wavelet == null) return;
+            if (Ycoefs == null || !Ycoefs.CanWrite) throw new Exception("Invalid output stream: Y");
+            if (Ucoefs == null || !Ucoefs.CanWrite) throw new Exception("Invalid output stream: U");
+            if (Vcoefs == null || !Vcoefs.CanWrite) throw new Exception("Invalid output stream: V");
+            BitmapTools.ImageToPlanes_ForcePower2(src, ColorSpace.RGBToExp, out var Y, out var U, out var V, out var planeWidth, out var planeHeight);
+            int imgWidth = src.Width;
+            int imgHeight = src.Height;
+
+            int rounds = (int)Math.Log(planeWidth, 2);
+
+            var p2Height = (int)Bin.NextPow2((uint)planeHeight);
+            var p2Width = (int)Bin.NextPow2((uint)planeWidth);
+            var hx = new float[p2Height];
+            var wx = new float[p2Width];
+
+            for (int ch = 0; ch < 3; ch++)
+            {
+                var buffer = Pick(ch, Y, U, V);
+                var ms = Pick(ch, Ycoefs, Ucoefs, Vcoefs);
+
+                DC_to_AC(buffer);
+
+                // Transform
+                for (int i = 0; i < rounds; i++)
+                {
+                    var height = p2Height >> i;
+                    var width = p2Width >> i;
+
+                    // Wavelet decompose vertical
+                    for (int x = 0; x < width; x++) // each column
+                    {
+                        wavelet(buffer, hx, height, x, planeWidth);
+                    }
+
+                    // Wavelet decompose HALF horizontal
+                    for (int y = 0; y < height / 2; y++) // each row
+                    {
+                        wavelet(buffer, wx, width, y * planeWidth, 1);
+                    }
+                }
+
+                // Reorder, Quantise and reduce co-efficients
+                var packedLength = ToStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight);
+                QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Reduce); // compression quantising
+
+                // Raw int32
+                /*var w = new BinaryWriter(ms);
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    int n = (int)buffer[i]; // encoding quantisation.
+                    n = (n >= 0) ? (n * 2) : (n * -2) - 1; // expand so all co-efficents are zero or positive
+                    w.Write(n);
+                }*/
+                // fib encode
+                DataEncoding.FibonacciEncode(buffer, 0, ms);
+            }
+        }
 
 
         // Reducing image by equal rounds

@@ -1,13 +1,16 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using ImageTools.DataCompression.Encoding;
+using ImageTools.Utilities;
+using ImageTools.WaveletTransforms;
 using NUnit.Framework;
 
 namespace ImageTools.Tests
 {
     [TestFixture]
-    public class ArithmeticEncodingTests{
+    public class ArithmeticEncodingTests {
         [Test]
         public void constants_are_correct_values () {
             Console.WriteLine($"Actual values: Bit Size = {ArithmeticEncode.BIT_SIZE}, Precision = {ArithmeticEncode.PRECISION},\r\n" +
@@ -37,7 +40,7 @@ namespace ImageTools.Tests
         [Test]
         public void encoding_a_low_entropy_dataset_takes_few_bytes ()
         {
-            var subject = new ArithmeticEncode(new SimpleLearningModel());
+            var subject = new ArithmeticEncode(new PushToFrontModel(fallOff:5));
             var result = new MemoryStream();
 
             var bytes = new byte[100]; // all zeros
@@ -45,9 +48,14 @@ namespace ImageTools.Tests
             data.Seek(0,SeekOrigin.Begin);
 
             subject.Encode(data, result);
+            // The probability model has the largest effect. ArithmeticEncode is just an efficient way of expressing that.
+            // Simple learning: 39 bytes
+            // Push to front:    3 bytes (falloff = 5)
+            // Braindead:       21 bytes
 
-            Console.WriteLine($"Encoded {result.Length} bytes for {bytes.Length} bytes of input");
-            Assert.That(result.Length, Is.LessThan(50)); // really, it's the model that has the biggest effect
+            var bpb = (result.Length * 8.0) / bytes.Length;
+            Console.WriteLine($"Encoded {result.Length} bytes for {bytes.Length} bytes of input. ({bpb} bits per byte)");
+            Assert.That(result.Length, Is.LessThan(50));
         }
 
         [Test]
@@ -89,7 +97,7 @@ namespace ImageTools.Tests
 
             var rnd = new Random();
 
-            var subject = new ArithmeticEncode(new BraindeadModel());
+            var subject = new ArithmeticEncode(new PushToFrontModel());
             var result = new MemoryStream();
 
             var inputBytes = new byte[100];
@@ -181,6 +189,156 @@ namespace ImageTools.Tests
             Console.WriteLine($"Testing result data took {sw.Elapsed}");
             */
         }
+
+
+        [Test]
+        public void compressing_a_wavelet_image () {
+            // An experiment to see how a simple model and arith. coding works with Wavelet coefficients
+
+            /* FINDINGS
+             
+INT32:
+======
+
+Raw 'Y' size = 4mb
+AC encoded 'Y' size = 261.75kb			(simple learning model)
+AC encoded 'Y' size = 352.09kb          (push to front model, falloff = 3)
+Deflate encoded 'Y' size = 180.08kb
+
+
+FIBONACCI CODED:
+================
+
+Raw 'Y' size = 319kb
+AC encoded 'Y' size = 175.86kb			(simple learning model)
+AC encoded 'Y' size = 233.3kb           (push to front model)
+Deflate encoded 'Y' size = 123.47kb
+
+            
+            */
+            
+            var subject = new ArithmeticEncode(new PushToFrontModel());
+
+            var msY = new MemoryStream();
+            var msU = new MemoryStream();
+            var msV = new MemoryStream();
+
+            var acY = new MemoryStream();
+
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                WaveletCompress.ReduceImage2D_ToStreams(bmp, CDF.Fwt97, msY, msU, msV);
+
+                Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
+
+                // Try our simple encoding
+                msY.Seek(0, SeekOrigin.Begin);
+                subject.Encode(msY, acY);
+
+                Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length)}");
+
+                // Compare to deflate
+                msY.Seek(0, SeekOrigin.Begin);
+                
+                using (var tmp = new MemoryStream())
+                {   // byte-by-byte writing to DeflateStream is *very* slow, so we buffer
+                    using (var gs = new DeflateStream(tmp, CompressionLevel.Optimal, true))
+                    {
+                        msY.WriteTo(gs);
+                        gs.Flush();
+                    }
+                    Console.WriteLine($"Deflate encoded 'Y' size = {Bin.Human(tmp.Length)}");
+                }
+            }
+        }
+    }
+
+    public class PushToFrontModel : IProbabilityModel
+    {
+        private readonly int[] _symbols;
+        private readonly uint[] _cumlFreq;
+        private readonly uint _total;
+
+        public PushToFrontModel(int fallOff = 3)
+        {
+            _symbols = new int[257]; // the closer to the front, the higher the expected probability
+            _cumlFreq = new uint[258]; // cumulative frequencies for the positions
+
+            uint sum = 0;
+            uint prob = 0x7000;
+            for (int i = 0; i < 258; i++)
+            {
+                _cumlFreq[i] = sum;
+                sum += prob;
+                prob = (prob >> fallOff) | 1;
+            }
+            _total = _cumlFreq[257];
+
+            Reset();
+        }
+
+        /// <inheritdoc />
+        public SymbolProbability GetCurrentProbability(int symbol)
+        {
+            // build probability from *current* state
+            // update expected array (push to front)
+
+            for ( int i = 0 ; i < 257 ; i++ ) {
+                if (symbol != _symbols[i]) continue;
+
+                var p = new SymbolProbability
+                {
+                    low = _cumlFreq[i],
+                    high = _cumlFreq[i + 1],
+                    count = _total
+                };
+                Update(i);
+                return p;
+            }
+            throw new Exception("Encode model could not encode symbol value = " + symbol);
+        }
+
+        private void Update(int i)
+        {
+            // pull value at `i` to the front, push other values back
+            if (i == 0) return; // already at front.
+
+            var tmp = _symbols[i];
+            for (int j = i - 1; j >= 0; j--) { _symbols[j+1] = _symbols[j]; } // shift right
+            _symbols[0] = tmp; // set at head
+        }
+
+        /// <inheritdoc />
+        public SymbolProbability GetChar(long scaledValue, ref int decodedSymbol)
+        {
+            
+            for ( int i = 0 ; i < 257 ; i++ ) {
+                if (scaledValue >= _cumlFreq[i + 1]) continue;
+                decodedSymbol = _symbols[i];
+                var p = new SymbolProbability
+                {
+                    low = _cumlFreq[i],
+                    high = _cumlFreq[i + 1],
+                    count = _total
+                };
+                Update(i);
+                return p;
+            }
+            throw new Exception("Decode model could not find symbol for value = " + scaledValue);
+        }
+
+        /// <inheritdoc />
+        public void Reset()
+        {
+            // initial state
+            for (int i = 0; i < 257; i++) { _symbols[i] = i; }
+        }
+
+        /// <inheritdoc />
+        public uint GetCount() { return _total; }
+
+        /// <inheritdoc />
+        public int RequiredSymbolBits() { return 13; }
     }
 
     /// <summary>
@@ -244,6 +402,7 @@ namespace ImageTools.Tests
         /// <inheritdoc />
         public void Reset()
         {
+            // start with all code points equally likely
             for (uint i = 0; i < 258; i++) cumulative_frequency[i] = i;
             _frozen = false;
         }
