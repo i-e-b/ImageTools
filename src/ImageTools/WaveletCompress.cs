@@ -631,13 +631,20 @@ namespace ImageTools
                 var packedLength = ToStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight);
                 QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Reduce); // compression quantising
 
-                // Raw int32
+                // raw int16
                 /*var w = new BinaryWriter(ms);
                 for (int i = 0; i < buffer.Length; i++)
                 {
-                    int n = (int)buffer[i]; // encoding quantisation.
+                    w.Write((short)buffer[i]); // output in fixed size
+                }*/
+                // Raw uint32/uint16
+                /*var w = new BinaryWriter(ms);
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    var n = (int)buffer[i]; // encoding quantisation.
                     n = (n >= 0) ? (n * 2) : (n * -2) - 1; // expand so all co-efficents are zero or positive
-                    w.Write(n);
+                    w.Write((ushort)n); // output in fixed size
+                    //w.Write((int)n); // output in fixed size
                 }*/
                 // fib encode
                 DataEncoding.FibonacciEncode(buffer, 0, ms);

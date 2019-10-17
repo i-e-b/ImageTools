@@ -175,13 +175,35 @@ namespace ImageTools.DataCompression.Encoding
 
     public interface IProbabilityModel
     {
+        /// <summary>
+        /// Encoding step
+        /// </summary>
         SymbolProbability GetCurrentProbability(int symbol);
+
+        /// <summary>
+        /// Decoding step
+        /// </summary>
         SymbolProbability GetChar(long scaledValue, ref int decodedSymbol);
 
+        /// <summary>
+        /// Reset between encode/decode
+        /// </summary>
         void Reset();
+
+        /// <summary>
+        /// Current maximum cumulative frequency value
+        /// </summary>
         UInt32 GetCount();
 
+        /// <summary>
+        /// Minimum number of symbol bits needed
+        /// </summary>
         int RequiredSymbolBits();
+
+        /// <summary>
+        /// Any fixed headers that must be supplied with the encoding
+        /// </summary>
+        byte[] Preamble();
     }
 }
 

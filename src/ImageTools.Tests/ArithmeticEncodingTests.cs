@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Text;
 using ImageTools.DataCompression.Encoding;
 using ImageTools.Utilities;
 using ImageTools.WaveletTransforms;
@@ -40,18 +42,21 @@ namespace ImageTools.Tests
         [Test]
         public void encoding_a_low_entropy_dataset_takes_few_bytes ()
         {
-            var subject = new ArithmeticEncode(new PushToFrontModel(fallOff:5));
-            var result = new MemoryStream();
-
             var bytes = new byte[100]; // all zeros
             var data = new MemoryStream(bytes);
             data.Seek(0,SeekOrigin.Begin);
 
+            var model = new PrescanModel(data);
+            var subject = new ArithmeticEncode(model);
+            var result = new MemoryStream();
+
+            data.Seek(0,SeekOrigin.Begin);
             subject.Encode(data, result);
             // The probability model has the largest effect. ArithmeticEncode is just an efficient way of expressing that.
             // Simple learning: 39 bytes
             // Push to front:    3 bytes (falloff = 5)
             // Braindead:       21 bytes
+            // Prescan:          2 bytes (plus up to 256 for table!)
 
             var bpb = (result.Length * 8.0) / bytes.Length;
             Console.WriteLine($"Encoded {result.Length} bytes for {bytes.Length} bytes of input. ({bpb} bits per byte)");
@@ -190,34 +195,49 @@ namespace ImageTools.Tests
             */
         }
 
-
         [Test]
         public void compressing_a_wavelet_image () {
             // An experiment to see how a simple model and arith. coding works with Wavelet coefficients
 
             /* FINDINGS
              
-INT32:
-======
+            UINT32:
+            =======
 
-Raw 'Y' size = 4mb
-AC encoded 'Y' size = 261.75kb			(simple learning model)
-AC encoded 'Y' size = 352.09kb          (push to front model, falloff = 3)
-Deflate encoded 'Y' size = 180.08kb
+            Raw 'Y' size = 4mb
+            AC encoded 'Y' size = 261.75kb	        (simple learning model)
+            AC encoded 'Y' size = 352.09kb          (push to front model, falloff = 3)
+            AC encoded 'Y' size = 200.58kb          (fixed prescan model)
+            Deflate encoded 'Y' size = 180.08kb
 
+            UINT16:
+            =======
+            Raw 'Y' size = 2mb
+            AC encoded 'Y' size = 244.59kb          (simple learning model)
+            AC encoded 'Y' size = 299.75kb          (push to front model, falloff = 3)
+            AC encoded 'Y' size = 180.85kb          (fixed prescan model)
+            Deflate encoded 'Y' size = 151.15kb
 
-FIBONACCI CODED:
-================
+            INT16:
+            ======
+            Raw 'Y' size = 2mb
+            AC encoded 'Y' size = 336.18kb			(simple learning model)
+            AC encoded 'Y' size = 327.33kb          (push to front model)
+            AC encoded 'Y' size = 228.48kb          (fixed prescan model)
+            Deflate encoded 'Y' size = 154.31kb
 
-Raw 'Y' size = 319kb
-AC encoded 'Y' size = 175.86kb			(simple learning model)
-AC encoded 'Y' size = 233.3kb           (push to front model)
-Deflate encoded 'Y' size = 123.47kb
+            FIBONACCI CODED:
+            ================
+
+            Raw 'Y' size = 319kb
+            AC encoded 'Y' size = 175.86kb			(simple learning model)
+            AC encoded 'Y' size = 233.3kb           (push to front model)
+            AC encoded 'Y' size = 148.78kb          (fixed prescan model)
+            Deflate encoded 'Y' size = 123.47kb
 
             
             */
-            
-            var subject = new ArithmeticEncode(new PushToFrontModel());
+
 
             var msY = new MemoryStream();
             var msU = new MemoryStream();
@@ -231,11 +251,17 @@ Deflate encoded 'Y' size = 123.47kb
 
                 Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
 
+                msY.Seek(0, SeekOrigin.Begin);
+                //var model = new PrescanModel(msY);
+                //var model = new PushToFrontModel();
+                var model = new SimpleLearningModel();
+
                 // Try our simple encoding
+                var subject = new ArithmeticEncode(model);
                 msY.Seek(0, SeekOrigin.Begin);
                 subject.Encode(msY, acY);
 
-                Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length)}");
+                Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length + model.Preamble().Length)}");// add 256 if using pre-scan
 
                 // Compare to deflate
                 msY.Seek(0, SeekOrigin.Begin);
@@ -250,6 +276,141 @@ Deflate encoded 'Y' size = 123.47kb
                     Console.WriteLine($"Deflate encoded 'Y' size = {Bin.Human(tmp.Length)}");
                 }
             }
+        }
+
+        [Test]
+        public void LZ_test () {
+            // playing with simple dictionary coding
+
+            var msY = new MemoryStream();
+            var msU = new MemoryStream();
+            var msV = new MemoryStream();
+
+            var lzY = new MemoryStream();
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                
+                WaveletCompress.ReduceImage2D_ToStreams(bmp, CDF.Fwt97, msY, msU, msV);
+                //var test = Encoding.UTF8.GetBytes("Hello world this is my test message");
+                //msY.Write(test, 0, test.Length);
+                msY.Seek(0, SeekOrigin.Begin);
+
+                Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
+
+                var subject = new LZPack();
+                var dump = subject.Encode(msY, lzY);
+
+                Console.WriteLine($"Estimated size = {Bin.Human(dump.Count * 2)}");
+
+                var limit = 1000;
+                long brsum = 0;
+                foreach (var entry in dump)
+                {
+                    if (limit-- > 0) Console.Write($"{entry.DictIdx}_{entry.Extension:X2},");
+                    brsum+= entry.DictIdx > 0 ? entry.DictIdx : 0;
+                }
+                var aveBackRef = brsum / dump.Count;
+
+                Console.WriteLine($"Average backref value = {aveBackRef} (smaller is better)");
+
+                Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(lzY.Length)}");
+            }
+        }
+    }
+
+    public class LZPack
+    {
+        private readonly List<byte[]> _dict;
+
+        public LZPack()
+        {
+            _dict = new List<byte[]>(1000);
+        }
+
+        public List<LZEntry> Encode(Stream src, Stream dst)
+        {
+            var result = new List<LZEntry>();
+            var pattern = new List<byte>();
+
+            int b, matchIdx;
+            while ((b = src.ReadByte()) >= 0) {
+                // test for existing pattern match
+                // if found, extend the pattern and continue
+                // if not, write the dictionary that matches all but the last + the last byte.
+                pattern.Add((byte)b);
+                if (AnyPrefixMatch(pattern)) {
+                    continue;
+                }
+
+                // now there should be exactly one entry in the dictionary that is a prefix of the pattern
+                matchIdx = GetMatchIndex(pattern);
+                result.Add(new LZEntry{DictIdx = matchIdx, Extension = LastOf(pattern)});
+                _dict.Add(pattern.ToArray());
+
+                // TODO: sort dictionary somehow? (by length, push-to-front?)
+                // TODO: limit the dictionary length
+                pattern.Clear();
+            }
+
+            // last pattern?
+            if (pattern.Count > 0)
+            {
+                matchIdx = GetMatchIndex(pattern);
+                result.Add(new LZEntry { DictIdx = matchIdx, Extension = LastOf(pattern)});
+            }
+
+            Console.WriteLine($"Max dict length = {_dict.Count}");
+            return result;
+        }
+
+        private byte LastOf(List<byte> pattern) { return pattern[pattern.Count - 1]; }
+
+        private int GetMatchIndex(List<byte> pattern)
+        {
+            for (var i = 0; i < _dict.Count; i++)
+            {
+                var entry = _dict[i];
+                if (entry.Length != pattern.Count - 1) continue;
+                if (!EntryIsPrefix(entry, pattern)) continue;
+                return i;
+            }
+
+            return -1;
+        }
+
+        private bool AnyPrefixMatch(List<byte> pattern)
+        {
+            foreach (var entry in _dict)
+            {
+                if (entry.Length < pattern.Count) continue;
+                if (!PatternIsPrefix(entry, pattern)) continue;
+                return true;
+            }
+            return false;
+        }
+
+        private bool PatternIsPrefix(byte[] entry, List<byte> pattern)
+        {
+            for (int i = 0; i < pattern.Count; i++)
+            {
+                if (entry[i] != pattern[i]) return false;
+            }
+            return true;
+        }
+        
+        private bool EntryIsPrefix(byte[] entry, List<byte> pattern)
+        {
+            for (int i = 0; i < pattern.Count - 1; i++)
+            {
+                if (entry[i] != pattern[i]) return false;
+            }
+            return true;
+        }
+
+        public class LZEntry
+        {
+            public int DictIdx { get; set; }
+            public byte Extension { get; set; }
         }
     }
 
@@ -339,6 +500,12 @@ Deflate encoded 'Y' size = 123.47kb
 
         /// <inheritdoc />
         public int RequiredSymbolBits() { return 13; }
+
+        /// <inheritdoc />
+        public byte[] Preamble()
+        {
+            return new byte[0];
+        }
     }
 
     /// <summary>
@@ -414,9 +581,16 @@ Deflate encoded 'Y' size = 123.47kb
         }
 
         /// <inheritdoc />
-        public int RequiredSymbolBits() { return 9; } // 8 bits for values, 1 for stop
-    }
+        public int RequiredSymbolBits() { return 9; }
 
+        /// <inheritdoc />
+        public byte[] Preamble()
+        {
+            return new byte[0];
+        }
+
+// 8 bits for values, 1 for stop
+    }
     
     /// <summary>
     /// A model that never updates, and treats 0 as the most likely symbol
@@ -474,6 +648,119 @@ Deflate encoded 'Y' size = 123.47kb
         }
 
         /// <inheritdoc />
-        public int RequiredSymbolBits() { return 9; } // 8 bits for values, 1 for stop
+        public int RequiredSymbolBits() { return 9; }
+
+        /// <inheritdoc />
+        public byte[] Preamble()
+        {
+            return new byte[0];
+        }
+
+// 8 bits for values, 1 for stop
+    }
+
+    /// <summary>
+    /// Scan the whole dataset first, and use a fixed model.
+    /// This would require you to transmit the probability tables separately (256 bytes)
+    /// </summary>
+    public class PrescanModel : IProbabilityModel
+    {
+        private readonly byte[] preamble;
+        private readonly uint[] cumulative_frequency;
+
+        /// <summary>
+        /// Create a model for known data.
+        /// </summary>
+        /// <remarks>Would need another that takes a known table</remarks>
+        public PrescanModel(Stream targetData)
+        {
+            // count values
+            preamble = new byte[256];
+            var countTable = new long[257];
+            long len = 0;
+            int b;
+            while ((b = targetData.ReadByte()) >= 0)
+            {
+                countTable[b]++;
+                len++;
+            }
+
+            // scale them to fit in a frequency table if required
+            if (len > ArithmeticEncode.MAX_FREQ) {
+                Console.WriteLine("Data counts must be scaled");
+                var scale = len / ArithmeticEncode.MAX_FREQ;
+                for (int i = 0; i < countTable.Length; i++)
+                {
+                    if (countTable[i] == 0) continue;
+                    countTable[i] = (countTable[i] / scale) | 1;
+                    //if (countTable[i] > 255) countTable[i] = 255; // saturate so we can have a small byte array
+                }
+            }
+            
+            // build the freq table
+            cumulative_frequency = new uint[258];
+            uint v = 0;
+            for (int i = 0; i < 257; i++)
+            {
+                cumulative_frequency[i] = v;
+                v += (uint)countTable[i];
+            }
+            cumulative_frequency[257] = v+1; // `+1` for stop symbol
+            
+            // build preamble for decode
+            for (int i = 0; i < 256; i++)
+            {
+                preamble[i] = (byte) countTable[i];
+            }
+        }
+
+        /// <inheritdoc />
+        public SymbolProbability GetCurrentProbability(int symbol)
+        {
+            var p = new SymbolProbability
+            {
+                low = cumulative_frequency[symbol],
+                high = cumulative_frequency[symbol + 1],
+                count = cumulative_frequency[257]
+            };
+            return p;
+        }
+
+        /// <inheritdoc />
+        public SymbolProbability GetChar(long scaledValue, ref int decodedSymbol)
+        {
+            for ( int i = 0 ; i < 257 ; i++ )
+                if ( scaledValue < cumulative_frequency[i+1] ) {
+                    decodedSymbol = i;
+                    var p = new SymbolProbability
+                    {
+                        low = cumulative_frequency[i],
+                        high = cumulative_frequency[i + 1],
+                        count = cumulative_frequency[257]
+                    };
+                    return p;
+                }
+            throw new Exception("Decoder model found no symbol range for scaled value = "+scaledValue);
+        }
+
+        /// <inheritdoc />
+        public void Reset() { }
+
+        /// <inheritdoc />
+        public uint GetCount()
+        {
+            return cumulative_frequency[257];
+        }
+
+        /// <inheritdoc />
+        public int RequiredSymbolBits() { return 9; }
+
+        /// <inheritdoc />
+        public byte[] Preamble()
+        {
+            return preamble;
+        }
+
+// 8 bits for values, 1 for stop
     }
 }
