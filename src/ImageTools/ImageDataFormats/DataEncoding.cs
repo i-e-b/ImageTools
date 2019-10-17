@@ -302,6 +302,57 @@ namespace ImageTools.ImageDataFormats
             }
         }
 
+        /// <summary>
+        /// Encode a single value to an open bitstream
+        /// </summary>
+        public static void FibonacciEncodeOne(uint value, BitwiseStreamWrapper output) {
+            var n = value + 1;
+
+            var res = new Stack<byte>(20);
+            res.Push(1);
+
+            // find the smallest fibonacci number greater than `n`
+            uint f = 1, k = 1;
+            while (f <= n) {f = fibonacci(++k);}
+
+            // decompose back through the sequence
+            while(--k > 1) {
+                f = fibonacci(k);
+                if (f <= n) {
+                    res.Push(1);
+                    n -= f;
+                } else {
+                    res.Push(0);
+                }
+            }
+
+            //res.Push(0); // add this to make a recoverable stream; and change `pos+2` to `pos+1` in FibonacciDecodeOne
+            while (res.Count > 0) {
+                output.WriteBit(res.Pop());
+            }
+        }
+
+        /// <summary>
+        /// Decode a single value from an open bitstream
+        /// </summary>
+        public static uint FibonacciDecodeOne(BitwiseStreamWrapper input) {
+            bool lastWas1 = false;
+            uint accum = 0;
+            uint pos = 0;
+
+            while (!input.IsEmpty()) {
+                var f = (uint)input.ReadBit();
+                if (f > 0) {
+                    if (lastWas1) break;
+                    lastWas1 = true;
+                } else lastWas1 = false;
+
+                accum += f * fibonacci(pos + 2);
+                pos++;
+            }
+
+            return accum - 1;
+        }
 
         /// <summary>
         /// Reverse UnsignedFibEncode()

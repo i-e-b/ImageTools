@@ -41,7 +41,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DataCompression\Encoding\ArithmeticEncode.cs" />
-    <Compile Include="DataCompression\Encoding\BitwiseStreamWrapper.cs" />
+    <Compile Include="ImageDataFormats\BitwiseStreamWrapper.cs" />
     <Compile Include="ErrorDiffusionScale.cs" />
     <Compile Include="PixelScale.cs" />
     <Compile Include="Utilities\BitmapTools.cs" />

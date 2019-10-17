@@ -5,6 +5,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 using ImageTools.DataCompression.Encoding;
+using ImageTools.ImageDataFormats;
 using ImageTools.Utilities;
 using ImageTools.WaveletTransforms;
 using NUnit.Framework;
@@ -297,7 +298,7 @@ namespace ImageTools.Tests
 
                 Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
 
-                var subject = new LZPack();
+                var subject = new LZPack(sizeLimit:200);
                 var dump = subject.Encode(msY, lzY);
 
                 Console.WriteLine($"Estimated size = {Bin.Human(dump.Count * 2)}");
@@ -312,17 +313,39 @@ namespace ImageTools.Tests
                 var aveBackRef = brsum / dump.Count;
 
                 // Raw 'Y' size = 319kb
+                // Deflate encoded 'Y' size = 123.47kb <-- size to beat
+                // Best so far = 137.99kb (sizeLimit:200)
+                //
                 // Unbounded dict length = 52140
-                // Estimated size = 101.84kb
-                // if we can get this under 255, we can some excellent compression
+                //  Estimated size = 101.84kb
+                //  real size      = 156.13kb
+                // Average backreference value
                 //  Insert at end    =  9000
                 //  Insert at start  = 17066
                 //  Sorted           = 10109
                 //  Pull on match    =  6907
-                //  Ins Start + PoM  =  6188   <---
+                //  Ins Start + PoM  =  6188   <--- best so far
                 //  Constant shuffle =  6906
                 //  Ins Strt + consh =  6189
+                //
+                // Bounded length  = 10'000
+                //  Estimated size = 109.07kb
+                //  real size      = 150.11kb
+                //  Ave backref    = 1806
+                //
+                // Bounded length  = 1'000
+                //  Estimated size = 128.68kb
+                //  real size      = 140.47kb
+                //  Ave backref    = 231
+                //
+                // Bounded length  = 255
+                //  Estimated size = 154.34kb
+                //  real size      = 139.09kb
+                //  Ave backref    = 56
                 Console.WriteLine($"\r\nAverage backref value = {aveBackRef} (smaller is better)");
+
+
+                // output a real code and measure real sizes.
 
                 Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(lzY.Length)}");
             }
@@ -331,17 +354,21 @@ namespace ImageTools.Tests
 
     public class LZPack
     {
+        private readonly int _sizeLimit;
         private readonly LinkedList<byte[]> _dict;
 
-        public LZPack()
+        public LZPack(int sizeLimit)
         {
+            _sizeLimit = sizeLimit;
             _dict = new LinkedList<byte[]>();
         }
 
         public List<LZEntry> Encode(Stream src, Stream dst)
         {
-            var result = new List<LZEntry>();
+            var result = new List<LZEntry>(); // for inspection
             var pattern = new List<byte>();
+
+            var outp = new BitwiseStreamWrapper(dst, 1);
 
             int b, matchIdx;
             while ((b = src.ReadByte()) >= 0) {
@@ -355,17 +382,19 @@ namespace ImageTools.Tests
 
                 // now there should be exactly one entry in the dictionary that is a prefix of the pattern
                 matchIdx = GetMatchIndex(pattern);
-                result.Add(new LZEntry{DictIdx = matchIdx, Extension = LastOf(pattern)});
+                result.Add(new LZEntry{DictIdx = matchIdx, Extension = LastOf(pattern)}); // TEST OUTPUT
+
+                // Write to output stream
+                DataEncoding.FibonacciEncodeOne((uint)(matchIdx+1), outp); // backreference (variable length)
+                outp.WriteByteUnaligned(LastOf(pattern)); // new extension (fixed length)
                 
-                //_dict.AddLast(pattern.ToArray()); // Insert at end
                 _dict.AddFirst(pattern.ToArray()); // Insert at start
 
-                // Keep sorted smallest first:
-                //_dict.Add(pattern.ToArray());
-                //_dict.Sort((x,y)=>{ return x.Length.CompareTo(y.Length);});
+                // Limit dictionary size
+                if (_sizeLimit > 0) {
+                    if (_dict.Count > _sizeLimit) _dict.RemoveLast();
+                }
 
-                // TODO: sort dictionary somehow? (by length, push-to-front?)
-                // TODO: limit the dictionary length
                 pattern.Clear();
             }
 
@@ -373,7 +402,10 @@ namespace ImageTools.Tests
             if (pattern.Count > 0)
             {
                 matchIdx = GetMatchIndex(pattern);
-                result.Add(new LZEntry { DictIdx = matchIdx, Extension = LastOf(pattern)});
+                result.Add(new LZEntry { DictIdx = matchIdx, Extension = LastOf(pattern)}); // TEST OUTPUT
+                
+                DataEncoding.FibonacciEncodeOne((uint)(matchIdx+1), outp); // backreference (variable length)
+                outp.WriteByteUnaligned(LastOf(pattern)); // new extension (fixed length)
             }
 
             Console.WriteLine($"Max dict length = {_dict.Count}");
@@ -384,19 +416,6 @@ namespace ImageTools.Tests
 
         private int GetMatchIndex(List<byte> pattern)
         {
-            /*int i = -1;
-            foreach (var entry in _dict)
-            {
-                i++;
-                if (entry.Length != pattern.Count - 1) continue;
-                if (!EntryIsPrefix(entry, pattern)) continue;
-
-                // pull this match to the front *after* getting the index
-
-                return i;
-            }*/
-
-            // linked list specific
             var node = _dict.First;
             int i = -1;
             while (node != null)
@@ -421,36 +440,12 @@ namespace ImageTools.Tests
 
         private bool AnyPrefixMatch(List<byte> pattern)
         {
-            /*foreach (var entry in _dict)
+            foreach (var entry in _dict)
             {
                 if (entry.Length < pattern.Count) continue;
                 if (!PatternIsPrefix(entry, pattern)) continue;
-                return true;
-            }*/
-
-            // linked list specific
-            LinkedListNode<byte[]> current = null;
-            var next = _dict.First;
-            while (next != null)
-            {
-                var prev = current;
-                current = next;
-                var entry = current.Value;
-                next = next.Next;
-
-                if (entry.Length < pattern.Count) continue;
-                if (!PatternIsPrefix(entry, pattern)) continue;
-
-                // move the prefix match up one spot
-                if (prev != null)
-                {
-                    _dict.Remove(current);
-                    _dict.AddBefore(prev, current);
-                }
-
                 return true;
             }
-
             return false;
         }
 

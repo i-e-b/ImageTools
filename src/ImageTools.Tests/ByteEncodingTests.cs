@@ -108,5 +108,37 @@ namespace ImageTools.Tests
 
             Assert.That(final, Is.EqualTo(input));
         }
+
+        [Test, Description("This demonstrates mixing bitwise fibonacci encoding and bytewise binary encoding in the same stream")]
+        public void bitstream_mixed_coding () {
+            var ms = new MemoryStream();
+            var data = new BitwiseStreamWrapper(ms, 1);
+
+            // encode some data
+            DataEncoding.FibonacciEncodeOne(0, data);
+            DataEncoding.FibonacciEncodeOne(1, data);
+            DataEncoding.FibonacciEncodeOne(10, data);
+            data.WriteByteUnaligned(0xC5); // jam a random byte in there to prove we can
+            DataEncoding.FibonacciEncodeOne(100, data);
+            DataEncoding.FibonacciEncodeOne(1000, data);
+
+            data.Flush();
+
+            // display it
+            data.Rewind();
+            while (!data.IsEmpty()){
+                Console.Write(data.ReadBit());
+            }
+            Console.WriteLine();
+
+            // test the decoding
+            data.Rewind();
+            Assert.That(DataEncoding.FibonacciDecodeOne(data), Is.EqualTo(0));
+            Assert.That(DataEncoding.FibonacciDecodeOne(data), Is.EqualTo(1));
+            Assert.That(DataEncoding.FibonacciDecodeOne(data), Is.EqualTo(10));
+            Assert.That(data.ReadByteUnaligned(), Is.EqualTo(0xC5)); // don't forget to pull out that byte
+            Assert.That(DataEncoding.FibonacciDecodeOne(data), Is.EqualTo(100));
+            Assert.That(DataEncoding.FibonacciDecodeOne(data), Is.EqualTo(1000));
+        }
     }
 }
