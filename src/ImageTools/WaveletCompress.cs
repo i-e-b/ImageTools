@@ -643,8 +643,8 @@ namespace ImageTools
                 {
                     var n = (int)buffer[i]; // encoding quantisation.
                     n = (n >= 0) ? (n * 2) : (n * -2) - 1; // expand so all co-efficents are zero or positive
-                    w.Write((ushort)n); // output in fixed size
-                    //w.Write((int)n); // output in fixed size
+                    //w.Write((ushort)n); // output in fixed size
+                    w.Write((int)n); // output in fixed size
                 }*/
                 // fib encode
                 DataEncoding.FibonacciEncode(buffer, 0, ms);

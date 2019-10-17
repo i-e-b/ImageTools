@@ -288,6 +288,7 @@ namespace ImageTools.Tests
             var msV = new MemoryStream();
 
             var lzY = new MemoryStream();
+            var acY = new MemoryStream();
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
                 
@@ -298,20 +299,38 @@ namespace ImageTools.Tests
 
                 Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
 
-                var subject = new LZPack(sizeLimit:200);
-                var dump = subject.Encode(msY, lzY);
+                var lzPack = new LZPack(sizeLimit:200);
+                lzPack.Encode(msY, lzY);
 
-                Console.WriteLine($"Estimated size = {Bin.Human(dump.Count * 2)}");
+                lzY.Seek(0, SeekOrigin.Begin);
+                //var model = new PrescanModel(lzY);
+                //var model = new PushToFrontModel();
+                var model = new SimpleLearningModel();
+                var subject = new ArithmeticEncode(model);
+                lzY.Seek(0, SeekOrigin.Begin);
+                subject.Encode(lzY, acY);
 
-                var limit = 100;
-                long brsum = 0;
-                foreach (var entry in dump)
-                {
-                    if (limit-- > 0) Console.Write($"{entry.DictIdx}_{entry.Extension:X2},");
-                    brsum += entry.DictIdx > 0 ? entry.DictIdx : 0;
-                }
-                var aveBackRef = brsum / dump.Count;
+                Console.WriteLine($"LZ encoded 'Y' size = {Bin.Human(lzY.Length)}");
+                Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length+model.Preamble().Length)}");
 
+                
+                // Deflate encoded   = 123.47kb <-- size to beat
+                // LZ+AC best so far = 134.23kb (sizeLimit:200; prescan model)
+
+                // AC STATS (with 138kb input & fib coded source)
+                //================================================
+                // Simple Learning = 135.17kb
+                // Push to front   = 252.43kb (!)
+                // Prescan         = 134.23kb
+
+                // Other sources (simple learn)
+                //===============
+                // INT16   = 165.68kb
+                // UINT16  = 148.28kb
+                // UINT32  = 168.25kb 
+
+                // LZ STATS
+                //==========
                 // Raw 'Y' size = 319kb
                 // Deflate encoded 'Y' size = 123.47kb <-- size to beat
                 // Best so far = 137.99kb (sizeLimit:200)
@@ -342,12 +361,6 @@ namespace ImageTools.Tests
                 //  Estimated size = 154.34kb
                 //  real size      = 139.09kb
                 //  Ave backref    = 56
-                Console.WriteLine($"\r\nAverage backref value = {aveBackRef} (smaller is better)");
-
-
-                // output a real code and measure real sizes.
-
-                Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(lzY.Length)}");
             }
         }
     }
@@ -363,9 +376,8 @@ namespace ImageTools.Tests
             _dict = new LinkedList<byte[]>();
         }
 
-        public List<LZEntry> Encode(Stream src, Stream dst)
+        public void Encode(Stream src, Stream dst)
         {
-            var result = new List<LZEntry>(); // for inspection
             var pattern = new List<byte>();
 
             var outp = new BitwiseStreamWrapper(dst, 1);
@@ -382,7 +394,6 @@ namespace ImageTools.Tests
 
                 // now there should be exactly one entry in the dictionary that is a prefix of the pattern
                 matchIdx = GetMatchIndex(pattern);
-                result.Add(new LZEntry{DictIdx = matchIdx, Extension = LastOf(pattern)}); // TEST OUTPUT
 
                 // Write to output stream
                 DataEncoding.FibonacciEncodeOne((uint)(matchIdx+1), outp); // backreference (variable length)
@@ -402,14 +413,9 @@ namespace ImageTools.Tests
             if (pattern.Count > 0)
             {
                 matchIdx = GetMatchIndex(pattern);
-                result.Add(new LZEntry { DictIdx = matchIdx, Extension = LastOf(pattern)}); // TEST OUTPUT
-                
                 DataEncoding.FibonacciEncodeOne((uint)(matchIdx+1), outp); // backreference (variable length)
                 outp.WriteByteUnaligned(LastOf(pattern)); // new extension (fixed length)
             }
-
-            Console.WriteLine($"Max dict length = {_dict.Count}");
-            return result;
         }
 
         private byte LastOf(List<byte> pattern) { return pattern[pattern.Count - 1]; }
