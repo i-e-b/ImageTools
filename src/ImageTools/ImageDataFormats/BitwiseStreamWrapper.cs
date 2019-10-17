@@ -95,6 +95,28 @@ namespace ImageTools.ImageDataFormats
             }
             return ((currentIn & readMask) != 0) ? 1 : 0;
         }
+        
+        /// <summary>
+        /// Read a single bit value from the stream.
+        /// Returns true if data can be read. Does not include run-out
+        /// </summary>
+        public bool TryReadBit(out int b)
+        {
+            b=0;
+            if (inRunOut) { return false; }
+            if (readMask == 1)
+            {
+                currentIn = _original.ReadByte();
+                if (currentIn < 0) { inRunOut = true; return false; }
+                readMask = 0x80;
+            }
+            else
+            {
+                readMask >>= 1;
+            }
+            b=((currentIn & readMask) != 0) ? 1 : 0;
+            return true;
+        }
 
         /// <summary>
         /// Read 8 bits from the stream. These might not be aligned to a byte boundary
@@ -104,7 +126,8 @@ namespace ImageTools.ImageDataFormats
             byte b = 0;
             for (int i = 0x80; i != 0; i >>= 1)
             {
-                b |= (byte)(i * ReadBit());
+                if (!TryReadBit(out var v)) break;
+                b |= (byte)(i * v);
             }
             return b;
         }

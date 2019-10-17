@@ -1,11 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
+using ImageTools.DataCompression;
 using ImageTools.DataCompression.Encoding;
-using ImageTools.ImageDataFormats;
 using ImageTools.Utilities;
 using ImageTools.WaveletTransforms;
 using NUnit.Framework;
@@ -27,7 +26,7 @@ namespace ImageTools.Tests
         {
             var rnd = new Random();
 
-            var subject = new ArithmeticEncode(new SimpleLearningModel());
+            var subject = new ArithmeticEncode(new ProbabilityModels.SimpleLearningModel());
             var result = new MemoryStream();
 
             var bytes = new byte[100];
@@ -47,7 +46,7 @@ namespace ImageTools.Tests
             var data = new MemoryStream(bytes);
             data.Seek(0,SeekOrigin.Begin);
 
-            var model = new PrescanModel(data);
+            var model = new ProbabilityModels.PrescanModel(data);
             var subject = new ArithmeticEncode(model);
             var result = new MemoryStream();
 
@@ -68,7 +67,7 @@ namespace ImageTools.Tests
         public void can_recover_an_encoded_byte_stream (){
             var rnd = new Random();
 
-            var subject = new ArithmeticEncode(new SimpleLearningModel());
+            var subject = new ArithmeticEncode(new ProbabilityModels.RollingLearningModel(500));
             var result = new MemoryStream();
 
             var inputBytes = new byte[100];
@@ -103,7 +102,7 @@ namespace ImageTools.Tests
 
             var rnd = new Random();
 
-            var subject = new ArithmeticEncode(new PushToFrontModel());
+            var subject = new ArithmeticEncode(new ProbabilityModels.PushToFrontModel());
             var result = new MemoryStream();
 
             var inputBytes = new byte[100];
@@ -141,11 +140,11 @@ namespace ImageTools.Tests
         public void encoder_supports_large_input_data () {
             var sw = new Stopwatch();
 
-            var subject = new ArithmeticEncode(new BraindeadModel());
+            var subject = new ArithmeticEncode(new ProbabilityModels.BraindeadModel());
             var result = new MemoryStream();
 
             sw.Restart();
-            var inputBytes = new byte[1_000_000];
+            var inputBytes = new byte[100_000];
             for (int i = 0; i < inputBytes.Length; i++) { inputBytes[i] = (byte)(i&0xE0); } // bias to zeros
             var data = new MemoryStream(inputBytes);
             data.Seek(0,SeekOrigin.Begin);
@@ -245,6 +244,7 @@ namespace ImageTools.Tests
             var msV = new MemoryStream();
 
             var acY = new MemoryStream();
+            var finalY = new MemoryStream();
 
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
@@ -255,7 +255,7 @@ namespace ImageTools.Tests
                 msY.Seek(0, SeekOrigin.Begin);
                 //var model = new PrescanModel(msY);
                 //var model = new PushToFrontModel();
-                var model = new SimpleLearningModel();
+                var model = new ProbabilityModels.SimpleLearningModel();
 
                 // Try our simple encoding
                 var subject = new ArithmeticEncode(model);
@@ -265,7 +265,7 @@ namespace ImageTools.Tests
                 Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length + model.Preamble().Length)}");// add 256 if using pre-scan
 
                 // Compare to deflate
-                msY.Seek(0, SeekOrigin.Begin);
+                /*msY.Seek(0, SeekOrigin.Begin);
                 
                 using (var tmp = new MemoryStream())
                 {   // byte-by-byte writing to DeflateStream is *very* slow, so we buffer
@@ -275,12 +275,44 @@ namespace ImageTools.Tests
                         gs.Flush();
                     }
                     Console.WriteLine($"Deflate encoded 'Y' size = {Bin.Human(tmp.Length)}");
-                }
+                }*/
+
+
+                // Now decode:
+                subject.Reset();
+                acY.Seek(0, SeekOrigin.Begin);
+                subject.Decode(acY, finalY);
+
+                finalY.Seek(0, SeekOrigin.Begin);
+                msU.Seek(0, SeekOrigin.Begin);
+                msV.Seek(0, SeekOrigin.Begin);
+
+                var resultBmp = WaveletCompress.RestoreImage2D_FromStreams(bmp.Width, bmp.Height, finalY, msU, msV, CDF.Iwt97);
+                resultBmp.SaveBmp("./outputs/ArithmeticEncode_3.bmp");
             }
         }
 
         [Test]
-        public void LZ_test () {
+        public void lzmw_round_trip () {
+            var expected = "hello world here is my message";
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
+            var lzPack = new LZMWPack(sizeLimit:200);
+
+            lzPack.Encode(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            lzPack.Decode(encoded, dst);
+
+            dst.Seek(0, SeekOrigin.Begin);
+            var result = Encoding.UTF8.GetString(dst.ToArray());
+
+            Assert.That(result, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void compress_wavelet_image_with_LZMW_and_AC () {
             // playing with simple dictionary coding
 
             var msY = new MemoryStream();
@@ -293,35 +325,53 @@ namespace ImageTools.Tests
             {
                 
                 WaveletCompress.ReduceImage2D_ToStreams(bmp, CDF.Fwt97, msY, msU, msV);
-                //var test = Encoding.UTF8.GetBytes("Hello world this is my test message");
-                //msY.Write(test, 0, test.Length);
-                msY.Seek(0, SeekOrigin.Begin);
 
                 Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
 
-                var lzPack = new LZPack(sizeLimit:200);
+                var lzPack = new LZMWPack(sizeLimit:200);
+                msY.Seek(0, SeekOrigin.Begin);
                 lzPack.Encode(msY, lzY);
 
                 lzY.Seek(0, SeekOrigin.Begin);
-                //var model = new PrescanModel(lzY);
-                //var model = new PushToFrontModel();
-                var model = new SimpleLearningModel();
-                var subject = new ArithmeticEncode(model);
+                var model = new ProbabilityModels.SimpleLearningModel();
+                var arithmeticEncode = new ArithmeticEncode(model);
                 lzY.Seek(0, SeekOrigin.Begin);
-                subject.Encode(lzY, acY);
+                arithmeticEncode.Encode(lzY, acY);
 
                 Console.WriteLine($"LZ encoded 'Y' size = {Bin.Human(lzY.Length)}");
                 Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length+model.Preamble().Length)}");
 
-                
+                // Now decode:
+                arithmeticEncode.Reset();
+                acY.Seek(0, SeekOrigin.Begin);
+                lzY = new MemoryStream();
+                arithmeticEncode.Decode(acY, lzY);
+
+                // reverse LZMW...
+                msY = new MemoryStream();
+                lzY.Seek(0, SeekOrigin.Begin);
+                lzPack.Decode(lzY, msY);
+
+                msY.Seek(0, SeekOrigin.Begin);
+                msU.Seek(0, SeekOrigin.Begin);
+                msV.Seek(0, SeekOrigin.Begin);
+
+                var resultBmp = WaveletCompress.RestoreImage2D_FromStreams(bmp.Width, bmp.Height, msY, msU, msV, CDF.Iwt97);
+                resultBmp.SaveBmp("./outputs/LZAC_3.bmp");
+
+                Assert.Fail("This is not working properly. Check the image result.");
+                                
                 // Deflate encoded   = 123.47kb <-- size to beat
                 // LZ+AC best so far = 134.23kb (sizeLimit:200; prescan model)
+                // AC only best      = 148.78kb (fixed prescan model)
 
                 // AC STATS (with 138kb input & fib coded source)
                 //================================================
                 // Simple Learning = 135.17kb
+                // Prescan         = 134.23kb (including preamble)
                 // Push to front   = 252.43kb (!)
-                // Prescan         = 134.23kb
+                // Rolling (500)   = 260.96kb
+                // Rolling (MaxF)  = 235.91kb
 
                 // Other sources (simple learn)
                 //===============
@@ -360,473 +410,10 @@ namespace ImageTools.Tests
                 // Bounded length  = 255
                 //  Estimated size = 154.34kb
                 //  real size      = 139.09kb
+                //  real wit byte  = 160.35kb  <-- i.e. no fibonacci for dict offset
                 //  Ave backref    = 56
             }
         }
     }
 
-    public class LZPack
-    {
-        private readonly int _sizeLimit;
-        private readonly LinkedList<byte[]> _dict;
-
-        public LZPack(int sizeLimit)
-        {
-            _sizeLimit = sizeLimit;
-            _dict = new LinkedList<byte[]>();
-        }
-
-        public void Encode(Stream src, Stream dst)
-        {
-            var pattern = new List<byte>();
-
-            var outp = new BitwiseStreamWrapper(dst, 1);
-
-            int b, matchIdx;
-            while ((b = src.ReadByte()) >= 0) {
-                // test for existing pattern match
-                // if found, extend the pattern and continue
-                // if not, write the dictionary that matches all but the last + the last byte.
-                pattern.Add((byte)b);
-                if (AnyPrefixMatch(pattern)) {
-                    continue;
-                }
-
-                // now there should be exactly one entry in the dictionary that is a prefix of the pattern
-                matchIdx = GetMatchIndex(pattern);
-
-                // Write to output stream
-                DataEncoding.FibonacciEncodeOne((uint)(matchIdx+1), outp); // backreference (variable length)
-                outp.WriteByteUnaligned(LastOf(pattern)); // new extension (fixed length)
-                
-                _dict.AddFirst(pattern.ToArray()); // Insert at start
-
-                // Limit dictionary size
-                if (_sizeLimit > 0) {
-                    if (_dict.Count > _sizeLimit) _dict.RemoveLast();
-                }
-
-                pattern.Clear();
-            }
-
-            // last pattern?
-            if (pattern.Count > 0)
-            {
-                matchIdx = GetMatchIndex(pattern);
-                DataEncoding.FibonacciEncodeOne((uint)(matchIdx+1), outp); // backreference (variable length)
-                outp.WriteByteUnaligned(LastOf(pattern)); // new extension (fixed length)
-            }
-        }
-
-        private byte LastOf(List<byte> pattern) { return pattern[pattern.Count - 1]; }
-
-        private int GetMatchIndex(List<byte> pattern)
-        {
-            var node = _dict.First;
-            int i = -1;
-            while (node != null)
-            {
-                var entry = node.Value;
-                var prev = node;
-                node = node.Next;
-                i++;
-
-                if (entry.Length != pattern.Count - 1) continue;
-                if (!EntryIsPrefix(entry, pattern)) continue;
-
-                // pull this match to the front *after* getting the index
-                _dict.Remove(prev);
-                _dict.AddFirst(prev);
-
-                return i;
-            }
-
-            return -1;
-        }
-
-        private bool AnyPrefixMatch(List<byte> pattern)
-        {
-            foreach (var entry in _dict)
-            {
-                if (entry.Length < pattern.Count) continue;
-                if (!PatternIsPrefix(entry, pattern)) continue;
-                return true;
-            }
-            return false;
-        }
-
-        private bool PatternIsPrefix(byte[] entry, List<byte> pattern)
-        {
-            for (int i = 0; i < pattern.Count; i++)
-            {
-                if (entry[i] != pattern[i]) return false;
-            }
-            return true;
-        }
-        
-        private bool EntryIsPrefix(byte[] entry, List<byte> pattern)
-        {
-            for (int i = 0; i < pattern.Count - 1; i++)
-            {
-                if (entry[i] != pattern[i]) return false;
-            }
-            return true;
-        }
-
-        public class LZEntry
-        {
-            public int DictIdx { get; set; }
-            public byte Extension { get; set; }
-        }
-    }
-
-    public class PushToFrontModel : IProbabilityModel
-    {
-        private readonly int[] _symbols;
-        private readonly uint[] _cumlFreq;
-        private readonly uint _total;
-
-        public PushToFrontModel(int fallOff = 3)
-        {
-            _symbols = new int[257]; // the closer to the front, the higher the expected probability
-            _cumlFreq = new uint[258]; // cumulative frequencies for the positions
-
-            uint sum = 0;
-            uint prob = 0x7000;
-            for (int i = 0; i < 258; i++)
-            {
-                _cumlFreq[i] = sum;
-                sum += prob;
-                prob = (prob >> fallOff) | 1;
-            }
-            _total = _cumlFreq[257];
-
-            Reset();
-        }
-
-        /// <inheritdoc />
-        public SymbolProbability GetCurrentProbability(int symbol)
-        {
-            // build probability from *current* state
-            // update expected array (push to front)
-
-            for ( int i = 0 ; i < 257 ; i++ ) {
-                if (symbol != _symbols[i]) continue;
-
-                var p = new SymbolProbability
-                {
-                    low = _cumlFreq[i],
-                    high = _cumlFreq[i + 1],
-                    count = _total
-                };
-                Update(i);
-                return p;
-            }
-            throw new Exception("Encode model could not encode symbol value = " + symbol);
-        }
-
-        private void Update(int i)
-        {
-            // pull value at `i` to the front, push other values back
-            if (i == 0) return; // already at front.
-
-            var tmp = _symbols[i];
-            for (int j = i - 1; j >= 0; j--) { _symbols[j+1] = _symbols[j]; } // shift right
-            _symbols[0] = tmp; // set at head
-        }
-
-        /// <inheritdoc />
-        public SymbolProbability GetChar(long scaledValue, ref int decodedSymbol)
-        {
-            
-            for ( int i = 0 ; i < 257 ; i++ ) {
-                if (scaledValue >= _cumlFreq[i + 1]) continue;
-                decodedSymbol = _symbols[i];
-                var p = new SymbolProbability
-                {
-                    low = _cumlFreq[i],
-                    high = _cumlFreq[i + 1],
-                    count = _total
-                };
-                Update(i);
-                return p;
-            }
-            throw new Exception("Decode model could not find symbol for value = " + scaledValue);
-        }
-
-        /// <inheritdoc />
-        public void Reset()
-        {
-            // initial state
-            for (int i = 0; i < 257; i++) { _symbols[i] = i; }
-        }
-
-        /// <inheritdoc />
-        public uint GetCount() { return _total; }
-
-        /// <inheritdoc />
-        public int RequiredSymbolBits() { return 13; }
-
-        /// <inheritdoc />
-        public byte[] Preamble()
-        {
-            return new byte[0];
-        }
-    }
-
-    /// <summary>
-    /// A really simple model for testing
-    /// </summary>
-    public class SimpleLearningModel : IProbabilityModel
-    {
-        private readonly uint[] cumulative_frequency;
-        private bool _frozen;
-
-        public SimpleLearningModel()
-        {
-            cumulative_frequency = new uint[258];
-            Reset();
-        }
-
-        /// <inheritdoc />
-        public SymbolProbability GetCurrentProbability(int symbol)
-        {
-            var p = new SymbolProbability
-            {
-                low = cumulative_frequency[symbol],
-                high = cumulative_frequency[symbol + 1],
-                count = cumulative_frequency[257]
-            };
-            Update(symbol);
-            return p;
-        }
-
-        private void Update(int c)
-        {
-            if (_frozen) return; // model is saturated
-            for (int i = c + 1; i < 258; i++) cumulative_frequency[i]++;
-
-            if (cumulative_frequency[257] >= ArithmeticEncode.MAX_FREQ)
-            {
-                Console.WriteLine("Ran out of model precision. Will freeze probabilities.");
-                _frozen = true;
-            }
-
-        }
-
-        /// <inheritdoc />
-        public SymbolProbability GetChar(long scaledValue, ref int decodedSymbol)
-        {
-            for ( int i = 0 ; i < 257 ; i++ )
-                if ( scaledValue < cumulative_frequency[i+1] ) {
-                    decodedSymbol = i;
-                    var p = new SymbolProbability
-                    {
-                        low = cumulative_frequency[i],
-                        high = cumulative_frequency[i + 1],
-                        count = cumulative_frequency[257]
-                    };
-                    Update(decodedSymbol);
-                    return p;
-                }
-            throw new Exception("Decoder model found no symbol range for scaled value = "+scaledValue);
-        }
-
-        /// <inheritdoc />
-        public void Reset()
-        {
-            // start with all code points equally likely
-            for (uint i = 0; i < 258; i++) cumulative_frequency[i] = i;
-            _frozen = false;
-        }
-
-        /// <inheritdoc />
-        public uint GetCount()
-        {
-            return cumulative_frequency[257];
-        }
-
-        /// <inheritdoc />
-        public int RequiredSymbolBits() { return 9; }
-
-        /// <inheritdoc />
-        public byte[] Preamble()
-        {
-            return new byte[0];
-        }
-
-// 8 bits for values, 1 for stop
-    }
-    
-    /// <summary>
-    /// A model that never updates, and treats 0 as the most likely symbol
-    /// </summary>
-    public class BraindeadModel : IProbabilityModel
-    {
-        private readonly uint[] cumulative_frequency;
-
-        public BraindeadModel()
-        {
-            cumulative_frequency = new uint[258];
-            Reset();
-        }
-
-        /// <inheritdoc />
-        public SymbolProbability GetCurrentProbability(int symbol)
-        {
-            var p = new SymbolProbability
-            {
-                low = cumulative_frequency[symbol],
-                high = cumulative_frequency[symbol + 1],
-                count = cumulative_frequency[257]
-            };
-            return p;
-        }
-
-        /// <inheritdoc />
-        public SymbolProbability GetChar(long scaledValue, ref int decodedSymbol)
-        {
-            for ( int i = 0 ; i < 257 ; i++ )
-                if ( scaledValue < cumulative_frequency[i+1] ) {
-                    decodedSymbol = i;
-                    var p = new SymbolProbability
-                    {
-                        low = cumulative_frequency[i],
-                        high = cumulative_frequency[i + 1],
-                        count = cumulative_frequency[257]
-                    };
-                    return p;
-                }
-            throw new Exception("Decoder model found no symbol range for scaled value = "+scaledValue);
-        }
-
-        /// <inheritdoc />
-        public void Reset()
-        {
-            cumulative_frequency[0] = 0;
-            for (uint i = 1; i < 258; i++) cumulative_frequency[i] = i + 128;
-        }
-
-        /// <inheritdoc />
-        public uint GetCount()
-        {
-            return cumulative_frequency[257];
-        }
-
-        /// <inheritdoc />
-        public int RequiredSymbolBits() { return 9; }
-
-        /// <inheritdoc />
-        public byte[] Preamble()
-        {
-            return new byte[0];
-        }
-
-// 8 bits for values, 1 for stop
-    }
-
-    /// <summary>
-    /// Scan the whole dataset first, and use a fixed model.
-    /// This would require you to transmit the probability tables separately (256 bytes)
-    /// </summary>
-    public class PrescanModel : IProbabilityModel
-    {
-        private readonly byte[] preamble;
-        private readonly uint[] cumulative_frequency;
-
-        /// <summary>
-        /// Create a model for known data.
-        /// </summary>
-        /// <remarks>Would need another that takes a known table</remarks>
-        public PrescanModel(Stream targetData)
-        {
-            // count values
-            preamble = new byte[256];
-            var countTable = new long[257];
-            long len = 0;
-            int b;
-            while ((b = targetData.ReadByte()) >= 0)
-            {
-                countTable[b]++;
-                len++;
-            }
-
-            // scale them to fit in a frequency table if required
-            if (len > ArithmeticEncode.MAX_FREQ) {
-                Console.WriteLine("Data counts must be scaled");
-                var scale = len / ArithmeticEncode.MAX_FREQ;
-                for (int i = 0; i < countTable.Length; i++)
-                {
-                    if (countTable[i] == 0) continue;
-                    countTable[i] = (countTable[i] / scale) | 1;
-                    //if (countTable[i] > 255) countTable[i] = 255; // saturate so we can have a small byte array
-                }
-            }
-            
-            // build the freq table
-            cumulative_frequency = new uint[258];
-            uint v = 0;
-            for (int i = 0; i < 257; i++)
-            {
-                cumulative_frequency[i] = v;
-                v += (uint)countTable[i];
-            }
-            cumulative_frequency[257] = v+1; // `+1` for stop symbol
-            
-            // build preamble for decode
-            for (int i = 0; i < 256; i++)
-            {
-                preamble[i] = (byte) countTable[i];
-            }
-        }
-
-        /// <inheritdoc />
-        public SymbolProbability GetCurrentProbability(int symbol)
-        {
-            var p = new SymbolProbability
-            {
-                low = cumulative_frequency[symbol],
-                high = cumulative_frequency[symbol + 1],
-                count = cumulative_frequency[257]
-            };
-            return p;
-        }
-
-        /// <inheritdoc />
-        public SymbolProbability GetChar(long scaledValue, ref int decodedSymbol)
-        {
-            for ( int i = 0 ; i < 257 ; i++ )
-                if ( scaledValue < cumulative_frequency[i+1] ) {
-                    decodedSymbol = i;
-                    var p = new SymbolProbability
-                    {
-                        low = cumulative_frequency[i],
-                        high = cumulative_frequency[i + 1],
-                        count = cumulative_frequency[257]
-                    };
-                    return p;
-                }
-            throw new Exception("Decoder model found no symbol range for scaled value = "+scaledValue);
-        }
-
-        /// <inheritdoc />
-        public void Reset() { }
-
-        /// <inheritdoc />
-        public uint GetCount()
-        {
-            return cumulative_frequency[257];
-        }
-
-        /// <inheritdoc />
-        public int RequiredSymbolBits() { return 9; }
-
-        /// <inheritdoc />
-        public byte[] Preamble()
-        {
-            return preamble;
-        }
-
-// 8 bits for values, 1 for stop
-    }
 }

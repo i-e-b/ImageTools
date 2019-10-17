@@ -631,24 +631,94 @@ namespace ImageTools
                 var packedLength = ToStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight);
                 QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Reduce); // compression quantising
 
-                // raw int16
-                /*var w = new BinaryWriter(ms);
-                for (int i = 0; i < buffer.Length; i++)
-                {
-                    w.Write((short)buffer[i]); // output in fixed size
-                }*/
-                // Raw uint32/uint16
-                /*var w = new BinaryWriter(ms);
-                for (int i = 0; i < buffer.Length; i++)
-                {
-                    var n = (int)buffer[i]; // encoding quantisation.
-                    n = (n >= 0) ? (n * 2) : (n * -2) - 1; // expand so all co-efficents are zero or positive
-                    //w.Write((ushort)n); // output in fixed size
-                    w.Write((int)n); // output in fixed size
-                }*/
                 // fib encode
                 DataEncoding.FibonacciEncode(buffer, 0, ms);
             }
+        }
+
+
+        /// <summary>
+        /// Restore an image from a byte stream
+        /// The source streams should be quantised and fibonacci encoded (as by ReduceImage2D_ToStreams)
+        /// </summary>
+        /// <param name="wavelet">Wavelet inverse function (CDF.Iwt97 or Haar.Inverse)</param>
+        /// <param name="scale">Optional: restore scaled down. 1 is natural size, 2 is half size, 3 is quarter size</param>
+        /// <param name="Ycoefs">Readable stream that contains the Y plane coefficients</param>
+        /// <param name="Ucoefs">Readable stream that contains the U plane coefficients</param>
+        /// <param name="Vcoefs">Readable stream that contains the V plane coefficients</param>
+        /// <param name="imgWidth">width of original image, in pixels</param>
+        /// <param name="imgHeight">height of original image, in pixels</param>
+        public static Bitmap RestoreImage2D_FromStreams(int imgWidth, int imgHeight, Stream Ycoefs, Stream Ucoefs, Stream Vcoefs, GeneralRestore wavelet, byte scale = 1)
+        {
+            if (wavelet == null) throw new Exception("Invalid wavelet transform");
+            if (Ycoefs == null || !Ycoefs.CanWrite) throw new Exception("Invalid output stream: Y");
+            if (Ucoefs == null || !Ucoefs.CanWrite) throw new Exception("Invalid output stream: U");
+            if (Vcoefs == null || !Vcoefs.CanWrite) throw new Exception("Invalid output stream: V");
+
+            // the original image source's internal buffer size
+            var packedLength = Bin.NextPow2(imgWidth) * Bin.NextPow2(imgHeight);
+
+            // scale by a power of 2
+            if (scale < 1) scale = 1;
+            var scaleShift = scale - 1;
+            if (scale > 1)
+            {
+                imgWidth >>= scaleShift;
+                imgHeight >>= scaleShift;
+            }
+
+            var planeWidth = Bin.NextPow2(imgWidth);
+            var planeHeight = Bin.NextPow2(imgHeight);
+
+            var sampleCount = planeHeight * planeWidth;
+
+            var Y = new float[sampleCount];
+            var U = new float[sampleCount];
+            var V = new float[sampleCount];
+
+            var hx = new float[planeHeight];
+            var wx = new float[planeWidth];
+
+            int rounds = (int)Math.Log(planeWidth, 2);
+
+            for (int ch = 0; ch < 3; ch++)
+            {
+
+                var buffer = Pick(ch, Y, U, V);
+                if (buffer == null) continue;
+                var storedData = Pick(ch, Ycoefs, Ucoefs, Vcoefs);
+
+                DataEncoding.FibonacciDecode(storedData, buffer);
+
+                // Re-expand co-efficients
+                QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Expand);
+                FromStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight, scaleShift);
+
+                // Restore
+                for (int i = rounds - 1; i >= 0; i--)
+                {
+                    var height = planeHeight >> i;
+                    var width = planeWidth >> i;
+
+                    // Wavelet restore HALF horizontal
+                    for (int y = 0; y < height / 2; y++) // each row
+                    {
+                        wavelet(buffer, wx, width, y * planeWidth, 1);
+                    }
+
+                    // Wavelet restore vertical
+                    for (int x = 0; x < width; x++) // each column
+                    {
+                        wavelet(buffer, hx, height, x, planeWidth);
+                    }
+                }
+
+                AC_to_DC(buffer);
+            }
+
+            var dst = new Bitmap(imgWidth, imgHeight, PixelFormat.Format32bppArgb);
+            BitmapTools.PlanesToImage_Slice(dst, ColorSpace.ExpToRGB, 0, planeWidth, Y, U, V);
+            return dst;
         }
 
 

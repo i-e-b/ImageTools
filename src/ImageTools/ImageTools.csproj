@@ -41,6 +41,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DataCompression\Encoding\ArithmeticEncode.cs" />
+    <Compile Include="DataCompression\Encoding\ProbabilityModels.cs" />
+    <Compile Include="DataCompression\LZMWPack.cs" />
     <Compile Include="ImageDataFormats\BitwiseStreamWrapper.cs" />
     <Compile Include="ErrorDiffusionScale.cs" />
     <Compile Include="PixelScale.cs" />
@@ -60,7 +62,6 @@
     <Compile Include="ImageDataFormats\DataEncoding.cs" />
     <Compile Include="ImageDataFormats\InterleavedFile.cs" />
     <Compile Include="Utilities\Load.cs" />
-    <Compile Include="DataCompression\LzoCompression.cs" />
     <Compile Include="SpaceFillingCurves\Morton.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utilities\Save.cs" />

@@ -341,13 +341,13 @@ namespace ImageTools.ImageDataFormats
             uint pos = 0;
 
             while (!input.IsEmpty()) {
-                var f = (uint)input.ReadBit();
+                if (!input.TryReadBit(out var f)) break;
                 if (f > 0) {
                     if (lastWas1) break;
                     lastWas1 = true;
                 } else lastWas1 = false;
 
-                accum += f * fibonacci(pos + 2);
+                accum += (uint)f * fibonacci(pos + 2);
                 pos++;
             }
 
