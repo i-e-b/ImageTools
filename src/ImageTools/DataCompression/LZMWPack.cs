@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using ImageTools.ImageDataFormats;
 
@@ -7,6 +6,7 @@ namespace ImageTools.DataCompression
 {
     /// <summary>
     /// A rough implementation of the LZMW algorithm
+    /// https://en.wikipedia.org/wiki/Lempel%E2%80%93Ziv%E2%80%93Welch#cite_note-5
     /// </summary>
     public class LZMWPack
     {
@@ -21,7 +21,7 @@ namespace ImageTools.DataCompression
         }
         
 
-        public void Decode(MemoryStream src, MemoryStream dst)
+        public void Decode(Stream src, Stream dst)
         {
             _dict.Clear();
             var pattern = new List<byte>();
@@ -52,17 +52,6 @@ namespace ImageTools.DataCompression
                 if (_dict.Count > (_sizeLimit+1)) _dict.RemoveLast();
 
             }
-        }
-
-        private byte[] ReadAndPushToFront(LinkedList<byte[]> dict, int idx)
-        {
-            var node = dict.First;
-            while (idx-- > 0) node = node.Next;
-
-            dict.Remove(node);
-            dict.AddFirst(node);
-
-            return node.Value;
         }
 
         /// <summary>
@@ -127,6 +116,18 @@ namespace ImageTools.DataCompression
                     _dict.AddFirst(new[] { c }); // Insert at start
                 }
             }
+        }
+
+
+        private byte[] ReadAndPushToFront(LinkedList<byte[]> dict, int idx)
+        {
+            var node = dict.First;
+            while (idx-- > 0) node = node.Next;
+
+            dict.Remove(node);
+            dict.AddFirst(node);
+
+            return node.Value;
         }
 
         private byte LastOf(List<byte> pattern) { return pattern[pattern.Count - 1]; }

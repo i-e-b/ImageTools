@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Text;
 using ImageTools.DataCompression;
 using ImageTools.DataCompression.Encoding;
@@ -12,9 +11,9 @@ using NUnit.Framework;
 namespace ImageTools.Tests
 {
     [TestFixture]
-    public class ArithmeticEncodingTests {
+    public class LosslessDataCompressionTests {
         [Test]
-        public void constants_are_correct_values () {
+        public void arithmetic_encoder_constant_values () {
             Console.WriteLine($"Actual values: Bit Size = {ArithmeticEncode.BIT_SIZE}, Precision = {ArithmeticEncode.PRECISION},\r\n" +
                               $"Symbol bits = {ArithmeticEncode.CODE_VALUE_BITS}, Frequency bits = {ArithmeticEncode.FREQUENCY_BITS},\r\n" +
                               $"Max code value = {ArithmeticEncode.MAX_CODE:X}, Max frequency value = {ArithmeticEncode.MAX_FREQ:X},\r\n" +
@@ -230,9 +229,9 @@ namespace ImageTools.Tests
             ================
 
             Raw 'Y' size = 319kb
-            AC encoded 'Y' size = 175.86kb			(simple learning model)
-            AC encoded 'Y' size = 233.3kb           (push to front model)
-            AC encoded 'Y' size = 148.78kb          (fixed prescan model)
+            AC encoded 'Y' size = 160.14kb			(simple learning model)
+            AC encoded 'Y' size = 231.1kb           (push to front model)
+            AC encoded 'Y' size = 148.77kb          (fixed prescan model)
             Deflate encoded 'Y' size = 123.47kb
 
             
@@ -253,8 +252,8 @@ namespace ImageTools.Tests
                 Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
 
                 msY.Seek(0, SeekOrigin.Begin);
-                //var model = new PrescanModel(msY);
-                //var model = new PushToFrontModel();
+                //var model = new ProbabilityModels.PrescanModel(msY);
+                //var model = new ProbabilityModels.PushToFrontModel();
                 var model = new ProbabilityModels.SimpleLearningModel();
 
                 // Try our simple encoding
@@ -292,6 +291,47 @@ namespace ImageTools.Tests
             }
         }
 
+        
+        [Test]
+        public void lzw_round_trip () {
+            var expected = 
+                @"Call me Ishmael. Some years ago--never mind how long precisely--having
+little or no money in my purse, and nothing particular to interest me on
+shore, I thought I would sail about a little and see the watery part of
+the world. It is a way I have of driving off the spleen and regulating
+the circulation. Whenever I find myself growing grim about the mouth;
+whenever it is a damp, drizzly November in my soul; whenever I find
+myself involuntarily pausing before coffin warehouses, and bringing up
+the rear of every funeral I meet; and especially whenever my hypos get
+such an upper hand of me, that it requires a strong moral principle to
+prevent me from deliberately stepping into the street, and methodically
+knocking people's hats off--then, I account it high time to get to sea
+as soon as I can. This is my substitute for pistol and ball. With a
+philosophical flourish Cato throws himself upon his sword; I quietly
+take to the ship. There is nothing surprising in this. If they but knew
+it, almost all men in their degree, some time or other, cherish very
+nearly the same feelings towards the ocean with me.";
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
+            var lzPack = new LZWPack();
+
+            lzPack.Encode(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)}");
+            lzPack.Decode(encoded, dst);
+
+            dst.Seek(0, SeekOrigin.Begin);
+            var result = Encoding.UTF8.GetString(dst.ToArray());
+
+            Console.WriteLine(result);
+
+            // failing at size limit. Are we deleting the dictionary entries out of order?
+            Assert.That(result, Is.EqualTo(expected));
+        }
+
         [Test]
         public void lzmw_round_trip () {
             var expected = 
@@ -319,10 +359,13 @@ nearly the same feelings towards the ocean with me.";
 
             lzPack.Encode(src, encoded);
             encoded.Seek(0, SeekOrigin.Begin);
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)}");
             lzPack.Decode(encoded, dst);
 
             dst.Seek(0, SeekOrigin.Begin);
             var result = Encoding.UTF8.GetString(dst.ToArray());
+            
+            Console.WriteLine(result);
 
             // failing at size limit. Are we deleting the dictionary entries out of order?
             Assert.That(result, Is.EqualTo(expected));
@@ -345,7 +388,19 @@ nearly the same feelings towards the ocean with me.";
 
                 Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
 
-                var lzPack = new LZMWPack(sizeLimit:200);
+////////////////////////////////////////////////////////////////////////////////
+// limit: 25 -> 172.28kb; 152.11kb
+// limit: 34 -> 171.17kb; 152kb
+// limit: 50 -> 170.99kb; 152.59kb
+// limit: 55 -> 171.3kb;  152.82kb
+// limit: 75 -> 173.1kb;  154.25kb
+// limit:100 -> 179.12kb; 157.03kb
+// limit:150 -> 188.4kb;  160.98kb 
+//      Deflate encoded = 123.47kb
+// LZW -> 165.13kb; 147.76kb
+
+                var lzPack = new LZMWPack(sizeLimit:50);
+                //var lzPack = new LZWPack();
                 msY.Seek(0, SeekOrigin.Begin);
                 lzPack.Encode(msY, lzY);
                 //msY.CopyTo(lzY);
@@ -378,7 +433,7 @@ nearly the same feelings towards the ocean with me.";
                 resultBmp.SaveBmp("./outputs/LZAC_3.bmp");
 
                 // Deflate encoded   = 123.47kb <-- size to beat
-                // LZ+AC best so far = 134.23kb (sizeLimit:200; prescan model)
+                // LZ+AC best so far = 157.03kb (sizeLimit:100; SimpleLearningModel)
                 // AC only best      = 148.78kb (fixed prescan model)
 
                 // AC STATS (with 138kb input & fib coded source)

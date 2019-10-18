@@ -43,6 +43,8 @@
     <Compile Include="DataCompression\Encoding\ArithmeticEncode.cs" />
     <Compile Include="DataCompression\Encoding\ProbabilityModels.cs" />
     <Compile Include="DataCompression\LZMWPack.cs" />
+    <Compile Include="DataCompression\LZSSPack.cs" />
+    <Compile Include="DataCompression\LZWPack.cs" />
     <Compile Include="ImageDataFormats\BitwiseStreamWrapper.cs" />
     <Compile Include="ErrorDiffusionScale.cs" />
     <Compile Include="PixelScale.cs" />

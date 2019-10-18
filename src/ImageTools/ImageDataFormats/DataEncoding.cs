@@ -217,6 +217,7 @@ namespace ImageTools.ImageDataFormats
                         lastWas1 = true;
                     } else lastWas1 = false;
 
+                    if (pos >= fseq.Length - 3) return; // should throw? Break sequence?
                     accum += f * fseq[pos + 2];
                     pos++;
                 }
