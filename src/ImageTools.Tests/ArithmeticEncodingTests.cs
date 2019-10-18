@@ -46,7 +46,7 @@ namespace ImageTools.Tests
             var data = new MemoryStream(bytes);
             data.Seek(0,SeekOrigin.Begin);
 
-            var model = new ProbabilityModels.PrescanModel(data);
+            var model = new ProbabilityModels.PushToFrontModel(fallOff:5);
             var subject = new ArithmeticEncode(model);
             var result = new MemoryStream();
 
@@ -315,7 +315,7 @@ nearly the same feelings towards the ocean with me.";
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
             var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
-            var lzPack = new LZMWPack(sizeLimit:5);
+            var lzPack = new LZMWPack(sizeLimit:50);
 
             lzPack.Encode(src, encoded);
             encoded.Seek(0, SeekOrigin.Begin);
@@ -348,6 +348,7 @@ nearly the same feelings towards the ocean with me.";
                 var lzPack = new LZMWPack(sizeLimit:200);
                 msY.Seek(0, SeekOrigin.Begin);
                 lzPack.Encode(msY, lzY);
+                //msY.CopyTo(lzY);
 
                 lzY.Seek(0, SeekOrigin.Begin);
                 var model = new ProbabilityModels.SimpleLearningModel();
@@ -376,8 +377,6 @@ nearly the same feelings towards the ocean with me.";
                 var resultBmp = WaveletCompress.RestoreImage2D_FromStreams(bmp.Width, bmp.Height, msY, msU, msV, CDF.Iwt97);
                 resultBmp.SaveBmp("./outputs/LZAC_3.bmp");
 
-                Assert.Fail("This is not working properly. Check the image result.");
-                                
                 // Deflate encoded   = 123.47kb <-- size to beat
                 // LZ+AC best so far = 134.23kb (sizeLimit:200; prescan model)
                 // AC only best      = 148.78kb (fixed prescan model)
