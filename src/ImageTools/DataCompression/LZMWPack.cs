@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using ImageTools.ImageDataFormats;
 
@@ -26,7 +27,7 @@ namespace ImageTools.DataCompression
 
             var inp = new BitwiseStreamWrapper(src, 2);
 
-            while (!inp.IsEmpty()) {
+            while (true) {
                 // The tricky thing here will be maintaining the order of the implicit dictionary
                 // Any time we add an entry, it goes at the front. Any time we *use* an entry, it goes to the front
 
@@ -47,7 +48,7 @@ namespace ImageTools.DataCompression
                 pattern.Clear();
 
                 // Limit dictionary size
-                if (_sizeLimit > 0 && _dict.Count > _sizeLimit) _dict.RemoveLast();
+                //if (_sizeLimit > 0 && _dict.Count > _sizeLimit) _dict.RemoveLast();
 
             }
         }
@@ -79,22 +80,30 @@ namespace ImageTools.DataCompression
                 // test for existing pattern match
                 // if found, extend the pattern and continue
                 // if not, write the dictionary that matches all but the last + the last byte.
+
                 pattern.Add((byte)b);
                 if (AnyPrefixMatch(pattern)) {
+                    // There are entries for which this is a prefix
                     continue;
                 }
 
                 // now there should be exactly one entry in the dictionary that is a prefix of the pattern
-                matchIdx = GetMatchIndex(pattern);
-
+                matchIdx = GetMatchIndexAndPushToFront(pattern);
+                
                 // Write to output stream
-                DataEncoding.FibonacciEncodeOne((uint)(matchIdx+1), outp); // backreference (variable length)
-                outp.WriteByteUnaligned(LastOf(pattern)); // new extension (fixed length)
+                if (matchIdx >= 0) {
+                    DataEncoding.FibonacciEncodeOne((uint)(matchIdx+1), outp); // backreference (variable length)
+                    outp.WriteByteUnaligned(LastOf(pattern)); // new extension (fixed length)
+                } else {
+                    foreach (var c in pattern) { // truncating the dictionary can leave us with extra unmatched characters
+                        DataEncoding.FibonacciEncodeOne(0, outp);
+                        outp.WriteByteUnaligned(c);
+                    }
+                }
                 
                 _dict.AddFirst(pattern.ToArray()); // Insert at start
-
                 // Limit dictionary size
-                if (_sizeLimit > 0 && _dict.Count > _sizeLimit) _dict.RemoveLast();
+                //if (_sizeLimit > 0 && _dict.Count > (_sizeLimit+1)) _dict.RemoveLast();
 
                 pattern.Clear();
             }
@@ -102,15 +111,16 @@ namespace ImageTools.DataCompression
             // last pattern?
             if (pattern.Count > 0)
             {
-                matchIdx = GetMatchIndex(pattern);
+                matchIdx = GetMatchIndexAndPushToFront(pattern);
                 DataEncoding.FibonacciEncodeOne((uint)(matchIdx+1), outp); // backreference (variable length)
                 outp.WriteByteUnaligned(LastOf(pattern)); // new extension (fixed length)
             }
+            outp.Flush();
         }
 
         private byte LastOf(List<byte> pattern) { return pattern[pattern.Count - 1]; }
 
-        private int GetMatchIndex(List<byte> pattern)
+        private int GetMatchIndexAndPushToFront(List<byte> pattern)
         {
             var node = _dict.First;
             int i = -1;
@@ -119,7 +129,9 @@ namespace ImageTools.DataCompression
                 var entry = node.Value;
                 var prev = node;
                 node = node.Next;
+
                 i++;
+                if (i > _sizeLimit) return -1;
 
                 if (entry.Length != pattern.Count - 1) continue;
                 if (!EntryIsPrefix(entry, pattern)) continue;
@@ -131,13 +143,22 @@ namespace ImageTools.DataCompression
                 return i;
             }
 
+            //throw new Exception("Invalid match 2");
             return -1;
         }
 
         private bool AnyPrefixMatch(List<byte> pattern)
         {
-            foreach (var entry in _dict)
+            
+            var node = _dict.First;
+            int i = -1;
+            while (node != null && i < _sizeLimit)
             {
+                i++;
+                var entry = node.Value;
+                node = node.Next;
+                if (i >= _sizeLimit) return false;
+
                 if (entry.Length < pattern.Count) continue;
                 if (!PatternIsPrefix(entry, pattern)) continue;
                 return true;
