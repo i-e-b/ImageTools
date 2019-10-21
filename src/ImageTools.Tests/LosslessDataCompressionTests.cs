@@ -245,9 +245,13 @@ namespace ImageTools.Tests
             var acY = new MemoryStream();
             var finalY = new MemoryStream();
 
+            var sw = new Stopwatch();
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
+                sw.Restart();
                 WaveletCompress.ReduceImage2D_ToStreams(bmp, CDF.Fwt97, msY, msU, msV);
+                sw.Stop();
+                Console.WriteLine($"Wavelet transform took {sw.Elapsed}");
 
                 Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
 
@@ -259,7 +263,10 @@ namespace ImageTools.Tests
                 // Try our simple encoding
                 var subject = new ArithmeticEncode(model);
                 msY.Seek(0, SeekOrigin.Begin);
+                sw.Restart();
                 subject.Encode(msY, acY);
+                sw.Stop();
+                Console.WriteLine($"Arithmetic coding took {sw.Elapsed}");
 
                 Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length + model.Preamble().Length)}");// add 256 if using pre-scan
 
@@ -280,13 +287,19 @@ namespace ImageTools.Tests
                 // Now decode:
                 subject.Reset();
                 acY.Seek(0, SeekOrigin.Begin);
+                sw.Restart();
                 subject.Decode(acY, finalY);
+                sw.Stop();
+                Console.WriteLine($"Arithmetic decoding took {sw.Elapsed}");
 
                 finalY.Seek(0, SeekOrigin.Begin);
                 msU.Seek(0, SeekOrigin.Begin);
                 msV.Seek(0, SeekOrigin.Begin);
 
+                sw.Restart();
                 var resultBmp = WaveletCompress.RestoreImage2D_FromStreams(bmp.Width, bmp.Height, finalY, msU, msV, CDF.Iwt97);
+                sw.Stop();
+                Console.WriteLine($"Wavelet transform took {sw.Elapsed}");
                 resultBmp.SaveBmp("./outputs/ArithmeticEncode_3.bmp");
             }
         }
@@ -316,6 +329,46 @@ nearly the same feelings towards the ocean with me.";
             var dst = new MemoryStream();
             var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
             var lzPack = new LZWPack();
+
+            lzPack.Encode(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)}");
+            lzPack.Decode(encoded, dst);
+
+            dst.Seek(0, SeekOrigin.Begin);
+            var result = Encoding.UTF8.GetString(dst.ToArray());
+
+            Console.WriteLine(result);
+
+            // failing at size limit. Are we deleting the dictionary entries out of order?
+            Assert.That(result, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void lzss_round_trip () {
+            var expected = 
+                @"####Call me Ishmael. Some years ago--never mind how long precisely--having
+little or no money in my purse, and nothing particular to interest me on
+shore, I thought I would sail about a little and see the watery part of
+the world. It is a way I have of driving off the spleen and regulating
+the circulation. Whenever I find myself growing grim about the mouth;
+whenever it is a damp, drizzly November in my soul; whenever I find
+myself involuntarily pausing before coffin warehouses, and bringing up
+the rear of every funeral I meet;#### and especially whenever my hypos get
+such an upper hand of me, that it requires a strong moral principle to
+prevent me from deliberately stepping into the street, and methodically
+knocking people's hats off--then, I account it high time to get to sea
+as soon as I can. This is my substitute for pistol and ball. With a
+philosophical flourish Cato throws himself upon his sword; I quietly
+take to the ship. There is nothing surprising in this. If they but knew
+it, almost all men in their degree, some time or other, cherish very
+nearly the same feelings towards the ocean with me.####";
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
+            var lzPack = new LZSSPack();
 
             lzPack.Encode(src, encoded);
             encoded.Seek(0, SeekOrigin.Begin);
