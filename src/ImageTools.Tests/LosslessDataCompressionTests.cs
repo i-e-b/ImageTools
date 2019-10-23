@@ -195,7 +195,7 @@ namespace ImageTools.Tests
         }
 
         [Test]
-        public void compressing_a_wavelet_image () {
+        public void compressing_a_wavelet_image_with_AC () {
             // An experiment to see how a simple model and arith. coding works with Wavelet coefficients
 
             /* FINDINGS
@@ -305,6 +305,50 @@ namespace ImageTools.Tests
         }
 
         
+        
+        [Test]
+        public void ac_round_trip () {
+            var expected = 
+                @"####Call me Ishmael. Some years ago--never mind how long precisely--having
+little or no money in my purse, and nothing particular to interest me on
+shore, I thought I would sail about a little and see the watery part of
+the world. It is a way I have of driving off the spleen and regulating
+the circulation. Whenever I find myself growing grim about the mouth;
+whenever it is a damp, drizzly November in my soul; whenever I find
+myself involuntarily pausing before coffin warehouses, and bringing up
+the rear of every funeral I meet;#### and especially whenever my hypos get
+such an upper hand of me, that it requires a strong moral principle to
+prevent me from deliberately stepping into the street, and methodically
+knocking people's hats off--then, I account it high time to get to sea
+as soon as I can. This is my substitute for pistol and ball. With a
+philosophical flourish Cato throws himself upon his sword; I quietly
+take to the ship. There is nothing surprising in this. If they but knew
+it, almost all men in their degree, some time or other, cherish very
+nearly the same feelings towards the ocean with me.####";
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
+
+            var model = new ProbabilityModels.SimpleLearningModel();
+            var subject = new ArithmeticEncode(model);
+            subject.Encode(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+
+            model.Reset();
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)}");
+            subject.Decode(encoded, dst);
+
+            dst.Seek(0, SeekOrigin.Begin);
+            var result = Encoding.UTF8.GetString(dst.ToArray());
+
+            Console.WriteLine("\r\n--------RESULT----------");
+            Console.WriteLine(result);
+
+            // failing at size limit. Are we deleting the dictionary entries out of order?
+            Assert.That(result, Is.EqualTo(expected));
+        }
+
         [Test]
         public void lzw_round_trip () {
             var expected = 
@@ -379,6 +423,7 @@ nearly the same feelings towards the ocean with me.####";
             dst.Seek(0, SeekOrigin.Begin);
             var result = Encoding.UTF8.GetString(dst.ToArray());
 
+            Console.WriteLine("\r\n--------RESULT----------");
             Console.WriteLine(result);
 
             // failing at size limit. Are we deleting the dictionary entries out of order?
@@ -422,6 +467,42 @@ nearly the same feelings towards the ocean with me.";
 
             // failing at size limit. Are we deleting the dictionary entries out of order?
             Assert.That(result, Is.EqualTo(expected));
+        }
+
+        
+        [Test]//, Ignore("This is currently impractically slow")]
+        public void compress_wavelet_image_with_LZSS () {
+
+            var msY = new MemoryStream();
+            var msU = new MemoryStream();
+            var msV = new MemoryStream();
+
+            var lzY = new MemoryStream();
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                WaveletCompress.ReduceImage2D_ToStreams(bmp, CDF.Fwt97, msY, msU, msV);
+
+                Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
+
+                var lzPack = new LZSSPack();
+                msY.Seek(0, SeekOrigin.Begin);
+                lzPack.Encode(msY, lzY);
+
+                Console.WriteLine($"LZSS/AC encoded 'Y' size = {Bin.Human(lzY.Length)}");
+
+                // reverse LZSS...
+                msY = new MemoryStream();
+                lzY.Seek(0, SeekOrigin.Begin);
+                lzPack.Decode(lzY, msY);
+
+                msY.Seek(0, SeekOrigin.Begin);
+                msU.Seek(0, SeekOrigin.Begin);
+                msV.Seek(0, SeekOrigin.Begin);
+
+                var resultBmp = WaveletCompress.RestoreImage2D_FromStreams(bmp.Width, bmp.Height, msY, msU, msV, CDF.Iwt97);
+                resultBmp.SaveBmp("./outputs/LZSS_3.bmp");
+
+            }
         }
 
         [Test]

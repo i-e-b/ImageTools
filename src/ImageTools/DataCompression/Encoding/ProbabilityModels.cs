@@ -8,7 +8,6 @@ namespace ImageTools.DataCompression.Encoding
     /// </summary>
     public static class ProbabilityModels
     {
-
         /// <summary>
         /// A simple adaptive model that uses a rolling window
         /// </summary>
