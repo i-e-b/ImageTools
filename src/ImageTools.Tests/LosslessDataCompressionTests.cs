@@ -490,7 +490,11 @@ nearly the same feelings towards the ocean with me.";
 
                 Console.WriteLine($"LZSS/AC encoded 'Y' size = {Bin.Human(lzY.Length)}");
 
-                // Limited to 64 window: Replacements = 1645, size = 147.46kb
+                // Target size = 123.47kb (deflate)
+                // AC alone    = 160.14kb
+                // 256,128,64: (1:45 rel) Scans = 108387474644;  Replacements =  893; size = 139.69kb
+                // 64/63: (3:35)          Scans =  65184192961;  Replacements = 1680; size = 146.81kb
+                // 256: (1:54)            Scans =  40270743703;  Replacements =  239; size = 151.01kb
 
                 // reverse LZSS...
                 msY = new MemoryStream();

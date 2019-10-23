@@ -100,13 +100,11 @@ namespace ImageTools.DataCompression
 
             //for (int i = 0; i < len; i++) { backRefPos[i] = int.MaxValue; }
 
-            //for (int size = 64; size > 63; size--)
-            for (int size = minSize; size < 256; size++)
+            for (int size = 256; size >= 64; size /= 2)
+            //for (int size = minSize; size < 256; size++)
             //for (int size = minSize; size < 4; size++)
             {
                 // TODO: optimise this so we do less loops
-
-                var anyFound = false;
 
                 // Build up the hashVals array for this window size:
                 long power = 1;
@@ -141,37 +139,23 @@ namespace ImageTools.DataCompression
                         // record the longest, closest matches
                         if (hashVals[fwd] != hashVals[bkw]) continue;
 
-                        anyFound = true; // continue searching, even if we decide this match wasn't worth while
-
                         var dist = (fwd - bkw) - size;
 
                         // If the size of the back reference would be more than we save, reject it.
                         // the back reference length can be 1 byte or two, so that affects the rejection size limit.
                         if (dist > 255 && size < 4) {
-                            //fwd -= size - 1;
                             break; // move to next outer
                         }
 
                         // If this back reference overlaps with another, keep the longer one.
                         var overlap = 0;
-                        for (int i = bkw+1; i <= fwd; i++) {
-                            if (backRefOcc[i] > 0) {
-                                overlap = backRefOcc[i];
-                                break;
-                            }
+                        for (int i = 0; i <= size; i++)
+                        {
+                            if (backRefOcc[fwd - i] < 1) continue;
+                            overlap = backRefOcc[fwd - i];
+                            break;
                         }
-                        if (overlap > 0) { // we've found a better replacement here
-                            /*if (backRefLen[overlap] >= size) continue; // this replacement is no better than the old one
-                            stat_replacements--;
-                            // wipe out the old one
-                            var start = overlap - (backRefPos[overlap] + backRefLen[overlap]);
-                            var end = backRefPos[overlap];
-                            //Console.WriteLine($"Replacing ({backRefPos[overlap]},{backRefLen[overlap]})@{overlap} with ({dist},{size})@{fwd}  --> {start} to {end}");
-
-                            for (int i = start; i <= end; i++) { backRefOcc[i] = 0; }
-                            backRefLen[overlap] = 0;
-                            backRefPos[overlap] = 0;*/
-                            // TODO: fix the above
+                        if (overlap > 0) { // we've found a better replacement already
                             break;
                         }
 
@@ -180,15 +164,11 @@ namespace ImageTools.DataCompression
                         backRefPos[fwd] = dist;
 
                         // mark overlaps
-                        for (int i = fwd - size; i <= fwd; i++) { backRefOcc[i] = fwd; }
+                        for (int i = fwd - size; i < fwd; i++) { backRefOcc[i] = fwd; }
 
                         fwd -= size - 1; // skip back
                         break; // stop searching for matches for this point (fwd)
                     }
-                }
-                if (!anyFound) {
-                    Console.WriteLine($"Ran out of matches at length {size}");
-                    break;
                 }
             }
 
@@ -270,6 +250,7 @@ namespace ImageTools.DataCompression
             /// <inheritdoc />
             public SymbolProbability GetCurrentProbability(int symbol)
             {
+                if (symbol >= CumulativeCount) throw new Exception("Symbol can not be represented: " + symbol);
                 var p = new SymbolProbability
                 {
                     low = cumulative_frequency[symbol],
