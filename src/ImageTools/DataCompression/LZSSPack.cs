@@ -100,8 +100,8 @@ namespace ImageTools.DataCompression
 
             //for (int i = 0; i < len; i++) { backRefPos[i] = int.MaxValue; }
 
-            for (int size = 64; size > minSize; size--)
-            //for (int size = minSize; size < 256; size++)
+            //for (int size = 64; size > 63; size--)
+            for (int size = minSize; size < 256; size++)
             //for (int size = minSize; size < 4; size++)
             {
                 // TODO: optimise this so we do less loops
@@ -135,27 +135,29 @@ namespace ImageTools.DataCompression
                 // Scan backward from each character, look for matches behind it.
                 for (int fwd = len - 1; fwd >= size; fwd--)
                 {
-                    for (int bkw = fwd - 1; bkw >= size; bkw--)
+                    for (int bkw = fwd - size; bkw >= size; bkw--)
                     {
                         stat_scans++;
                         // record the longest, closest matches
-                        if (backRefLen[fwd] >= size || hashVals[fwd] != hashVals[bkw]) continue;
+                        if (hashVals[fwd] != hashVals[bkw]) continue;
 
                         anyFound = true; // continue searching, even if we decide this match wasn't worth while
 
                         var dist = (fwd - bkw) - size;
-                        if (dist < 0) { continue; } // A back reference inside itself
-                        //if (fwd - size <= 0) { continue; } // ran off the start.
 
                         // If the size of the back reference would be more than we save, reject it.
                         // the back reference length can be 1 byte or two, so that affects the rejection size limit.
-                        if (dist > 255 && size < 4) { continue; }
+                        if (dist > 255 && size < 4) {
+                            //fwd -= size - 1;
+                            break; // move to next outer
+                        }
 
                         // If this back reference overlaps with another, keep the longer one.
                         var overlap = 0;
                         for (int i = bkw+1; i <= fwd; i++) {
                             if (backRefOcc[i] > 0) {
                                 overlap = backRefOcc[i];
+                                break;
                             }
                         }
                         if (overlap > 0) { // we've found a better replacement here
@@ -170,7 +172,7 @@ namespace ImageTools.DataCompression
                             backRefLen[overlap] = 0;
                             backRefPos[overlap] = 0;*/
                             // TODO: fix the above
-                            continue;
+                            break;
                         }
 
                         stat_replacements++;
@@ -184,10 +186,10 @@ namespace ImageTools.DataCompression
                         break; // stop searching for matches for this point (fwd)
                     }
                 }
-                /*if (!anyFound) {
+                if (!anyFound) {
                     Console.WriteLine($"Ran out of matches at length {size}");
                     break;
-                }*/
+                }
             }
 
 

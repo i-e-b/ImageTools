@@ -470,7 +470,7 @@ nearly the same feelings towards the ocean with me.";
         }
 
         
-        [Test]//, Ignore("This is currently impractically slow")]
+        [Test, Explicit("This is currently impractically slow")]
         public void compress_wavelet_image_with_LZSS () {
 
             var msY = new MemoryStream();
@@ -489,6 +489,8 @@ nearly the same feelings towards the ocean with me.";
                 lzPack.Encode(msY, lzY);
 
                 Console.WriteLine($"LZSS/AC encoded 'Y' size = {Bin.Human(lzY.Length)}");
+
+                // Limited to 64 window: Replacements = 1645, size = 147.46kb
 
                 // reverse LZSS...
                 msY = new MemoryStream();

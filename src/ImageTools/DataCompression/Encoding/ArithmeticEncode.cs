@@ -151,7 +151,6 @@ namespace ImageTools.DataCompression.Encoding
                 value += src.ReadBit();
             }
             while (true) { // data loop
-            //while (!src.IsEmpty()) { // data loop
                 var range = high - low + 1;
                 var scaled_value = ((value - low + 1) * _model.GetCount() - 1) / range;
                 int c = 0;
