@@ -77,8 +77,6 @@ namespace ImageTools.DataCompression
 
         public void Encode(Stream src, Stream dst)
         {
-            // Minimum match size. Tune so matches are longer that the backref data
-            var minSize = 3;
 
             long stat_replacements = 0;
             long stat_scans = 0;
@@ -90,97 +88,25 @@ namespace ImageTools.DataCompression
 
             // EXP 1: rolling hash @ size = 4 (catch "and ","the " etc)
             var len = (int)src.Length;
-            //var size = 4;
 
             // values for back references. We keep the longest
+            // These are the core of the output phase. We need to optimise the input phase.
             var backRefLen = new int[len]; // lengths of back references
             var backRefPos = new int[len]; // distance between backref and source
-            var backRefOcc = new int[len]; // marker to detect overlaps
-            var hashVals = new uint[len];
 
-            //for (int i = 0; i < len; i++) { backRefPos[i] = int.MaxValue; }
-
-            for (int size = 256; size >= 64; size /= 2)
-            //for (int size = minSize; size < 256; size++)
-            //for (int size = minSize; size < 4; size++)
-            {
-                // TODO: optimise this so we do less loops
-
-                // Build up the hashVals array for this window size:
-                long power = 1;
-                long hash2 = 0;
-                for (int i = 0; i < size; i++) { power = (power * PRIME_BASE) % PRIME_MOD; } // calculate the correct 'power' value
-                for (int i = 0; i < len; i++)
-                {
-                    // add the last letter
-                    hash2 = hash2 * PRIME_BASE + buffer[i];
-                    hash2 %= PRIME_MOD;
-
-                    // remove the first character, if needed
-                    if (i >= size) {
-                        hash2 -= power * buffer[i - size] % PRIME_MOD;
-                        if (hash2 < 0) hash2 += PRIME_MOD;
-                    }
-
-                    // store the hash at this point
-                    hashVals[i] = (uint)hash2;
-                    stat_scans++;
-                }
-
-                // compare -- any match values are probably a back reference
-                // At the moment, we assume hash matches *are* valid back references. TODO: double check.
-
-                // Scan backward from each character, look for matches behind it.
-                for (int fwd = len - 1; fwd >= size; fwd--)
-                {
-                    for (int bkw = fwd - size; bkw >= size; bkw--)
-                    {
-                        stat_scans++;
-                        // record the longest, closest matches
-                        if (hashVals[fwd] != hashVals[bkw]) continue;
-
-                        var dist = (fwd - bkw) - size;
-
-                        // If the size of the back reference would be more than we save, reject it.
-                        // the back reference length can be 1 byte or two, so that affects the rejection size limit.
-                        if (dist > 255 && size < 4) {
-                            break; // move to next outer
-                        }
-
-                        // If this back reference overlaps with another, keep the longer one.
-                        var overlap = 0;
-                        for (int i = 0; i <= size; i++)
-                        {
-                            if (backRefOcc[fwd - i] < 1) continue;
-                            overlap = backRefOcc[fwd - i];
-                            break;
-                        }
-                        if (overlap > 0) { // we've found a better replacement already
-                            break;
-                        }
-
-                        stat_replacements++;
-                        backRefLen[fwd] = size;
-                        backRefPos[fwd] = dist;
-
-                        // mark overlaps
-                        for (int i = fwd - size; i < fwd; i++) { backRefOcc[i] = fwd; }
-
-                        fwd -= size - 1; // skip back
-                        break; // stop searching for matches for this point (fwd)
-                    }
-                }
-            }
-
+            // TODO: optimise this so we do less loops
+            Matcher_HashScan(len, buffer, ref stat_scans, backRefLen, backRefPos, ref stat_replacements);
 
 
             // Now, mark any characters covered by a backreference, so we know not to output
+            
+            var useFlag = new bool[len];
             var rem = 0;
             for (int i = len - 1; i >= 0; i--)
             {
                 stat_scans++;
                 if (backRefLen[i] > rem) rem = backRefLen[i];
-                hashVals[i] = (rem > 0) ? 0u : 1u; // use the hash values to store the output flag
+                useFlag[i] = (rem <= 0); // use the hash values to store the output flag
                 rem--;
             }
 
@@ -210,7 +136,7 @@ namespace ImageTools.DataCompression
                         codes.Add(backRefLen[i]);
                     }
                 }
-                else if (hashVals[i] > 0) {
+                else if (useFlag[i]) {
                     //Console.Write((char)buffer[i]);
                     codes.Add(buffer[i]);
                 }
@@ -221,7 +147,97 @@ namespace ImageTools.DataCompression
             outp.Encode(codes, dst);
         }
 
-        
+        private static void Matcher_HashScan(int len, byte[] buffer, ref long stat_scans, int[] backRefLen, int[] backRefPos, ref long stat_replacements)
+        {
+            // Minimum match size. Tune so matches are longer that the backref data
+            var minSize = 3;
+            var backRefOcc = new int[len]; // marker to detect overlaps
+            var hashVals = new uint[len];
+            for (int size = 256; size >= minSize; size--)
+                //for (int size = minSize; size < 256; size++)
+                //for (int size = minSize; size < 4; size++)
+            {
+                // Build up the hashVals array for this window size:
+                long power = 1;
+                long hash2 = 0;
+                for (int i = 0; i < size; i++)
+                {
+                    power = (power * PRIME_BASE) % PRIME_MOD;
+                } // calculate the correct 'power' value
+
+                for (int i = 0; i < len; i++)
+                {
+                    // add the last letter
+                    hash2 = hash2 * PRIME_BASE + buffer[i];
+                    hash2 %= PRIME_MOD;
+
+                    // remove the first character, if needed
+                    if (i >= size)
+                    {
+                        hash2 -= power * buffer[i - size] % PRIME_MOD;
+                        if (hash2 < 0) hash2 += PRIME_MOD;
+                    }
+
+                    // store the hash at this point
+                    hashVals[i] = (uint) hash2;
+                    stat_scans++;
+                }
+
+                // compare -- any match values are probably a back reference
+                // At the moment, we assume hash matches *are* valid back references. TODO: double check.
+
+                // Scan backward from each character, look for matches behind it.
+                for (int fwd = len - 1; fwd >= size; fwd--)
+                {
+                    for (int bkw = fwd - size; bkw >= size; bkw--)
+                    {
+                        stat_scans++;
+                        // record the longest, closest matches
+                        if (hashVals[fwd] != hashVals[bkw]) continue;
+
+                        var dist = (fwd - bkw) - size;
+
+                        // If the size of the back reference would be more than we save, reject it.
+                        // the back reference length can be 1 byte or two, so that affects the rejection size limit.
+                        if (size < 4 && dist > 255)
+                        {
+                            break; // move to next outer
+                        }
+
+                        // If this back reference overlaps with another, keep the longer one.
+                        var overlap = 0;
+                        for (int i = 0; i <= size; i++)
+                        {
+                            if (backRefOcc[fwd - i] < 1) continue;
+                            overlap = backRefOcc[fwd - i];
+                            break;
+                        }
+
+                        if (overlap > 0)
+                        {
+                            // we've found a better replacement already (assuming we're working from long to short)
+                            fwd = overlap - backRefLen[overlap];
+                            break;
+                        }
+
+                        stat_replacements++;
+                        backRefLen[fwd] = size;
+                        backRefPos[fwd] = dist;
+
+                        // mark overlaps
+                        for (int i = fwd - size; i < fwd; i++)
+                        {
+                            backRefOcc[i] = fwd;
+                        }
+
+                        fwd -= size - 1; // skip back
+                        break; // stop searching for matches for this point (fwd)
+                    }
+                }
+            }
+        }
+
+
         /// <summary>
         /// A model for LZSS pack and arithmetic encoding
         /// </summary>

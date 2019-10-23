@@ -304,12 +304,7 @@ namespace ImageTools.Tests
             }
         }
 
-        
-        
-        [Test]
-        public void ac_round_trip () {
-            var expected = 
-                @"####Call me Ishmael. Some years ago--never mind how long precisely--having
+        const string Moby = @"####Call me Ishmael. Some years ago--never mind how long precisely--having
 little or no money in my purse, and nothing particular to interest me on
 shore, I thought I would sail about a little and see the watery part of
 the world. It is a way I have of driving off the spleen and regulating
@@ -325,6 +320,10 @@ philosophical flourish Cato throws himself upon his sword; I quietly
 take to the ship. There is nothing surprising in this. If they but knew
 it, almost all men in their degree, some time or other, cherish very
 nearly the same feelings towards the ocean with me.####";
+        
+        [Test]
+        public void ac_round_trip () {
+            var expected = Moby;
 
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
@@ -351,23 +350,7 @@ nearly the same feelings towards the ocean with me.####";
 
         [Test]
         public void lzw_round_trip () {
-            var expected = 
-                @"Call me Ishmael. Some years ago--never mind how long precisely--having
-little or no money in my purse, and nothing particular to interest me on
-shore, I thought I would sail about a little and see the watery part of
-the world. It is a way I have of driving off the spleen and regulating
-the circulation. Whenever I find myself growing grim about the mouth;
-whenever it is a damp, drizzly November in my soul; whenever I find
-myself involuntarily pausing before coffin warehouses, and bringing up
-the rear of every funeral I meet; and especially whenever my hypos get
-such an upper hand of me, that it requires a strong moral principle to
-prevent me from deliberately stepping into the street, and methodically
-knocking people's hats off--then, I account it high time to get to sea
-as soon as I can. This is my substitute for pistol and ball. With a
-philosophical flourish Cato throws himself upon his sword; I quietly
-take to the ship. There is nothing surprising in this. If they but knew
-it, almost all men in their degree, some time or other, cherish very
-nearly the same feelings towards the ocean with me.";
+            var expected = Moby;
 
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
@@ -391,23 +374,7 @@ nearly the same feelings towards the ocean with me.";
 
         [Test]
         public void lzss_round_trip () {
-            var expected = 
-                @"####Call me Ishmael. Some years ago--never mind how long precisely--having
-little or no money in my purse, and nothing particular to interest me on
-shore, I thought I would sail about a little and see the watery part of
-the world. It is a way I have of driving off the spleen and regulating
-the circulation. Whenever I find myself growing grim about the mouth;
-whenever it is a damp, drizzly November in my soul; whenever I find
-myself involuntarily pausing before coffin warehouses, and bringing up
-the rear of every funeral I meet;#### and especially whenever my hypos get
-such an upper hand of me, that it requires a strong moral principle to
-prevent me from deliberately stepping into the street, and methodically
-knocking people's hats off--then, I account it high time to get to sea
-as soon as I can. This is my substitute for pistol and ball. With a
-philosophical flourish Cato throws himself upon his sword; I quietly
-take to the ship. There is nothing surprising in this. If they but knew
-it, almost all men in their degree, some time or other, cherish very
-nearly the same feelings towards the ocean with me.####";
+            var expected = Moby;
 
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
@@ -416,6 +383,9 @@ nearly the same feelings towards the ocean with me.####";
 
             lzPack.Encode(src, encoded);
             encoded.Seek(0, SeekOrigin.Begin);
+
+            // 100066547
+            // 100493623
 
             Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)}");
             lzPack.Decode(encoded, dst);
@@ -432,23 +402,7 @@ nearly the same feelings towards the ocean with me.####";
 
         [Test]
         public void lzmw_round_trip () {
-            var expected = 
-@"Call me Ishmael. Some years ago--never mind how long precisely--having
-little or no money in my purse, and nothing particular to interest me on
-shore, I thought I would sail about a little and see the watery part of
-the world. It is a way I have of driving off the spleen and regulating
-the circulation. Whenever I find myself growing grim about the mouth;
-whenever it is a damp, drizzly November in my soul; whenever I find
-myself involuntarily pausing before coffin warehouses, and bringing up
-the rear of every funeral I meet; and especially whenever my hypos get
-such an upper hand of me, that it requires a strong moral principle to
-prevent me from deliberately stepping into the street, and methodically
-knocking people's hats off--then, I account it high time to get to sea
-as soon as I can. This is my substitute for pistol and ball. With a
-philosophical flourish Cato throws himself upon his sword; I quietly
-take to the ship. There is nothing surprising in this. If they but knew
-it, almost all men in their degree, some time or other, cherish very
-nearly the same feelings towards the ocean with me.";
+            var expected = Moby;
 
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
@@ -492,9 +446,11 @@ nearly the same feelings towards the ocean with me.";
 
                 // Target size = 123.47kb (deflate)
                 // AC alone    = 160.14kb
-                // 256,128,64: (1:45 rel) Scans = 108387474644;  Replacements =  893; size = 139.69kb
-                // 64/63: (3:35)          Scans =  65184192961;  Replacements = 1680; size = 146.81kb
-                // 256: (1:54)            Scans =  40270743703;  Replacements =  239; size = 151.01kb
+                //256,128,..8,4:(4:35 rel)Scans = 175551308299;  Replacements = 12931; size = 136.29kb
+                // 256,128,64: (1:45 rel) Scans = 108387474644;  Replacements =   893; size = 139.69kb
+                // 64/63: (3:35)          Scans =  65184192961;  Replacements =  1680; size = 146.81kb
+                // 256: (1:54)            Scans =  40270743703;  Replacements =   239; size = 151.01kb
+
 
                 // reverse LZSS...
                 msY = new MemoryStream();
