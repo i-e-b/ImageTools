@@ -705,6 +705,8 @@ nearly the same feelings towards the ocean with me.####";
             sw.Restart();
             var matchFound = 0;
             var matchRejected = 0;
+            var skipped = 0;
+            var jumpTable = new int[rank1.Length]; // indexes that are covered by a larger replacement
 
             for (int SearchRank = 8; SearchRank > 2; SearchRank--)
             {
@@ -720,6 +722,11 @@ nearly the same feelings towards the ocean with me.####";
                     var limit = Math.Min(rank_n.Length, i + windowSize + offs);
                     for (int j = i + offs; j < limit; j++)
                     {
+                        if (jumpTable[j] != 0) {
+                            skipped += jumpTable[j] - j;
+                            j = jumpTable[j];
+                            if (j >= limit) break;
+                        }
                         if (rank_n[i] != rank_n[j]) continue; // no potential match
 
                         // do a double check here
@@ -739,8 +746,12 @@ nearly the same feelings towards the ocean with me.####";
                         //ShowStringSample(sampleLen, rank1, i, j);
                         //ShowHexSample(sampleLen, rank1, i, j);
 
-                        // advance past this match
-                        i += offs - 1;
+                        // Write to jump table. The 'replaced' section should not be searched again
+                        for (int skip = 0; skip < offs; skip++)
+                        {
+                            jumpTable[j+skip] = j+offs;
+                        }
+
                         break;
                     }
                     if (sw.Elapsed.TotalSeconds > 5)
@@ -752,7 +763,8 @@ nearly the same feelings towards the ocean with me.####";
                 Console.WriteLine($"End of rank {n}: found {matchFound} matching pairs so far.");
             }
             sw.Stop();
-            Console.WriteLine($"Searching took {sw.Elapsed}; found {matchFound} matching pairs. Rejected {matchRejected} potentials.");
+            Console.WriteLine($"Searching took {sw.Elapsed}; found {matchFound} matching pairs." +
+                              $"Rejected {matchRejected} potentials. Skipped {skipped} bytes of larger scale matches");
         }
 
         private static void ShowStringSample(int sampleLen, byte[] rank1, int i, int j)
