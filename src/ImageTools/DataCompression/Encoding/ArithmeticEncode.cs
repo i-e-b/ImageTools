@@ -150,7 +150,8 @@ namespace ImageTools.DataCompression.Encoding
                 value <<= 1;
                 value += src.ReadBit();
             }
-            while (true) { // data loop
+            //while (true) { // data loop
+            while (src.CanRead()) { // data loop
                 var range = high - low + 1;
                 var scaled_value = ((value - low + 1) * _model.GetCount() - 1) / range;
                 int c = 0;
@@ -179,6 +180,7 @@ namespace ImageTools.DataCompression.Encoding
                     high <<= 1;
                     high++;
                     value <<= 1;
+                    if (!src.CanRead()) break;
                     value += src.ReadBit();
 
                 } // end of symbol decoding loop

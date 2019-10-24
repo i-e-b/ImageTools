@@ -85,7 +85,7 @@ namespace ImageTools.DataCompression
             var model = new WideFlaggedModel();
             var outp = new ArithmeticEncode(model, WideFlaggedModel.SYM_EndStream);
 
-            const int blockSize = 4096;
+            int blockSize = 32767;
             var buffer = new byte[blockSize];
 
             // values for back references. We keep the longest
@@ -96,6 +96,7 @@ namespace ImageTools.DataCompression
             // split into blocks and run (the O(n^2) scaling is a killer)
             for (int blockStart = 0; blockStart < src.Length; blockStart += blockSize)
             {
+                for (int i = 0; i < blockSize; i++) { backRefLen[i] = backRefPos[i] = 0; }
                 var len = src.Read(buffer, 0, blockSize);
 
                 Matcher_HashScan(len, buffer, ref stat_scans, backRefLen, backRefPos, ref stat_replacements);
@@ -160,9 +161,12 @@ namespace ImageTools.DataCompression
         {
             // Minimum match size. Tune so matches are longer that the backref data
             var minSize = 3;
+            var backRefLimit = 32767;
+
+
             var backRefOcc = new int[len]; // marker to detect overlaps
             var hashVals = new uint[len];
-            for (int size = 256; size >= minSize; size--)
+            for (int size = 256; size >= minSize; size /= 2)
             {
                 // Build up the hashVals array for this window size:
                 long power = 1;
@@ -196,13 +200,31 @@ namespace ImageTools.DataCompression
                 // Scan backward from each character, look for matches behind it.
                 for (int fwd = len - 1; fwd >= size; fwd--)
                 {
-                    for (int bkw = fwd - size; bkw >= size; bkw--)
+                    var limit = fwd - backRefLimit;
+                    if (limit < size) limit = size;
+                    for (int bkw = fwd - size; bkw >= limit; bkw--)
                     {
                         stat_scans++;
                         // record the longest, closest matches
                         if (hashVals[fwd] != hashVals[bkw]) continue;
 
                         var dist = (fwd - bkw) - size;
+
+                        if ((bkw - dist) + 1 < 0) continue;
+
+                        // hashes match, now double check that it's real
+                        var real = true;
+                        for (int c = 0; c < size; c++)
+                        {
+                            if (buffer[bkw-c] != buffer[fwd-c]) { // not a real match
+                                real = false;
+                                break;
+                            }
+                        }
+                        if (!real) {
+                            continue;
+                        }
+
 
                         // If the size of the back reference would be more than we save, reject it.
                         // the back reference length can be 1 byte or two, so that affects the rejection size limit.
@@ -291,7 +313,6 @@ namespace ImageTools.DataCompression
 
                 if (cumulative_frequency[CumulativeCount] >= ArithmeticEncode.MAX_FREQ)
                 {
-                    //Console.WriteLine("Ran out of model precision. Will freeze probabilities.");
                     _frozen = true;
                 }
 

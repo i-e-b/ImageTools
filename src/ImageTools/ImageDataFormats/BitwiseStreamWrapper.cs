@@ -168,5 +168,10 @@ namespace ImageTools.ImageDataFormats
         {
             return inRunOut;
         }
+
+        public bool CanRead()
+        {
+            return _runoutBits > 1;
+        }
     }
 }

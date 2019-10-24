@@ -446,15 +446,24 @@ nearly the same feelings towards the ocean with me.####";
                 Console.WriteLine($"LZSS/AC encoded 'Y' size = {Bin.Human(lzY.Length)}");
 
                 // Target size = 123.47kb (deflate)
-                // AC alone    = 160.14kb
+                // AC alone    = 148.77kb (fixed prescan)
+
                 //256,128,..8,4:(4:35 rel)    Scans = 175551308299;  Replacements = 12931; size = 136.29kb
                 // 256,128,64: (1:45 rel)     Scans = 108387474644;  Replacements =   893; size = 139.69kb
                 // 64/63: (3:35)              Scans =  65184192961;  Replacements =  1680; size = 146.81kb
                 // 256: (1:54)                Scans =  40270743703;  Replacements =   239; size = 151.01kb
+                
+                // 256,255 L32k               Scans =  16198448550;  Replacements =   221; size = 152.88kb
+                // 256,128 L32k (0:24)        Scans =   8224517736;  Replacements =   354; size = 151.07kb
 
                 // Block transform:
                 // BLOCK = 512;  Time = 0:21; Scans =   4601994394;  Replacements = 10910; size = 583.88kb
                 // BLOCK = 1024; Time = 0:53; Scans =  17171489936;  Replacements = 10045; size = 604.14kb
+                // Limit 32k: div2 (0:08)     Scans =   2611780919;  Replacements = 11215; size = 459.23kb
+                // Limit 32k: -- (6:14)       Scans = 107226517443;  Replacements =  9333; size = 484.81kb
+
+                // B32, L32, 256-64/2 (0:35)  Scans =  11746908064;  Replacements =   799; size = 146.57kb
+                // B32, L32, 256-4/2 (1:23)   Scans =  21363090799;  Replacements = 11938; size = 145.12kb
 
                 // reverse LZSS...
                 msY = new MemoryStream();
