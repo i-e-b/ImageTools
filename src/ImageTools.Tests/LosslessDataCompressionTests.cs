@@ -445,9 +445,9 @@ nearly the same feelings towards the ocean with me.####";
                 // Target size = 123.47kb (deflate)
                 // AC alone    = 148.77kb (fixed prescan)
 
-                // Pyramid 8..2 (0:01)                               Replacements = 84108; size = 160.19kb
-                // Pyramid 8..3 (0:01)                               Replacements = 35047; size = 160.21kb
-                // Pyramid 8..4 (0:01)                               Replacements = 14062; size = 160.24kb
+                // Pyramid 8..2 (0:01 rel 0:03 dev)                  Replacements = 84108; size = 160.19kb
+                // Pyramid 8..3 (0:01 rel)                           Replacements = 35047; size = 160.21kb
+                // Pyramid 8..4 (0:01 rel)                           Replacements = 14062; size = 160.24kb
 
                 //256,128,..8,4:(4:35 rel)    Scans = 175551308299;  Replacements = 12931; size = 136.29kb
                 // 256,128,64: (1:45 rel)     Scans = 108387474644;  Replacements =   893; size = 139.69kb

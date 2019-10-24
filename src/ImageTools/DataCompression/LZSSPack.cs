@@ -98,18 +98,15 @@ namespace ImageTools.DataCompression
         /// <param name="codes">output code point array</param>
         private void EncoderSearchAlgorithm(Stream src, List<int> codes)
         {
+            var windowSize = 8172;
+
             var rank1 = new byte[src.Length];
             src.Read(rank1, 0, (int)src.Length);
             
-            Console.WriteLine($"Source data is {Bin.Human(rank1.Length)}");
-
-            var sw = new Stopwatch();
-
             var ranks = new List<byte[]>();
             ranks.Add(rank1);
 
             // --- BUILD the pyramid --- (this is the fast bit)
-            sw.Restart();
             var stride = 1;
             long sums = 0;
             for (int R = 2; R <= 256; R *= 2)
@@ -126,15 +123,9 @@ namespace ImageTools.DataCompression
 
                 stride *= 2;
             }
-            sw.Stop();
-            
-            Console.WriteLine("PYRAMID:");
-            Console.WriteLine($"Sums = {sums} for {ranks.Count} ranks took {sw.Elapsed}");
-            Console.WriteLine($"Total working storage = {Bin.Human(ranks.Sum(r => r.Length))}");
-            
+                        
             // --- SEARCH the pyramid --- (this is the slow bit)
             // look in 2^n-wide chunks for potentials:
-            sw.Restart();
             var matchFound = 0;
             var matchRejected = 0;
             var skipped = 0;
@@ -142,14 +133,12 @@ namespace ImageTools.DataCompression
 
             var matches = new List<PackMatch>(); // here we store our found bits
 
-            for (int SearchRank = 8; SearchRank > 3; SearchRank--)
+            for (int SearchRank = 8; SearchRank > 1; SearchRank--)
             {
-                var n = SearchRank; // 1..8
+                var n = SearchRank;
                 var rank_n = ranks[n];
                 var matchLength = (int)Math.Pow(2, n);
-                var windowSize = 8172;
 
-                Console.WriteLine($"Searching rank = {n}; length = {matchLength}; data extent = {rank_n.Length}; lookahead window = {windowSize}");
                 for (int i = 0; i < rank_n.Length; i += matchLength)
                 {
                     var limit = Math.Min(rank_n.Length, i + windowSize + matchLength);
@@ -192,22 +181,10 @@ namespace ImageTools.DataCompression
                         
                         break;
                     }
-                    if (sw.Elapsed.TotalSeconds > 5)
-                    {
-                        Console.WriteLine("Hit test cycle limit");
-                        break; // limit searching
-                    }
                 } // end of seach at selected rank
-                Console.WriteLine($"End of rank {n}: found {matchFound} matching pairs so far.");
             }
-            sw.Stop();
-            Console.WriteLine($"Searching took {sw.Elapsed}; found {matchFound} matching pairs." +
-                              $"Rejected {matchRejected} potentials. Skipped {skipped} bytes of larger scale matches");
-
-            Console.WriteLine($"Confirm: {matches.Count} matches stored");
 
             // --- WRITE the output ---
-            sw.Restart();
             matches.Sort((a,b)=>a.Right.CompareTo(b.Right));
             int matchIndex = (matches.Count > 0) ? 0 : -1;
             for (int i = 0; i < rank1.Length; i++)
@@ -232,8 +209,6 @@ namespace ImageTools.DataCompression
                 }
                 codes.Add(rank1[i]);
             }
-            sw.Stop();
-            Console.WriteLine($"Sort and output took {sw.Elapsed}");
         }
       
         private struct PackMatch
