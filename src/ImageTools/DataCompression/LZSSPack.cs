@@ -161,7 +161,7 @@ namespace ImageTools.DataCompression
         {
             // Minimum match size. Tune so matches are longer that the backref data
             var minSize = 3;
-            var backRefLimit = 32767;
+            var backRefLimit = 4096;
 
 
             var backRefOcc = new int[len]; // marker to detect overlaps
@@ -359,6 +359,12 @@ namespace ImageTools.DataCompression
             {
                 return new byte[0];
             }
+
+            /// <inheritdoc />
+            public void WritePreamble(Stream dest) { }
+
+            /// <inheritdoc />
+            public void ReadPreamble(Stream src) { }
         }
 
 

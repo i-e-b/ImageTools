@@ -277,6 +277,16 @@ namespace ImageTools.DataCompression.Encoding
         /// Any fixed headers that must be supplied with the encoding
         /// </summary>
         byte[] Preamble();
+
+        /// <summary>
+        /// Write preamble to stream
+        /// </summary>
+        void WritePreamble(Stream dest);
+
+        /// <summary>
+        /// Read preamble from stream
+        /// </summary>
+        void ReadPreamble(Stream src);
     }
 }
 

@@ -105,6 +105,11 @@ namespace ImageTools.DataCompression.Encoding
                 return new byte[0];
             }
 
+            /// <inheritdoc />
+            public void WritePreamble(Stream dest) { }
+
+            /// <inheritdoc />
+            public void ReadPreamble(Stream src) { }
         }
 
         public class PushToFrontModel : IProbabilityModel
@@ -201,6 +206,12 @@ namespace ImageTools.DataCompression.Encoding
             {
                 return new byte[0];
             }
+
+            /// <inheritdoc />
+            public void WritePreamble(Stream dest) { }
+
+            /// <inheritdoc />
+            public void ReadPreamble(Stream src) { }
         }
 
         /// <summary>
@@ -284,6 +295,12 @@ namespace ImageTools.DataCompression.Encoding
             {
                 return new byte[0];
             }
+
+            /// <inheritdoc />
+            public void WritePreamble(Stream dest) { }
+
+            /// <inheritdoc />
+            public void ReadPreamble(Stream src) { }
         }
 
         /// <summary>
@@ -351,6 +368,12 @@ namespace ImageTools.DataCompression.Encoding
                 return new byte[0];
             }
 
+            /// <inheritdoc />
+            public void WritePreamble(Stream dest) { }
+
+            /// <inheritdoc />
+            public void ReadPreamble(Stream src) { }
+
             // 8 bits for values, 1 for stop
         }
 
@@ -363,6 +386,8 @@ namespace ImageTools.DataCompression.Encoding
             private readonly byte[] preamble;
             private readonly uint[] cumulative_frequency;
 
+            const int PreambleSize = 256;
+
             /// <summary>
             /// Create a model for known data.
             /// </summary>
@@ -370,7 +395,7 @@ namespace ImageTools.DataCompression.Encoding
             public PrescanModel(Stream targetData)
             {
                 // count values
-                preamble = new byte[256];
+                preamble = new byte[PreambleSize];
                 var countTable = new long[257];
                 long len = 0;
                 int b;
@@ -380,16 +405,20 @@ namespace ImageTools.DataCompression.Encoding
                     len++;
                 }
 
-                // scale them to fit in a frequency table if required
-                if (len > ArithmeticEncode.MAX_FREQ)
+                long max = 0;
+                for (int i = 0; i < countTable.Length; i++)
                 {
-                    Console.WriteLine("Data counts must be scaled");
-                    var scale = len / ArithmeticEncode.MAX_FREQ;
+                    max = Math.Max(max, countTable[i]);
+                }
+
+                // scale them to fit in a frequency table if required
+                if (max > 255)
+                {
+                    var scale = max / 255;
                     for (int i = 0; i < countTable.Length; i++)
                     {
                         if (countTable[i] == 0) continue;
                         countTable[i] = (countTable[i] / scale) | 1;
-                        //if (countTable[i] > 255) countTable[i] = 255; // saturate so we can have a small byte array
                     }
                 }
 
@@ -456,6 +485,18 @@ namespace ImageTools.DataCompression.Encoding
             public byte[] Preamble()
             {
                 return preamble;
+            }
+
+            /// <inheritdoc />
+            public void WritePreamble(Stream dest)
+            {
+                dest.Write(preamble, 0, preamble.Length);
+            }
+
+            /// <inheritdoc />
+            public void ReadPreamble(Stream src)
+            {
+                src.Read(preamble, 0, PreambleSize);
             }
 
             // 8 bits for values, 1 for stop

@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using ImageTools.DataCompression;
 using ImageTools.DataCompression.Encoding;
@@ -233,6 +236,7 @@ namespace ImageTools.Tests
             AC encoded 'Y' size = 231.1kb           (push to front model)
             AC encoded 'Y' size = 187.81kb          (rolling[4250])
             AC encoded 'Y' size = 148.77kb          (fixed prescan model)
+            AC encoded 'Y' size = 157.26kb          (fixed prescan limited to 256)
             Deflate encoded 'Y' size = 123.47kb
 
             
@@ -257,39 +261,28 @@ namespace ImageTools.Tests
                 Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
 
                 msY.Seek(0, SeekOrigin.Begin);
-                //var model = new ProbabilityModels.PrescanModel(msY);
+                IProbabilityModel model = new ProbabilityModels.PrescanModel(msY);
                 //var model = new ProbabilityModels.PushToFrontModel();
                 //var model = new ProbabilityModels.SimpleLearningModel();
-                var model = new ProbabilityModels.RollingLearningModel(4250);
+                //var model = new ProbabilityModels.RollingLearningModel(4250);
 
                 // Try our simple encoding
                 var subject = new ArithmeticEncode(model);
                 msY.Seek(0, SeekOrigin.Begin);
                 sw.Restart();
+                model.WritePreamble(acY);
                 subject.Encode(msY, acY);
                 sw.Stop();
                 Console.WriteLine($"Arithmetic coding took {sw.Elapsed}");
 
                 Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length + model.Preamble().Length)}");// add 256 if using pre-scan
 
-                // Compare to deflate
-                /*msY.Seek(0, SeekOrigin.Begin);
-                
-                using (var tmp = new MemoryStream())
-                {   // byte-by-byte writing to DeflateStream is *very* slow, so we buffer
-                    using (var gs = new DeflateStream(tmp, CompressionLevel.Optimal, true))
-                    {
-                        msY.WriteTo(gs);
-                        gs.Flush();
-                    }
-                    Console.WriteLine($"Deflate encoded 'Y' size = {Bin.Human(tmp.Length)}");
-                }*/
-
 
                 // Now decode:
                 subject.Reset();
                 acY.Seek(0, SeekOrigin.Begin);
                 sw.Restart();
+                model.ReadPreamble(acY);
                 subject.Decode(acY, finalY);
                 sw.Stop();
                 Console.WriteLine($"Arithmetic decoding took {sw.Elapsed}");
@@ -306,7 +299,7 @@ namespace ImageTools.Tests
             }
         }
 
-        const string Moby = @"####Call me Ishmael. Some years ago--never mind how long precisely--having
+        public const string Moby = @"####Call me Ishmael. Some years ago--never mind how long precisely--having
 little or no money in my purse, and nothing particular to interest me on
 shore, I thought I would sail about a little and see the watery part of
 the world. It is a way I have of driving off the spleen and regulating
@@ -464,6 +457,7 @@ nearly the same feelings towards the ocean with me.####";
 
                 // B32, L32, 256-64/2 (0:35)  Scans =  11746908064;  Replacements =   799; size = 146.57kb
                 // B32, L32, 256-4/2 (1:23)   Scans =  21363090799;  Replacements = 11938; size = 145.12kb
+                // B32, L4, 256-4/2 (0:15)    Scans =   5161354977;  Replacements = 11532; size = 145.37kb
 
                 // reverse LZSS...
                 msY = new MemoryStream();
@@ -477,6 +471,59 @@ nearly the same feelings towards the ocean with me.####";
                 var resultBmp = WaveletCompress.RestoreImage2D_FromStreams(bmp.Width, bmp.Height, msY, msU, msV, CDF.Iwt97);
                 resultBmp.SaveBmp("./outputs/LZSS_3.bmp");
 
+            }
+        }
+
+        
+        [Test, Explicit("This is currently impractically slow, and faulty")]
+        public void compress_wavelet_image_with_LZW_and_AC () {
+            // playing with simple dictionary coding
+
+            var msY = new MemoryStream();
+            var msU = new MemoryStream();
+            var msV = new MemoryStream();
+
+            var lzY = new MemoryStream();
+            var acY = new MemoryStream();
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                
+                WaveletCompress.ReduceImage2D_ToStreams(bmp, CDF.Fwt97, msY, msU, msV);
+
+                Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
+
+                var lzPack = new LZWPack();
+                msY.Seek(0, SeekOrigin.Begin);
+                lzPack.Encode(msY, lzY);
+
+                lzY.Seek(0, SeekOrigin.Begin);
+                var model = new ProbabilityModels.PrescanModel(lzY);
+                var arithmeticEncode = new ArithmeticEncode(model);
+                lzY.Seek(0, SeekOrigin.Begin);
+                model.WritePreamble(acY);
+                arithmeticEncode.Encode(lzY, acY);
+
+                Console.WriteLine($"LZ encoded 'Y' size = {Bin.Human(lzY.Length)}");
+                Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length)}");
+
+                // Now decode:
+                acY.Seek(0, SeekOrigin.Begin);
+                arithmeticEncode.Reset();
+                model.ReadPreamble(acY);
+                lzY = new MemoryStream();
+                arithmeticEncode.Decode(acY, lzY);
+
+                // reverse LZMW...
+                msY = new MemoryStream();
+                lzY.Seek(0, SeekOrigin.Begin);
+                lzPack.Decode(lzY, msY);
+
+                msY.Seek(0, SeekOrigin.Begin);
+                msU.Seek(0, SeekOrigin.Begin);
+                msV.Seek(0, SeekOrigin.Begin);
+
+                var resultBmp = WaveletCompress.RestoreImage2D_FromStreams(bmp.Width, bmp.Height, msY, msU, msV, CDF.Iwt97);
+                resultBmp.SaveBmp("./outputs/LZW_AC_3.bmp");
             }
         }
 
@@ -501,6 +548,7 @@ nearly the same feelings towards the ocean with me.####";
 // limit: 25 -> 172.28kb; 152.11kb
 // limit: 34 -> 171.17kb; 152kb
 // limit: 50 -> 170.99kb; 152.59kb
+//                        151.21kb  <-- prescan
 // limit: 55 -> 171.3kb;  152.82kb
 // limit: 75 -> 173.1kb;  154.25kb
 // limit:100 -> 179.12kb; 157.03kb
@@ -515,17 +563,19 @@ nearly the same feelings towards the ocean with me.####";
                 //msY.CopyTo(lzY);
 
                 lzY.Seek(0, SeekOrigin.Begin);
-                var model = new ProbabilityModels.SimpleLearningModel();
+                var model = new ProbabilityModels.PrescanModel(lzY);
                 var arithmeticEncode = new ArithmeticEncode(model);
                 lzY.Seek(0, SeekOrigin.Begin);
+                model.WritePreamble(acY);
                 arithmeticEncode.Encode(lzY, acY);
 
                 Console.WriteLine($"LZ encoded 'Y' size = {Bin.Human(lzY.Length)}");
-                Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length+model.Preamble().Length)}");
+                Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length)}");
 
                 // Now decode:
-                arithmeticEncode.Reset();
                 acY.Seek(0, SeekOrigin.Begin);
+                arithmeticEncode.Reset();
+                model.ReadPreamble(acY);
                 lzY = new MemoryStream();
                 arithmeticEncode.Decode(acY, lzY);
 
@@ -596,4 +646,116 @@ nearly the same feelings towards the ocean with me.####";
         }
     }
 
+
+    [TestFixture]
+    public class FoldingHashTests {
+
+        [Test]
+        public void hash_pyramid () {
+            // MULTI-SCALE HASHING by folding, for searching and to reduce computation (at a cost of fewer matches)
+            var rank1 = GetImageBytes();
+            //var rank1 = Encoding.UTF8.GetBytes(LosslessDataCompressionTests.Moby);
+            //var rank1 = new byte[]{ 1,2,3,4,5,6,7,8,9,10,11,12,13 };
+
+            var rank2  = new byte[rank1.Length - 1];
+            var rank4  = new byte[rank2.Length - 2];
+            var rank8  = new byte[rank4.Length - 4];
+            var rank16 = new byte[rank8.Length - 8];
+
+            var stride = 1;
+            long sums = 0;
+
+            for (int i = 0; i < rank1.Length - stride; i++)
+            {
+                sums++;
+                rank2[i] = (byte)(rank1[i] + rank1[i+stride]);
+            }
+            
+            stride *= 2;
+            for (int i = 0; i < rank2.Length - stride; i++)
+            {
+                sums++;
+                rank4[i] = (byte)(rank2[i] + rank2[i+stride]);
+            }
+            
+            stride *= 2;
+            for (int i = 0; i < rank4.Length - stride; i++)
+            {
+                sums++;
+                rank8[i] = (byte)(rank4[i] + rank4[i+stride]);
+            }
+
+            stride *= 2;
+            for (int i = 0; i < rank8.Length - stride; i++)
+            {
+                sums++;
+                rank16[i] = (byte)(rank8[i] + rank8[i+stride]);
+            }
+
+            Console.WriteLine("PYRAMID:");
+            Console.WriteLine($"Sums = {sums}");
+            /*Console.WriteLine("Rank 1 =\r\n"+string.Join(" ", rank1));
+            Console.WriteLine("Rank 2 =\r\n"+string.Join(" ", rank2));
+            Console.WriteLine("Rank 4 =\r\n"+string.Join(" ", rank4));
+            Console.WriteLine("Rank 8 =\r\n"+string.Join(" ", rank8));*/
+            Console.WriteLine($"Total storage = {rank1.Length+rank2.Length+rank4.Length+rank8.Length}");
+
+            // Now do the same naiively:
+
+            sums = 0;
+            var rank2N  = new byte[rank2.Length];
+            var rank4N  = new byte[rank4.Length];
+            var rank8N  = new byte[rank8.Length];
+            var rank16N = new byte[rank16.Length];
+
+            for (int i = 0; i < rank2N.Length; i++)
+            {
+                sums++;
+                rank2N[i] = (byte)(rank1[i] + rank1[i+1]);
+            }
+            
+            for (int i = 0; i < rank4N.Length; i++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    sums++;
+                    rank4N[i] += rank1[i+j];
+                }
+            }
+            for (int i = 0; i < rank8N.Length; i++)
+            {
+                for (int j = 0; j < 8; j++)
+                {
+                    sums++;
+                    rank8N[i] += rank1[i+j];
+                }
+            }
+            for (int i = 0; i < rank16N.Length; i++)
+            {
+                for (int j = 0; j < 16; j++)
+                {
+                    sums++;
+                    rank16N[i] += rank1[i+j];
+                }
+            }
+
+            Console.WriteLine("\r\nLINEAR:");
+            Console.WriteLine($"Sums = {sums}");
+            /*Console.WriteLine("Rank 1 =\r\n"+string.Join(" ", rank1));
+            Console.WriteLine("Rank 2 =\r\n"+string.Join(" ", rank2));
+            Console.WriteLine("Rank 4 =\r\n"+string.Join(" ", rank4));
+            Console.WriteLine("Rank 8 =\r\n"+string.Join(" ", rank8));*/
+        }
+
+        private byte[] GetImageBytes()
+        {
+            using (var bmp = Load.FromFile("./inputs/3.png")) {
+                var ri = new Rectangle(Point.Empty, bmp.Size);
+                var srcData = bmp.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                var dest = new byte[srcData.Stride * srcData.Height];
+                Marshal.Copy(srcData.Scan0, dest, 0, dest.Length);
+                return dest;
+            }
+        }
+    }
 }

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -22,8 +21,10 @@ namespace ImageTools.DataCompression
             while (true)
             {
                 var value = DataEncoding.FibonacciDecodeOne(inp); // LZW is *all* backreferences
+
                 string prevKey = GetKeyByIndex(dict, prevValue) ?? "";
                 string key = GetKeyByIndex(dict, value) ?? prevKey;
+                if (prevKey.Length == 0) prevKey = key;
 
                 if (inp.IsEmpty()) break;
 
@@ -77,15 +78,13 @@ namespace ImageTools.DataCompression
                 {
                     string matchKey = key.Substring(0, w.Length - 1);
                     DataEncoding.FibonacciEncodeOne(dict[matchKey], outp); // OUTPUT
-                    //Console.WriteLine($"Back ref  {dict[matchKey]:X4} at {i} for {matchKey}");
 
                     dict.Add(key, (uint)dict.Count);
-                    i--; // sticking point for streaming
+                    i--; // sticking point for streaming. TODO: peek, and pop if match?
                 }
                 else
                 {
                     DataEncoding.FibonacciEncodeOne(dict[key], outp); // OUTPUT
-                    //Console.WriteLine($"Entry ref {dict[key]:X4} at {i} for {key}");
                 }
             }
             outp.Flush();
