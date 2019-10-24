@@ -12,7 +12,6 @@ using ImageTools.DataCompression.Encoding;
 using ImageTools.Utilities;
 using ImageTools.WaveletTransforms;
 using NUnit.Framework;
-using NUnit.Framework.Constraints;
 
 namespace ImageTools.Tests
 {
@@ -656,16 +655,20 @@ nearly the same feelings towards the ocean with me.####";
         [Test]
         public void hash_pyramid () {
             // MULTI-SCALE HASHING by folding, for searching and to reduce computation (at a cost of fewer matches)
-            //var rank1 = GetImageBytes();
-            var rank1 = Encoding.UTF8.GetBytes(LosslessDataCompressionTests.Moby);
+            //var rank1 = GetRawImageBytes();
+            var rank1 = GetEncodedImageBytes();
+            //var rank1 = Encoding.UTF8.GetBytes(LosslessDataCompressionTests.Moby);
             //var rank1 = new byte[]{ 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32 };
             //var rank1 = Enumerable.Range(1,64).Select(v=>(byte)v).ToArray();
+
+            Console.WriteLine($"Source data is {Bin.Human(rank1.Length)}");
 
             var sw = new Stopwatch();
 
             var ranks = new List<byte[]>();
             ranks.Add(rank1);
 
+            // --- BUILD the pyramid ---
             sw.Restart();
             var stride = 1;
             long sums = 0;
@@ -696,104 +699,63 @@ nearly the same feelings towards the ocean with me.####";
             Console.WriteLine("Rank 32 =\r\n"+string.Join(" ", ranks[5]));*/
             Console.WriteLine($"Total storage = {ranks.Sum(r => r.Length)}");
 
-            // look in 256-wide chunks for potentials:
+
+            // --- SEARCH the pyramid ---
+            // look in 2^n-wide chunks for potentials:
             sw.Restart();
-            var n = 2;
-            var rank_n = ranks[n];
-            var offs = (int)Math.Pow(2, n);
-            var sampleLen = Math.Min(offs, 10);
-            Console.WriteLine($"SEARCHING RANK = {n}; LENGTH = {offs}");
-            for (int i = 0; i < rank_n.Length; i++)
+            var matchFound = 0;
+            var matchRejected = 0;
+
+            for (int SearchRank = 8; SearchRank > 2; SearchRank--)
             {
-                for (int j = i + offs; j < rank_n.Length; j++)
+                var n = SearchRank; // 1..8
+                var rank_n = ranks[n];
+                var offs = (int)Math.Pow(2, n);
+                var windowSize = 8172;
+
+                var sampleLen = Math.Min(offs, 10);
+                Console.WriteLine($"Searching rank = {n}; length = {offs}; data extent = {rank_n.Length}; lookahead window = {windowSize}");
+                for (int i = 0; i < rank_n.Length; i += offs)
                 {
-                    if (rank_n[i] == rank_n[j])
+                    var limit = Math.Min(rank_n.Length, i + windowSize + offs);
+                    for (int j = i + offs; j < limit; j++)
                     {
+                        if (rank_n[i] != rank_n[j]) continue; // no potential match
+
                         // do a double check here
                         var realMatch = true;
                         for (int k = 0; k < offs; k++)
                         {
-                            if (rank1[i + k] != rank1[j + k])
-                            {
-                                realMatch = false;
-                                break;
-                            }
+                            if (rank1[i + k] == rank1[j + k]) continue;
+
+                            realMatch = false;
+                            matchRejected++;
+                            break;
                         }
                         if (!realMatch) continue;
 
+                        matchFound++;
                         // build a sample of each:
-                        ShowSample(sampleLen, rank1, i, j);
+                        //ShowStringSample(sampleLen, rank1, i, j);
+                        //ShowHexSample(sampleLen, rank1, i, j);
+
+                        // advance past this match
+                        i += offs - 1;
                         break;
                     }
-                }
-                
+                    if (sw.Elapsed.TotalSeconds > 5)
+                    {
+                        Console.WriteLine("Hit test cycle limit");
+                        break; // limit searching
+                    }
+                } // end of seach at selected rank
+                Console.WriteLine($"End of rank {n}: found {matchFound} matching pairs so far.");
             }
             sw.Stop();
-            Console.WriteLine($"Searching took {sw.Elapsed}");
-
-            /*
-            
-            // Now do the same naiively:
-
-            sw.Restart();
-            sums = 0;
-            var rank2N  = new byte[rank1.Length - 1];
-            var rank4N  = new byte[rank2N.Length - 2];
-            var rank8N  = new byte[rank4N.Length - 4];
-            var rank16N = new byte[rank8N.Length - 8];
-            var rank32N = new byte[rank16N.Length - 16];
-
-            for (int i = 0; i < rank2N.Length; i++)
-            {
-                sums++;
-                rank2N[i] = (byte)(rank1[i] + rank1[i+1]);
-            }
-            
-            for (int i = 0; i < rank4N.Length; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    sums++;
-                    rank4N[i] += rank1[i+j];
-                }
-            }
-            for (int i = 0; i < rank8N.Length; i++)
-            {
-                for (int j = 0; j < 8; j++)
-                {
-                    sums++;
-                    rank8N[i] += rank1[i+j];
-                }
-            }
-            for (int i = 0; i < rank16N.Length; i++)
-            {
-                for (int j = 0; j < 16; j++)
-                {
-                    sums++;
-                    rank16N[i] += rank1[i+j];
-                }
-            }
-            for (int i = 0; i < rank32N.Length; i++)
-            {
-                for (int j = 0; j < 32; j++)
-                {
-                    sums++;
-                    rank32N[i] += rank1[i+j];
-                }
-            }
-            sw.Stop();
-
-            Console.WriteLine("\r\nLINEAR:");
-            Console.WriteLine($"Sums = {sums} for 6 ranks took {sw.Elapsed}");
-            Console.WriteLine("Rank 1  =\r\n"+string.Join(" ", rank1));
-            Console.WriteLine("Rank 2  =\r\n"+string.Join(" ", rank2N));
-            Console.WriteLine("Rank 4  =\r\n"+string.Join(" ", rank4N));
-            Console.WriteLine("Rank 8  =\r\n"+string.Join(" ", rank8N));
-            Console.WriteLine("Rank 16 =\r\n"+string.Join(" ", rank16N));
-            Console.WriteLine("Rank 32 =\r\n"+string.Join(" ", rank32N));*/
+            Console.WriteLine($"Searching took {sw.Elapsed}; found {matchFound} matching pairs. Rejected {matchRejected} potentials.");
         }
 
-        private static void ShowSample(int sampleLen, byte[] rank1, int i, int j)
+        private static void ShowStringSample(int sampleLen, byte[] rank1, int i, int j)
         {
             var A = "";
             var B = "";
@@ -811,8 +773,35 @@ nearly the same feelings towards the ocean with me.####";
 
             Console.WriteLine($"Found ({i},{j}) => {A}; {B}");
         }
+        private static void ShowHexSample(int sampleLen, byte[] rank1, int i, int j)
+        {
+            var A = "";
+            var B = "";
+            for (int k = 0; k < sampleLen; k++)
+            {
+                A += rank1[i + k].ToString("X2");
+                B += rank1[j + k].ToString("X2");
+            }
 
-        private byte[] GetImageBytes()
+            Console.WriteLine($"Found ({i},{j}) => {A}; {B}");
+        }
+
+        
+        private byte[] GetEncodedImageBytes()
+        {
+            var msY = new MemoryStream();
+            var msU = new MemoryStream();
+            var msV = new MemoryStream();
+
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                WaveletCompress.ReduceImage2D_ToStreams(bmp, CDF.Fwt97, msY, msU, msV);
+                msY.Seek(0, SeekOrigin.Begin);
+                return msY.ToArray();
+            }
+        }
+
+        private byte[] GetRawImageBytes()
         {
             using (var bmp = Load.FromFile("./inputs/3.png")) {
                 var ri = new Rectangle(Point.Empty, bmp.Size);
