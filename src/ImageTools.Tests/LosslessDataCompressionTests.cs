@@ -231,6 +231,7 @@ namespace ImageTools.Tests
             Raw 'Y' size = 319kb
             AC encoded 'Y' size = 160.14kb			(simple learning model)
             AC encoded 'Y' size = 231.1kb           (push to front model)
+            AC encoded 'Y' size = 187.81kb          (rolling[4250])
             AC encoded 'Y' size = 148.77kb          (fixed prescan model)
             Deflate encoded 'Y' size = 123.47kb
 
@@ -258,7 +259,8 @@ namespace ImageTools.Tests
                 msY.Seek(0, SeekOrigin.Begin);
                 //var model = new ProbabilityModels.PrescanModel(msY);
                 //var model = new ProbabilityModels.PushToFrontModel();
-                var model = new ProbabilityModels.SimpleLearningModel();
+                //var model = new ProbabilityModels.SimpleLearningModel();
+                var model = new ProbabilityModels.RollingLearningModel(4250);
 
                 // Try our simple encoding
                 var subject = new ArithmeticEncode(model);
@@ -329,7 +331,7 @@ nearly the same feelings towards the ocean with me.####";
             var dst = new MemoryStream();
             var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
 
-            var model = new ProbabilityModels.SimpleLearningModel();
+            var model = new ProbabilityModels.RollingLearningModel(1000);
             var subject = new ArithmeticEncode(model);
             subject.Encode(src, encoded);
             encoded.Seek(0, SeekOrigin.Begin);
@@ -344,7 +346,6 @@ nearly the same feelings towards the ocean with me.####";
             Console.WriteLine("\r\n--------RESULT----------");
             Console.WriteLine(result);
 
-            // failing at size limit. Are we deleting the dictionary entries out of order?
             Assert.That(result, Is.EqualTo(expected));
         }
 
@@ -446,11 +447,14 @@ nearly the same feelings towards the ocean with me.####";
 
                 // Target size = 123.47kb (deflate)
                 // AC alone    = 160.14kb
-                //256,128,..8,4:(4:35 rel)Scans = 175551308299;  Replacements = 12931; size = 136.29kb
-                // 256,128,64: (1:45 rel) Scans = 108387474644;  Replacements =   893; size = 139.69kb
-                // 64/63: (3:35)          Scans =  65184192961;  Replacements =  1680; size = 146.81kb
-                // 256: (1:54)            Scans =  40270743703;  Replacements =   239; size = 151.01kb
+                //256,128,..8,4:(4:35 rel)    Scans = 175551308299;  Replacements = 12931; size = 136.29kb
+                // 256,128,64: (1:45 rel)     Scans = 108387474644;  Replacements =   893; size = 139.69kb
+                // 64/63: (3:35)              Scans =  65184192961;  Replacements =  1680; size = 146.81kb
+                // 256: (1:54)                Scans =  40270743703;  Replacements =   239; size = 151.01kb
 
+                // Block transform:
+                // BLOCK = 512;  Time = 0:21; Scans =   4601994394;  Replacements = 10910; size = 583.88kb
+                // BLOCK = 1024; Time = 0:53; Scans =  17171489936;  Replacements = 10045; size = 604.14kb
 
                 // reverse LZSS...
                 msY = new MemoryStream();

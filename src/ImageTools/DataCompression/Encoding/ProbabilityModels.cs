@@ -59,7 +59,7 @@ namespace ImageTools.DataCompression.Encoding
 
                 for (int i = 1; i < 257; i++)
                 {
-                    cumulative_frequency[i] = cumulative_frequency[i] + symProb[i];
+                    cumulative_frequency[i] = cumulative_frequency[i-1] + symProb[i];
                 }
                 cumulative_frequency[257] = cumulative_frequency[256] + 1;
             }

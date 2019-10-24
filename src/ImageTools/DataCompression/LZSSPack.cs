@@ -81,25 +81,38 @@ namespace ImageTools.DataCompression
             long stat_replacements = 0;
             long stat_scans = 0;
 
-            // get a static buffer. TODO: make this a proper streaming impl
-            var ms = new MemoryStream();
-            src.CopyTo(ms);
-            var buffer = ms.ToArray();
+            var codes = new List<int>();
+            var model = new WideFlaggedModel();
+            var outp = new ArithmeticEncode(model, WideFlaggedModel.SYM_EndStream);
 
-            // EXP 1: rolling hash @ size = 4 (catch "and ","the " etc)
-            var len = (int)src.Length;
+            const int blockSize = 4096;
+            var buffer = new byte[blockSize];
 
             // values for back references. We keep the longest
             // These are the core of the output phase. We need to optimise the input phase.
-            var backRefLen = new int[len]; // lengths of back references
-            var backRefPos = new int[len]; // distance between backref and source
+            var backRefLen = new int[blockSize]; // lengths of back references
+            var backRefPos = new int[blockSize]; // distance between backref and source
 
-            // TODO: optimise this so we do less loops
-            Matcher_HashScan(len, buffer, ref stat_scans, backRefLen, backRefPos, ref stat_replacements);
+            // split into blocks and run (the O(n^2) scaling is a killer)
+            for (int blockStart = 0; blockStart < src.Length; blockStart += blockSize)
+            {
+                var len = src.Read(buffer, 0, blockSize);
+
+                Matcher_HashScan(len, buffer, ref stat_scans, backRefLen, backRefPos, ref stat_replacements);
+                AppendBackrefCodes(len, ref stat_scans, backRefLen, backRefPos, codes, buffer);
+            }
 
 
-            // Now, mark any characters covered by a backreference, so we know not to output
-            
+            codes.Add(WideFlaggedModel.SYM_EndStream);
+
+            Console.WriteLine($"Statistics: Scans = {stat_scans};  Replacements = {stat_replacements}");
+            outp.Encode(codes, dst);
+        }
+
+        private static void AppendBackrefCodes(int len, ref long stat_scans, int[] backRefLen, int[] backRefPos, List<int> codes, byte[] buffer)
+        {
+// Now, mark any characters covered by a backreference, so we know not to output
+
             var useFlag = new bool[len];
             var rem = 0;
             for (int i = len - 1; i >= 0; i--)
@@ -110,41 +123,37 @@ namespace ImageTools.DataCompression
                 rem--;
             }
 
-
             // Now the backRef* arrays show have all the back ref length and distance values
 
             // Write to output
-            //Console.WriteLine("\r\n----------- Encoding: ---------------");
-            var model = new WideFlaggedModel();
-            var outp = new ArithmeticEncode(model, WideFlaggedModel.SYM_EndStream);
-            var codes = new List<int>();
             for (int i = 0; i < len; i++)
             {
                 stat_scans++;
 
-                if (backRefLen[i] > 0) {
-                    if (backRefPos[i] > 255) {
+                if (backRefLen[i] > 0)
+                {
+                    if (backRefPos[i] > 255)
+                    {
                         //Console.Write($"(L{backRefPos[i]},{backRefLen[i]})"); 
                         codes.Add(WideFlaggedModel.SYM_LongBackref);
                         codes.Add((backRefPos[i] & 0xff00) >> 8);
                         codes.Add(backRefPos[i] & 0xff);
                         codes.Add(backRefLen[i]);
-                    } else {
+                    }
+                    else
+                    {
                         //Console.Write($"(S{backRefPos[i]},{backRefLen[i]})"); 
                         codes.Add(WideFlaggedModel.SYM_ShortBackref);
                         codes.Add(backRefPos[i] & 0xff);
                         codes.Add(backRefLen[i]);
                     }
                 }
-                else if (useFlag[i]) {
+                else if (useFlag[i])
+                {
                     //Console.Write((char)buffer[i]);
                     codes.Add(buffer[i]);
                 }
             }
-            codes.Add(WideFlaggedModel.SYM_EndStream);
-
-            Console.WriteLine($"Statistics: Scans = {stat_scans};  Replacements = {stat_replacements}");
-            outp.Encode(codes, dst);
         }
 
         private static void Matcher_HashScan(int len, byte[] buffer, ref long stat_scans, int[] backRefLen, int[] backRefPos, ref long stat_replacements)
@@ -154,8 +163,6 @@ namespace ImageTools.DataCompression
             var backRefOcc = new int[len]; // marker to detect overlaps
             var hashVals = new uint[len];
             for (int size = 256; size >= minSize; size--)
-                //for (int size = minSize; size < 256; size++)
-                //for (int size = minSize; size < 4; size++)
             {
                 // Build up the hashVals array for this window size:
                 long power = 1;
