@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using ImageTools.DataCompression.Encoding;
+using ImageTools.Utilities;
 
 namespace ImageTools.DataCompression
 {
@@ -11,8 +14,6 @@ namespace ImageTools.DataCompression
     /// </summary>
     /// <remarks>This currently makes no attempt to optimise performance</remarks>
     public class LZSSPack {
-
-
         public void Decode(Stream src, Stream dst)
         {
             var model = new WideFlaggedModel();
@@ -77,195 +78,170 @@ namespace ImageTools.DataCompression
 
         public void Encode(Stream src, Stream dst)
         {
-
-            long stat_replacements = 0;
-            long stat_scans = 0;
-
             var codes = new List<int>();
             var model = new WideFlaggedModel();
             var outp = new ArithmeticEncode(model, WideFlaggedModel.SYM_EndStream);
 
-            int blockSize = 32767;
-            var buffer = new byte[blockSize];
 
-            // values for back references. We keep the longest
-            // These are the core of the output phase. We need to optimise the input phase.
-            var backRefLen = new int[blockSize]; // lengths of back references
-            var backRefPos = new int[blockSize]; // distance between backref and source
-
-            // split into blocks and run (the O(n^2) scaling is a killer)
-            for (int blockStart = 0; blockStart < src.Length; blockStart += blockSize)
-            {
-                for (int i = 0; i < blockSize; i++) { backRefLen[i] = backRefPos[i] = 0; }
-                var len = src.Read(buffer, 0, blockSize);
-
-                Matcher_HashScan(len, buffer, ref stat_scans, backRefLen, backRefPos, ref stat_replacements);
-                AppendBackrefCodes(len, ref stat_scans, backRefLen, backRefPos, codes, buffer);
-            }
+            EncoderSearchAlgorithm(src, codes);
 
 
             codes.Add(WideFlaggedModel.SYM_EndStream);
-
-            Console.WriteLine($"Statistics: Scans = {stat_scans};  Replacements = {stat_replacements}");
             outp.Encode(codes, dst);
         }
 
-        private static void AppendBackrefCodes(int len, ref long stat_scans, int[] backRefLen, int[] backRefPos, List<int> codes, byte[] buffer)
+        /// <summary>
+        /// Pyramid hash search.
+        /// Currently uses plain byte addition, so gets lots of false positives
+        /// </summary>
+        /// <param name="src">Source data</param>
+        /// <param name="codes">output code point array</param>
+        private void EncoderSearchAlgorithm(Stream src, List<int> codes)
         {
-// Now, mark any characters covered by a backreference, so we know not to output
+            var rank1 = new byte[src.Length];
+            src.Read(rank1, 0, (int)src.Length);
+            
+            Console.WriteLine($"Source data is {Bin.Human(rank1.Length)}");
 
-            var useFlag = new bool[len];
-            var rem = 0;
-            for (int i = len - 1; i >= 0; i--)
+            var sw = new Stopwatch();
+
+            var ranks = new List<byte[]>();
+            ranks.Add(rank1);
+
+            // --- BUILD the pyramid --- (this is the fast bit)
+            sw.Restart();
+            var stride = 1;
+            long sums = 0;
+            for (int R = 2; R <= 256; R *= 2)
             {
-                stat_scans++;
-                if (backRefLen[i] > rem) rem = backRefLen[i];
-                useFlag[i] = (rem <= 0); // use the hash values to store the output flag
-                rem--;
-            }
+                var prev = ranks[ranks.Count-1];
+                var next = new byte[prev.Length - stride];
+                ranks.Add(next);
 
-            // Now the backRef* arrays show have all the back ref length and distance values
-
-            // Write to output
-            for (int i = 0; i < len; i++)
-            {
-                stat_scans++;
-
-                if (backRefLen[i] > 0)
+                for (int i = 0; i < prev.Length - stride; i++)
                 {
-                    if (backRefPos[i] > 255)
+                    sums++;
+                    next[i] = (byte)(prev[i] + prev[i+stride]);
+                }
+
+                stride *= 2;
+            }
+            sw.Stop();
+            
+            Console.WriteLine("PYRAMID:");
+            Console.WriteLine($"Sums = {sums} for {ranks.Count} ranks took {sw.Elapsed}");
+            Console.WriteLine($"Total working storage = {Bin.Human(ranks.Sum(r => r.Length))}");
+            
+            // --- SEARCH the pyramid --- (this is the slow bit)
+            // look in 2^n-wide chunks for potentials:
+            sw.Restart();
+            var matchFound = 0;
+            var matchRejected = 0;
+            var skipped = 0;
+            var jumpTable = new int[rank1.Length]; // indexes that are covered by a larger replacement
+
+            var matches = new List<PackMatch>(); // here we store our found bits
+
+            for (int SearchRank = 8; SearchRank > 3; SearchRank--)
+            {
+                var n = SearchRank; // 1..8
+                var rank_n = ranks[n];
+                var matchLength = (int)Math.Pow(2, n);
+                var windowSize = 8172;
+
+                Console.WriteLine($"Searching rank = {n}; length = {matchLength}; data extent = {rank_n.Length}; lookahead window = {windowSize}");
+                for (int i = 0; i < rank_n.Length; i += matchLength)
+                {
+                    var limit = Math.Min(rank_n.Length, i + windowSize + matchLength);
+                    for (int j = i + matchLength; j < limit; j++)
                     {
-                        //Console.Write($"(L{backRefPos[i]},{backRefLen[i]})"); 
+                        if (jumpTable[j] != 0) {
+                            skipped += jumpTable[j] - j;
+                            j = jumpTable[j];
+                            if (j >= limit) break;
+                        }
+                        if (rank_n[i] != rank_n[j]) continue; // no potential match
+
+                        // do a double check here
+                        var realMatch = true;
+                        for (int k = 0; k < matchLength; k++)
+                        {
+                            if (rank1[i + k] == rank1[j + k]) continue;
+
+                            realMatch = false;
+                            matchRejected++;
+                            break;
+                        }
+                        if (!realMatch) continue;
+
+                        matchFound++;
+
+                        // Write to jump table. The 'replaced' section should not be searched again
+                        for (int skip = 0; skip < matchLength; skip++)
+                        {
+                            jumpTable[j+skip] = j+matchLength;
+                        }
+                        
+                        var left = i + matchLength; // right edge of left side
+                        var right = j; // left edge of right side
+                        matches.Add(new PackMatch{
+                            Distance = right - left,
+                            Right = right,
+                            Length = matchLength
+                        });
+                        
+                        break;
+                    }
+                    if (sw.Elapsed.TotalSeconds > 5)
+                    {
+                        Console.WriteLine("Hit test cycle limit");
+                        break; // limit searching
+                    }
+                } // end of seach at selected rank
+                Console.WriteLine($"End of rank {n}: found {matchFound} matching pairs so far.");
+            }
+            sw.Stop();
+            Console.WriteLine($"Searching took {sw.Elapsed}; found {matchFound} matching pairs." +
+                              $"Rejected {matchRejected} potentials. Skipped {skipped} bytes of larger scale matches");
+
+            Console.WriteLine($"Confirm: {matches.Count} matches stored");
+
+            // --- WRITE the output ---
+            sw.Restart();
+            matches.Sort((a,b)=>a.Right.CompareTo(b.Right));
+            int matchIndex = (matches.Count > 0) ? 0 : -1;
+            for (int i = 0; i < rank1.Length; i++)
+            {
+                if (matchIndex >= 0 && i == matches[matchIndex].Right) {
+                    // insert a backreference and skip
+                    var m = matches[matchIndex];
+                    if (m.Distance > 255) {
                         codes.Add(WideFlaggedModel.SYM_LongBackref);
-                        codes.Add((backRefPos[i] & 0xff00) >> 8);
-                        codes.Add(backRefPos[i] & 0xff);
-                        codes.Add(backRefLen[i]);
-                    }
-                    else
-                    {
-                        //Console.Write($"(S{backRefPos[i]},{backRefLen[i]})"); 
+                        codes.Add((m.Distance & 0xff00) >> 8);
+                        codes.Add(m.Distance & 0xff);
+                        codes.Add(m.Length);
+                    } else { 
                         codes.Add(WideFlaggedModel.SYM_ShortBackref);
-                        codes.Add(backRefPos[i] & 0xff);
-                        codes.Add(backRefLen[i]);
+                        codes.Add(m.Distance & 0xff);
+                        codes.Add(m.Length);
                     }
+                    i += m.Length - 1;
+                    matchIndex++;
+                    if (matchIndex >= matches.Count) matchIndex = -1;
+                    continue;
                 }
-                else if (useFlag[i])
-                {
-                    //Console.Write((char)buffer[i]);
-                    codes.Add(buffer[i]);
-                }
+                codes.Add(rank1[i]);
             }
+            sw.Stop();
+            Console.WriteLine($"Sort and output took {sw.Elapsed}");
         }
-
-        private static void Matcher_HashScan(int len, byte[] buffer, ref long stat_scans, int[] backRefLen, int[] backRefPos, ref long stat_replacements)
+      
+        private struct PackMatch
         {
-            // Minimum match size. Tune so matches are longer that the backref data
-            var minSize = 3;
-            var backRefLimit = 4096;
-
-
-            var backRefOcc = new int[len]; // marker to detect overlaps
-            var hashVals = new uint[len];
-            for (int size = 256; size >= minSize; size /= 2)
-            {
-                // Build up the hashVals array for this window size:
-                long power = 1;
-                long hash2 = 0;
-                for (int i = 0; i < size; i++)
-                {
-                    power = (power * PRIME_BASE) % PRIME_MOD;
-                } // calculate the correct 'power' value
-
-                for (int i = 0; i < len; i++)
-                {
-                    // add the last letter
-                    hash2 = hash2 * PRIME_BASE + buffer[i];
-                    hash2 %= PRIME_MOD;
-
-                    // remove the first character, if needed
-                    if (i >= size)
-                    {
-                        hash2 -= power * buffer[i - size] % PRIME_MOD;
-                        if (hash2 < 0) hash2 += PRIME_MOD;
-                    }
-
-                    // store the hash at this point
-                    hashVals[i] = (uint) hash2;
-                    stat_scans++;
-                }
-
-                // compare -- any match values are probably a back reference
-                // At the moment, we assume hash matches *are* valid back references. TODO: double check.
-
-                // Scan backward from each character, look for matches behind it.
-                for (int fwd = len - 1; fwd >= size; fwd--)
-                {
-                    var limit = fwd - backRefLimit;
-                    if (limit < size) limit = size;
-                    for (int bkw = fwd - size; bkw >= limit; bkw--)
-                    {
-                        stat_scans++;
-                        // record the longest, closest matches
-                        if (hashVals[fwd] != hashVals[bkw]) continue;
-
-                        var dist = (fwd - bkw) - size;
-
-                        if ((bkw - dist) + 1 < 0) continue;
-
-                        // hashes match, now double check that it's real
-                        var real = true;
-                        for (int c = 0; c < size; c++)
-                        {
-                            if (buffer[bkw-c] != buffer[fwd-c]) { // not a real match
-                                real = false;
-                                break;
-                            }
-                        }
-                        if (!real) {
-                            continue;
-                        }
-
-
-                        // If the size of the back reference would be more than we save, reject it.
-                        // the back reference length can be 1 byte or two, so that affects the rejection size limit.
-                        if (size < 4 && dist > 255)
-                        {
-                            break; // move to next outer
-                        }
-
-                        // If this back reference overlaps with another, keep the longer one.
-                        var overlap = 0;
-                        for (int i = 0; i <= size; i++)
-                        {
-                            if (backRefOcc[fwd - i] < 1) continue;
-                            overlap = backRefOcc[fwd - i];
-                            break;
-                        }
-
-                        if (overlap > 0)
-                        {
-                            // we've found a better replacement already (assuming we're working from long to short)
-                            fwd = overlap - backRefLen[overlap];
-                            break;
-                        }
-
-                        stat_replacements++;
-                        backRefLen[fwd] = size;
-                        backRefPos[fwd] = dist;
-
-                        // mark overlaps
-                        for (int i = fwd - size; i < fwd; i++)
-                        {
-                            backRefOcc[i] = fwd;
-                        }
-
-                        fwd -= size - 1; // skip back
-                        break; // stop searching for matches for this point (fwd)
-                    }
-                }
-            }
+            public int Distance;
+            public int Right;
+            public int Length;
         }
-
 
         /// <summary>
         /// A model for LZSS pack and arithmetic encoding

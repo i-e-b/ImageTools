@@ -322,11 +322,14 @@ nearly the same feelings towards the ocean with me.####";
         public void ac_round_trip () {
             var expected = Moby;
 
+            // Original: 1.11kb; Encoded: 785b (rolling 1000)
+            // Original: 1.11kb; Encoded: 740b (simple learning)
+
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
             var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
 
-            var model = new ProbabilityModels.RollingLearningModel(1000);
+            var model = new ProbabilityModels.SimpleLearningModel();
             var subject = new ArithmeticEncode(model);
             subject.Encode(src, encoded);
             encoded.Seek(0, SeekOrigin.Begin);
@@ -372,6 +375,8 @@ nearly the same feelings towards the ocean with me.####";
         public void lzss_round_trip () {
             var expected = Moby;
 
+            //Original: 1.11kb; Encoded: 773b
+
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
             var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
@@ -379,9 +384,6 @@ nearly the same feelings towards the ocean with me.####";
 
             lzPack.Encode(src, encoded);
             encoded.Seek(0, SeekOrigin.Begin);
-
-            // 100066547
-            // 100493623
 
             Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)}");
             lzPack.Decode(encoded, dst);
@@ -420,7 +422,7 @@ nearly the same feelings towards the ocean with me.####";
         }
 
         
-        [Test, Explicit("This is currently impractically slow")]
+        [Test]
         public void compress_wavelet_image_with_LZSS () {
 
             var msY = new MemoryStream();
@@ -442,6 +444,10 @@ nearly the same feelings towards the ocean with me.####";
 
                 // Target size = 123.47kb (deflate)
                 // AC alone    = 148.77kb (fixed prescan)
+
+                // Pyramid 8..2 (0:01)                               Replacements = 84108; size = 160.19kb
+                // Pyramid 8..3 (0:01)                               Replacements = 35047; size = 160.21kb
+                // Pyramid 8..4 (0:01)                               Replacements = 14062; size = 160.24kb
 
                 //256,128,..8,4:(4:35 rel)    Scans = 175551308299;  Replacements = 12931; size = 136.29kb
                 // 256,128,64: (1:45 rel)     Scans = 108387474644;  Replacements =   893; size = 139.69kb
