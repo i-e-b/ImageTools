@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using ImageTools.DataCompression;
@@ -10,6 +12,7 @@ using ImageTools.DataCompression.Encoding;
 using ImageTools.Utilities;
 using ImageTools.WaveletTransforms;
 using NUnit.Framework;
+using NUnit.Framework.Constraints;
 
 namespace ImageTools.Tests
 {
@@ -653,60 +656,92 @@ nearly the same feelings towards the ocean with me.####";
         [Test]
         public void hash_pyramid () {
             // MULTI-SCALE HASHING by folding, for searching and to reduce computation (at a cost of fewer matches)
-            var rank1 = GetImageBytes();
-            //var rank1 = Encoding.UTF8.GetBytes(LosslessDataCompressionTests.Moby);
-            //var rank1 = new byte[]{ 1,2,3,4,5,6,7,8,9,10,11,12,13 };
+            //var rank1 = GetImageBytes();
+            var rank1 = Encoding.UTF8.GetBytes(LosslessDataCompressionTests.Moby);
+            //var rank1 = new byte[]{ 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32 };
+            //var rank1 = Enumerable.Range(1,64).Select(v=>(byte)v).ToArray();
 
-            var rank2  = new byte[rank1.Length - 1];
-            var rank4  = new byte[rank2.Length - 2];
-            var rank8  = new byte[rank4.Length - 4];
-            var rank16 = new byte[rank8.Length - 8];
+            var sw = new Stopwatch();
 
+            var ranks = new List<byte[]>();
+            ranks.Add(rank1);
+
+            sw.Restart();
             var stride = 1;
             long sums = 0;
+            for (int R = 2; R <= 256; R *= 2)
+            {
+                var prev = ranks[ranks.Count-1];
+                var next = new byte[prev.Length - stride];
+                ranks.Add(next);
 
-            for (int i = 0; i < rank1.Length - stride; i++)
-            {
-                sums++;
-                rank2[i] = (byte)(rank1[i] + rank1[i+stride]);
-            }
-            
-            stride *= 2;
-            for (int i = 0; i < rank2.Length - stride; i++)
-            {
-                sums++;
-                rank4[i] = (byte)(rank2[i] + rank2[i+stride]);
-            }
-            
-            stride *= 2;
-            for (int i = 0; i < rank4.Length - stride; i++)
-            {
-                sums++;
-                rank8[i] = (byte)(rank4[i] + rank4[i+stride]);
-            }
+                for (int i = 0; i < prev.Length - stride; i++)
+                {
+                    sums++;
+                    next[i] = (byte)(prev[i] + prev[i+stride]);
+                }
 
-            stride *= 2;
-            for (int i = 0; i < rank8.Length - stride; i++)
-            {
-                sums++;
-                rank16[i] = (byte)(rank8[i] + rank8[i+stride]);
+                stride *= 2;
             }
+            sw.Stop();
+            
 
             Console.WriteLine("PYRAMID:");
-            Console.WriteLine($"Sums = {sums}");
-            /*Console.WriteLine("Rank 1 =\r\n"+string.Join(" ", rank1));
-            Console.WriteLine("Rank 2 =\r\n"+string.Join(" ", rank2));
-            Console.WriteLine("Rank 4 =\r\n"+string.Join(" ", rank4));
-            Console.WriteLine("Rank 8 =\r\n"+string.Join(" ", rank8));*/
-            Console.WriteLine($"Total storage = {rank1.Length+rank2.Length+rank4.Length+rank8.Length}");
+            Console.WriteLine($"Sums = {sums} for {ranks.Count} ranks took {sw.Elapsed}");
+            /*Console.WriteLine("Rank 1  =\r\n"+string.Join(" ", ranks[0]));
+            Console.WriteLine("Rank 2  =\r\n"+string.Join(" ", ranks[1]));
+            Console.WriteLine("Rank 4  =\r\n"+string.Join(" ", ranks[2]));
+            Console.WriteLine("Rank 8  =\r\n"+string.Join(" ", ranks[3]));
+            Console.WriteLine("Rank 16 =\r\n"+string.Join(" ", ranks[4]));
+            Console.WriteLine("Rank 32 =\r\n"+string.Join(" ", ranks[5]));*/
+            Console.WriteLine($"Total storage = {ranks.Sum(r => r.Length)}");
 
+            // look in 256-wide chunks for potentials:
+            sw.Restart();
+            var n = 2;
+            var rank_n = ranks[n];
+            var offs = (int)Math.Pow(2, n);
+            var sampleLen = Math.Min(offs, 10);
+            Console.WriteLine($"SEARCHING RANK = {n}; LENGTH = {offs}");
+            for (int i = 0; i < rank_n.Length; i++)
+            {
+                for (int j = i + offs; j < rank_n.Length; j++)
+                {
+                    if (rank_n[i] == rank_n[j])
+                    {
+                        // do a double check here
+                        var realMatch = true;
+                        for (int k = 0; k < offs; k++)
+                        {
+                            if (rank1[i + k] != rank1[j + k])
+                            {
+                                realMatch = false;
+                                break;
+                            }
+                        }
+                        if (!realMatch) continue;
+
+                        // build a sample of each:
+                        ShowSample(sampleLen, rank1, i, j);
+                        break;
+                    }
+                }
+                
+            }
+            sw.Stop();
+            Console.WriteLine($"Searching took {sw.Elapsed}");
+
+            /*
+            
             // Now do the same naiively:
 
+            sw.Restart();
             sums = 0;
-            var rank2N  = new byte[rank2.Length];
-            var rank4N  = new byte[rank4.Length];
-            var rank8N  = new byte[rank8.Length];
-            var rank16N = new byte[rank16.Length];
+            var rank2N  = new byte[rank1.Length - 1];
+            var rank4N  = new byte[rank2N.Length - 2];
+            var rank8N  = new byte[rank4N.Length - 4];
+            var rank16N = new byte[rank8N.Length - 8];
+            var rank32N = new byte[rank16N.Length - 16];
 
             for (int i = 0; i < rank2N.Length; i++)
             {
@@ -738,13 +773,43 @@ nearly the same feelings towards the ocean with me.####";
                     rank16N[i] += rank1[i+j];
                 }
             }
+            for (int i = 0; i < rank32N.Length; i++)
+            {
+                for (int j = 0; j < 32; j++)
+                {
+                    sums++;
+                    rank32N[i] += rank1[i+j];
+                }
+            }
+            sw.Stop();
 
             Console.WriteLine("\r\nLINEAR:");
-            Console.WriteLine($"Sums = {sums}");
-            /*Console.WriteLine("Rank 1 =\r\n"+string.Join(" ", rank1));
-            Console.WriteLine("Rank 2 =\r\n"+string.Join(" ", rank2));
-            Console.WriteLine("Rank 4 =\r\n"+string.Join(" ", rank4));
-            Console.WriteLine("Rank 8 =\r\n"+string.Join(" ", rank8));*/
+            Console.WriteLine($"Sums = {sums} for 6 ranks took {sw.Elapsed}");
+            Console.WriteLine("Rank 1  =\r\n"+string.Join(" ", rank1));
+            Console.WriteLine("Rank 2  =\r\n"+string.Join(" ", rank2N));
+            Console.WriteLine("Rank 4  =\r\n"+string.Join(" ", rank4N));
+            Console.WriteLine("Rank 8  =\r\n"+string.Join(" ", rank8N));
+            Console.WriteLine("Rank 16 =\r\n"+string.Join(" ", rank16N));
+            Console.WriteLine("Rank 32 =\r\n"+string.Join(" ", rank32N));*/
+        }
+
+        private static void ShowSample(int sampleLen, byte[] rank1, int i, int j)
+        {
+            var A = "";
+            var B = "";
+            for (int k = 0; k < sampleLen; k++)
+            {
+                var a = rank1[i + k];
+                if (a == 0x0d || a == 0x0a) a = 32;
+
+                var b = rank1[j + k];
+                if (b == 0x0d || b == 0x0a) b = 32;
+
+                A += (char) a;
+                B += (char) b;
+            }
+
+            Console.WriteLine($"Found ({i},{j}) => {A}; {B}");
         }
 
         private byte[] GetImageBytes()
