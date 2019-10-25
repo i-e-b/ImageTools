@@ -122,7 +122,7 @@ namespace ImageTools.DataCompression
         private byte[] ReadAndPushToFront(LinkedList<byte[]> dict, int idx)
         {
             var node = dict.First;
-            while (idx-- > 0) node = node.Next;
+            while (idx-- > 0 && node.Next != null) node = node.Next;
 
             dict.Remove(node);
             dict.AddFirst(node);

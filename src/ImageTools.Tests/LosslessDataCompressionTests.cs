@@ -72,7 +72,7 @@ namespace ImageTools.Tests
         public void can_recover_an_encoded_byte_stream (){
             var rnd = new Random();
 
-            var subject = new ArithmeticEncode(new ProbabilityModels.RollingLearningModel(500));
+            var subject = new ArithmeticEncode(new ProbabilityModels.SimpleLearningModel());
             var result = new MemoryStream();
 
             var inputBytes = new byte[100];
@@ -145,7 +145,7 @@ namespace ImageTools.Tests
         public void encoder_supports_large_input_data () {
             var sw = new Stopwatch();
 
-            var subject = new ArithmeticEncode(new ProbabilityModels.BraindeadModel());
+            var subject = new ArithmeticEncode(new ProbabilityModels.LearningMarkov());
             var result = new MemoryStream();
 
             sw.Restart();
@@ -211,6 +211,7 @@ namespace ImageTools.Tests
 
             Raw 'Y' size = 4mb
             AC encoded 'Y' size = 261.75kb	        (simple learning model)
+            AC encoded 'Y' size = 243.36kb          (learning markov)
             AC encoded 'Y' size = 352.09kb          (push to front model, falloff = 3)
             AC encoded 'Y' size = 200.58kb          (fixed prescan model)
             Deflate encoded 'Y' size = 180.08kb
@@ -229,6 +230,7 @@ namespace ImageTools.Tests
             AC encoded 'Y' size = 336.18kb			(simple learning model)
             AC encoded 'Y' size = 327.33kb          (push to front model)
             AC encoded 'Y' size = 228.48kb          (fixed prescan model)
+            AC encoded 'Y' size = 202.89kb          (learning markov)
             Deflate encoded 'Y' size = 154.31kb
 
             FIBONACCI CODED:
@@ -243,6 +245,7 @@ namespace ImageTools.Tests
             AC encoded 'Y' size = 148.77kb          (fixed prescan model)
             AC encoded 'Y' size = 140.86kb          (rolling[8000] with divide)
             AC encoded 'Y' size = 121.46kb          (learning markov -- finally beat deflate!)
+            AC encoded 'Y' size = 121.04kb          (learning markov with +2)
             Deflate encoded 'Y' size = 123.47kb
             
             */
@@ -330,6 +333,7 @@ nearly the same feelings towards the ocean with me.####";
             // Equivalent deflate: 645b
             // Original: 1.11kb; Encoded: 785b (rolling 1000)
             // Original: 1.11kb; Encoded: 740b (simple learning)
+            // Original: 1.11kb; Encoded: 859b (learning markov +2)
             // Original: 1.11kb; Encoded: 893b (prescan -- 637b without preamble -- 8 bytes to spare)
 
             var encoded = new MemoryStream();
@@ -348,8 +352,8 @@ nearly the same feelings towards the ocean with me.####";
 
             src.Seek(0, SeekOrigin.Begin);
             //var model = new ProbabilityModels.PrescanModel(src);
-            //var model = new ProbabilityModels.SimpleLearningModel();
-            var model = new ProbabilityModels.LearningMarkov();
+            var model = new ProbabilityModels.SimpleLearningModel();
+            //var model = new ProbabilityModels.LearningMarkov();
             var subject = new ArithmeticEncode(model);
             src.Seek(0, SeekOrigin.Begin);
             model.WritePreamble(encoded);
@@ -595,7 +599,7 @@ nearly the same feelings towards the ocean with me.####";
                 //msY.CopyTo(lzY);
 
                 lzY.Seek(0, SeekOrigin.Begin);
-                var model = new ProbabilityModels.PrescanModel(lzY);
+                var model = new ProbabilityModels.LearningMarkov();
                 var arithmeticEncode = new ArithmeticEncode(model);
                 lzY.Seek(0, SeekOrigin.Begin);
                 model.WritePreamble(acY);
@@ -603,6 +607,7 @@ nearly the same feelings towards the ocean with me.####";
 
                 Console.WriteLine($"LZ encoded 'Y' size = {Bin.Human(lzY.Length)}");
                 Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length)}");
+                arithmeticEncode.Reset();
 
                 // Now decode:
                 acY.Seek(0, SeekOrigin.Begin);
