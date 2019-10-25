@@ -235,15 +235,15 @@ namespace ImageTools.Tests
             ================
 
             Raw 'Y' size = 319kb
-            AC encoded 'Y' size = 160.14kb			(simple learning model)
-            AC encoded 'Y' size = 169.03kb          (simple learning with burst start)
             AC encoded 'Y' size = 231.1kb           (push to front model)
             AC encoded 'Y' size = 187.81kb          (rolling[4250])
-            AC encoded 'Y' size = 140.86kb          (rolling[8000] with divide)
-            AC encoded 'Y' size = 148.77kb          (fixed prescan model)
+            AC encoded 'Y' size = 169.03kb          (simple learning with burst start)
+            AC encoded 'Y' size = 160.14kb			(simple learning model)
             AC encoded 'Y' size = 157.26kb          (fixed prescan limited to 256)
+            AC encoded 'Y' size = 148.77kb          (fixed prescan model)
+            AC encoded 'Y' size = 140.86kb          (rolling[8000] with divide)
+            AC encoded 'Y' size = 121.46kb          (learning markov -- finally beat deflate!)
             Deflate encoded 'Y' size = 123.47kb
-
             
             */
 
@@ -266,10 +266,11 @@ namespace ImageTools.Tests
                 Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
 
                 msY.Seek(0, SeekOrigin.Begin);
-                var model = new ProbabilityModels.PrescanModel(msY);
+                //var model = new ProbabilityModels.PrescanModel(msY);
                 //var model = new ProbabilityModels.PushToFrontModel();
                 //var model = new ProbabilityModels.SimpleLearningModel();
-                //var model = new ProbabilityModels.RollingLearningModel(16000);
+                var model = new ProbabilityModels.LearningMarkov();
+                //var model = new ProbabilityModels.RollingLearningModel(8000);
 
                 // Try our simple encoding
                 var subject = new ArithmeticEncode(model);
@@ -283,8 +284,9 @@ namespace ImageTools.Tests
                 Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length)}");
 
 
-                // Now decode:
                 subject.Reset();
+                // Now decode:
+
                 acY.Seek(0, SeekOrigin.Begin);
                 sw.Restart();
                 model.ReadPreamble(acY);
@@ -345,8 +347,9 @@ nearly the same feelings towards the ocean with me.####";
 
 
             src.Seek(0, SeekOrigin.Begin);
-            var model = new ProbabilityModels.PrescanModel(src);
+            //var model = new ProbabilityModels.PrescanModel(src);
             //var model = new ProbabilityModels.SimpleLearningModel();
+            var model = new ProbabilityModels.LearningMarkov();
             var subject = new ArithmeticEncode(model);
             src.Seek(0, SeekOrigin.Begin);
             model.WritePreamble(encoded);
@@ -525,7 +528,8 @@ nearly the same feelings towards the ocean with me.####";
                 lzPack.Encode(msY, lzY);
 
                 lzY.Seek(0, SeekOrigin.Begin);
-                var model = new ProbabilityModels.PrescanModel(lzY);
+                //var model = new ProbabilityModels.PrescanModel(lzY);
+                var model = new ProbabilityModels.LearningMarkov();
                 var arithmeticEncode = new ArithmeticEncode(model);
                 lzY.Seek(0, SeekOrigin.Begin);
                 model.WritePreamble(acY);

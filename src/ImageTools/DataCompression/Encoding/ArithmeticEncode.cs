@@ -17,7 +17,7 @@ namespace ImageTools.DataCompression.Encoding
 
         public const int BIT_SIZE = sizeof(UInt32) * 8;
         public const int CODE_VALUE_BITS = BIT_SIZE / 2;
-        public const int PRECISION = CODE_VALUE_BITS - 1;
+        public const int PRECISION = CODE_VALUE_BITS;
         public const int FREQUENCY_BITS = BIT_SIZE - CODE_VALUE_BITS;
         public const uint MAX_CODE = (1u << CODE_VALUE_BITS) - 1;
         public const uint MAX_FREQ = (1u << FREQUENCY_BITS) - 1;

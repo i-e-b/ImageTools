@@ -19,7 +19,7 @@ namespace ImageTools.DataCompression.Encoding
             public RollingLearningModel(uint rescaleThreshold)
             {
                 if (rescaleThreshold < 500) throw new Exception("Rescale threshold should be at least 500");
-                _rescaleThreshold = rescaleThreshold;
+                _rescaleThreshold = Math.Min(rescaleThreshold, ArithmeticEncode.MAX_FREQ);
                 cumulative_frequency = new uint[258];
                 Reset();
             }
@@ -434,21 +434,16 @@ namespace ImageTools.DataCompression.Encoding
                 double max = 0;
                 for (int i = 0; i < countTable.Length; i++)
                 {
-                    countTable[i] = Math.Sqrt(countTable[i]);
+                    var crush = Math.Log(countTable[i], 2);
+                    if (crush < 1 && countTable[i] > 0) crush = 1;
+                    countTable[i] = crush;
                     max = Math.Max(max, countTable[i]);
                 }
 
-                // scale them to fit in a frequency table if required
-                var scale = 255 / max;
-                for (int i = 0; i < countTable.Length; i++)
-                {
-                    countTable[i] = countTable[i] * scale;
-                    if (countTable[i] > 0 && countTable[i] < 1) countTable[i] = 1;
-                }
-
+                var scale = (max < 256) ? 1 : 256 / max;
                 for (int i = 0; i < 256; i++)
                 {
-                    preamble[i] = (byte) countTable[i];
+                    preamble[i] = (byte)(((int)(countTable[i] * scale)) | 1);
                 }
 
                 RestoreFromPreamble();
@@ -456,19 +451,14 @@ namespace ImageTools.DataCompression.Encoding
 
             private void RestoreFromPreamble()
             {
-                Console.WriteLine("Probabilities: ");
                 uint v = 0;
                 for (int i = 0; i < 256; i++)
                 {
                     cumulative_frequency[i] = v;
-                    var prob = ((uint)preamble[i])*preamble[i];
-                    v += prob;
-                    Console.Write(prob + " ");
+                    v += preamble[i];
                 }
-
                 cumulative_frequency[256] = v;
                 cumulative_frequency[257] = v + 1; // `+1` for stop symbol
-                Console.WriteLine("\r\nCuml=" + cumulative_frequency[257]);
             }
 
             /// <inheritdoc />
@@ -524,7 +514,7 @@ namespace ImageTools.DataCompression.Encoding
             /// <inheritdoc />
             public void WritePreamble(Stream dest)
             {
-                dest.Write(preamble, 0, preamble.Length);
+                dest.Write(preamble, 0, PreambleSize);
             }
 
             /// <inheritdoc />
@@ -534,8 +524,102 @@ namespace ImageTools.DataCompression.Encoding
                 
                 RestoreFromPreamble();
             }
+        }
 
-            // 8 bits for values, 1 for stop
+        /// <summary>
+        /// A very simple table-based markov predictor
+        /// </summary>
+        public class LearningMarkov : IProbabilityModel
+        {
+
+            /// <summary>
+            /// the map is treated as an independent set of cumulative probabilities.
+            /// </summary>
+            private uint[,] map; // [from,to]
+            private int lastSymbol;
+            private bool[] frozen;
+
+            public LearningMarkov() { Reset(); }
+
+            /// <inheritdoc />
+            public SymbolProbability GetCurrentProbability(int symbol)
+            {
+                var p = new SymbolProbability
+                {
+                    low = map[lastSymbol,symbol],
+                    high = map[lastSymbol,symbol + 1],
+                    count = map[lastSymbol, 257]
+                };
+                Update(lastSymbol,symbol);
+                lastSymbol = symbol;
+                return p;
+            }
+
+            private void Update(int prev, int next)
+            {
+                if (frozen[prev]) return;
+                for (int i = next + 1; i < 258; i++) map[prev, i]++;
+
+                var limit = ArithmeticEncode.MAX_FREQ - 255;
+                if (map[prev, 257] < limit) return;
+
+                frozen[prev] = true;
+                Console.WriteLine($"Ran out of model precision for {prev}.");
+            }
+
+            /// <inheritdoc />
+            public SymbolProbability GetChar(long scaledValue, ref int decodedSymbol)
+            {
+                for (int i = 0; i < 257; i++)
+                    if (scaledValue < map[lastSymbol, i + 1])
+                    {
+                        decodedSymbol = i;
+                        var p = new SymbolProbability
+                        {
+                            low = map[lastSymbol, i],
+                            high = map[lastSymbol, i + 1],
+                            count = map[lastSymbol, 257]
+                        };
+                        Update(lastSymbol, decodedSymbol);
+                        lastSymbol = decodedSymbol;
+                        return p;
+                    }
+                throw new Exception("Decoder model found no symbol range for scaled value = " + scaledValue);
+            }
+
+            /// <inheritdoc />
+            public void Reset()
+            {
+                lastSymbol = 0;
+                map = new uint[258,258];
+                frozen = new bool[258];
+                for (int i = 0; i < 258; i++)
+                {
+                    frozen[i] = false;
+                    for (uint j = 0; j < 258; j++)
+                    {
+                        map[i,j] = j;
+                    }
+                }
+            }
+
+            /// <inheritdoc />
+            public uint GetCount()
+            {
+                return map[lastSymbol, 257];
+            }
+
+            /// <inheritdoc />
+            public int RequiredSymbolBits() { return 11; }
+
+            /// <inheritdoc />
+            public byte[] Preamble() { return new byte[0]; }
+
+            /// <inheritdoc />
+            public void WritePreamble(Stream dest) { }
+
+            /// <inheritdoc />
+            public void ReadPreamble(Stream src) { }
         }
     }
 }
