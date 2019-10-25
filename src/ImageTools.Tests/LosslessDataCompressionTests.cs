@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -235,8 +236,10 @@ namespace ImageTools.Tests
 
             Raw 'Y' size = 319kb
             AC encoded 'Y' size = 160.14kb			(simple learning model)
+            AC encoded 'Y' size = 169.03kb          (simple learning with burst start)
             AC encoded 'Y' size = 231.1kb           (push to front model)
             AC encoded 'Y' size = 187.81kb          (rolling[4250])
+            AC encoded 'Y' size = 140.86kb          (rolling[8000] with divide)
             AC encoded 'Y' size = 148.77kb          (fixed prescan model)
             AC encoded 'Y' size = 157.26kb          (fixed prescan limited to 256)
             Deflate encoded 'Y' size = 123.47kb
@@ -263,10 +266,10 @@ namespace ImageTools.Tests
                 Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
 
                 msY.Seek(0, SeekOrigin.Begin);
-                IProbabilityModel model = new ProbabilityModels.PrescanModel(msY);
+                var model = new ProbabilityModels.PrescanModel(msY);
                 //var model = new ProbabilityModels.PushToFrontModel();
                 //var model = new ProbabilityModels.SimpleLearningModel();
-                //var model = new ProbabilityModels.RollingLearningModel(4250);
+                //var model = new ProbabilityModels.RollingLearningModel(16000);
 
                 // Try our simple encoding
                 var subject = new ArithmeticEncode(model);
@@ -277,7 +280,7 @@ namespace ImageTools.Tests
                 sw.Stop();
                 Console.WriteLine($"Arithmetic coding took {sw.Elapsed}");
 
-                Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length + model.Preamble().Length)}");// add 256 if using pre-scan
+                Console.WriteLine($"AC encoded 'Y' size = {Bin.Human(acY.Length)}");
 
 
                 // Now decode:
@@ -322,20 +325,37 @@ nearly the same feelings towards the ocean with me.####";
         public void ac_round_trip () {
             var expected = Moby;
 
+            // Equivalent deflate: 645b
             // Original: 1.11kb; Encoded: 785b (rolling 1000)
             // Original: 1.11kb; Encoded: 740b (simple learning)
+            // Original: 1.11kb; Encoded: 893b (prescan -- 637b without preamble -- 8 bytes to spare)
 
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
             var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
 
-            var model = new ProbabilityModels.SimpleLearningModel();
+            src.Seek(0, SeekOrigin.Begin);
+            var test = new MemoryStream();
+            using (var gz =  new DeflateStream(test, CompressionLevel.Optimal, true)) {
+                var bytes = Encoding.UTF8.GetBytes(expected);
+                gz.Write(bytes,0,bytes.Length);
+                gz.Flush();
+            }
+            Console.WriteLine($"Equivalent deflate: {Bin.Human(test.Length)}");
+
+
+            src.Seek(0, SeekOrigin.Begin);
+            var model = new ProbabilityModels.PrescanModel(src);
+            //var model = new ProbabilityModels.SimpleLearningModel();
             var subject = new ArithmeticEncode(model);
+            src.Seek(0, SeekOrigin.Begin);
+            model.WritePreamble(encoded);
             subject.Encode(src, encoded);
             encoded.Seek(0, SeekOrigin.Begin);
 
-            model.Reset();
+            subject.Reset();
             Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)}");
+            model.ReadPreamble(encoded);
             subject.Decode(encoded, dst);
 
             dst.Seek(0, SeekOrigin.Begin);
@@ -805,7 +825,7 @@ nearly the same feelings towards the ocean with me.####";
         }
 
         
-        private byte[] GetEncodedImageBytes()
+        public static byte[] GetEncodedImageBytes()
         {
             var msY = new MemoryStream();
             var msU = new MemoryStream();
@@ -819,7 +839,7 @@ nearly the same feelings towards the ocean with me.####";
             }
         }
 
-        private byte[] GetRawImageBytes()
+        public static byte[] GetRawImageBytes()
         {
             using (var bmp = Load.FromFile("./inputs/3.png")) {
                 var ri = new Rectangle(Point.Empty, bmp.Size);

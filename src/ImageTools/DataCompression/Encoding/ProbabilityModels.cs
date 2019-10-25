@@ -39,6 +39,10 @@ namespace ImageTools.DataCompression.Encoding
 
             private void Update(int c)
             {
+                // faster growth curve early on
+                //var gap = cumulative_frequency[c + 1] - cumulative_frequency[c];
+                //if (gap > 16) gap = 1;
+
                 for (int i = c + 1; i < 258; i++) cumulative_frequency[i]++;
 
                 if (cumulative_frequency[257] >= _rescaleThreshold)
@@ -52,9 +56,28 @@ namespace ImageTools.DataCompression.Encoding
             {
                 // We recover the individual probablities, half them, ensure a minimum of 1, then rebuild the cumulative probabilities
                 var symProb = new uint[257];
-                for (int i = 0; i < 257; i++)
+                /*for (int i = 0; i < 257; i++)
                 {
                     symProb[i] = ((cumulative_frequency[i + 1] - cumulative_frequency[i]) >> 1) | 1;
+                }*/
+
+                
+                long max = 0;
+                for (int i = 0; i < symProb.Length; i++)
+                {
+                    max = Math.Max(max, symProb[i]);
+                }
+                var targ = _rescaleThreshold / 2;
+
+                // scale them to fit in a frequency table if required
+                if (max > targ)
+                {
+                    var scale = max / targ;
+                    for (int i = 0; i < symProb.Length; i++)
+                    {
+                        if (symProb[i] == 0) continue;
+                        symProb[i] = (uint)(symProb[i] / scale) | 1;
+                    }
                 }
 
                 for (int i = 1; i < 257; i++)
@@ -244,6 +267,7 @@ namespace ImageTools.DataCompression.Encoding
             private void Update(int c)
             {
                 if (_frozen) return; // model is saturated
+
                 for (int i = c + 1; i < 258; i++) cumulative_frequency[i]++;
 
                 if (cumulative_frequency[257] >= ArithmeticEncode.MAX_FREQ)
@@ -394,9 +418,11 @@ namespace ImageTools.DataCompression.Encoding
             /// <remarks>Would need another that takes a known table</remarks>
             public PrescanModel(Stream targetData)
             {
-                // count values
+                cumulative_frequency = new uint[258];
                 preamble = new byte[PreambleSize];
-                var countTable = new long[257];
+
+                // count values
+                var countTable = new double[257];
                 long len = 0;
                 int b;
                 while ((b = targetData.ReadByte()) >= 0)
@@ -405,38 +431,44 @@ namespace ImageTools.DataCompression.Encoding
                     len++;
                 }
 
-                long max = 0;
+                double max = 0;
                 for (int i = 0; i < countTable.Length; i++)
                 {
+                    countTable[i] = Math.Sqrt(countTable[i]);
                     max = Math.Max(max, countTable[i]);
                 }
 
                 // scale them to fit in a frequency table if required
-                if (max > 255)
+                var scale = 255 / max;
+                for (int i = 0; i < countTable.Length; i++)
                 {
-                    var scale = max / 255;
-                    for (int i = 0; i < countTable.Length; i++)
-                    {
-                        if (countTable[i] == 0) continue;
-                        countTable[i] = (countTable[i] / scale) | 1;
-                    }
+                    countTable[i] = countTable[i] * scale;
+                    if (countTable[i] > 0 && countTable[i] < 1) countTable[i] = 1;
                 }
 
-                // build the freq table
-                cumulative_frequency = new uint[258];
-                uint v = 0;
-                for (int i = 0; i < 257; i++)
-                {
-                    cumulative_frequency[i] = v;
-                    v += (uint)countTable[i];
-                }
-                cumulative_frequency[257] = v + 1; // `+1` for stop symbol
-
-                // build preamble for decode
                 for (int i = 0; i < 256; i++)
                 {
-                    preamble[i] = (byte)countTable[i];
+                    preamble[i] = (byte) countTable[i];
                 }
+
+                RestoreFromPreamble();
+            }
+
+            private void RestoreFromPreamble()
+            {
+                Console.WriteLine("Probabilities: ");
+                uint v = 0;
+                for (int i = 0; i < 256; i++)
+                {
+                    cumulative_frequency[i] = v;
+                    var prob = ((uint)preamble[i])*preamble[i];
+                    v += prob;
+                    Console.Write(prob + " ");
+                }
+
+                cumulative_frequency[256] = v;
+                cumulative_frequency[257] = v + 1; // `+1` for stop symbol
+                Console.WriteLine("\r\nCuml=" + cumulative_frequency[257]);
             }
 
             /// <inheritdoc />
@@ -470,7 +502,9 @@ namespace ImageTools.DataCompression.Encoding
             }
 
             /// <inheritdoc />
-            public void Reset() { }
+            public void Reset() { 
+                for (uint i = 0; i < 258; i++) { cumulative_frequency[i] = i; }
+            }
 
             /// <inheritdoc />
             public uint GetCount()
@@ -497,6 +531,8 @@ namespace ImageTools.DataCompression.Encoding
             public void ReadPreamble(Stream src)
             {
                 src.Read(preamble, 0, PreambleSize);
+                
+                RestoreFromPreamble();
             }
 
             // 8 bits for values, 1 for stop

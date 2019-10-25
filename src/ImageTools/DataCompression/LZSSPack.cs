@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using ImageTools.DataCompression.Encoding;
-using ImageTools.Utilities;
 
 namespace ImageTools.DataCompression
 {
@@ -72,21 +69,15 @@ namespace ImageTools.DataCompression
             dst.Write(final, 0, final.Length);
         }
 
-        
-        const uint PRIME_BASE = 0x101;
-        const uint PRIME_MOD = 0x3B9ACA07;
-
         public void Encode(Stream src, Stream dst)
         {
             var codes = new List<int>();
-            var model = new WideFlaggedModel();
-            var outp = new ArithmeticEncode(model, WideFlaggedModel.SYM_EndStream);
-
 
             EncoderSearchAlgorithm(src, codes);
 
-
             codes.Add(WideFlaggedModel.SYM_EndStream);
+            var model = new WideFlaggedModel();
+            var outp = new ArithmeticEncode(model, WideFlaggedModel.SYM_EndStream);
             outp.Encode(codes, dst);
         }
 
