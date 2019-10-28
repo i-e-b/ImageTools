@@ -37,7 +37,6 @@ In no particular order:
 * [ ] Attempt using 'wavelet tree' to encode CDF coefficients
 * [ ] Attempt using the color cell algorithm for CDF coefficients
 * [ ] 3D-image compress a larger video and compare size (requires non-power-two 3D images)
-
-* [ ] Apply a learning AC over each scale of the wavelet decomposition separately.
-* [ ] Look at AC coding over nybbles rather than bytes?
 * [ ] Move some of the encoding and lossless compression out to a separate project.
+* [ ] Cleanup and optimise the fibonnacci encoding used in wavelet stuff
+* [ ] Other universal coding (Elias / Golomb)

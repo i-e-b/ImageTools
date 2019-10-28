@@ -140,5 +140,79 @@ namespace ImageTools.Tests
             Assert.That(DataEncoding.FibonacciDecodeOne(data), Is.EqualTo(100));
             Assert.That(DataEncoding.FibonacciDecodeOne(data), Is.EqualTo(1000));
         }
+
+        [Test]
+        public void elias_omega_code () {
+            // This is the 'recursive' version of Peter Elias' universal code family
+
+            var samples = new uint[] { 1, 2, 3, 10, 50, 100, 255, 1024, 10000 };
+            var ms = new MemoryStream();
+            var bits = new BitwiseStreamWrapper(ms, 5);
+
+            // Encode to stream
+            Console.WriteLine("Encoding:");
+            foreach (var sample in samples)
+            {
+                Console.Write($"{sample}, ");
+                EliasOmegaEncodeOne(sample, bits);
+            }
+
+            bits.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+
+            // Display
+            Console.WriteLine("Bitwise result:");
+            while(bits.TryReadBit(out var b)) {
+                Console.Write(b);
+            }
+            
+            ms.Seek(0, SeekOrigin.Begin);
+            bits = new BitwiseStreamWrapper(ms, 5);
+
+            // Decode
+            Console.WriteLine("\r\nDecoding: (Note that this is not a self-synchronising code, and we read spare values off the end)");
+            var safety = 50;
+            while (EliasOmegaTryDecodeOne(bits, out uint result) ) {
+                if (safety-- < 0) { Assert.Fail("Decode loop did not terminate correctly"); }
+                Console.Write($"{result}, ");
+            }
+        }
+
+        private bool EliasOmegaTryDecodeOne(BitwiseStreamWrapper src, out uint dest)
+        {
+            dest = 1;
+            while (src.TryReadBit(out var b)) {
+                if (b == 0) return true;
+                uint len = dest;
+                dest = 1;
+
+                for (int i = 0; i < len; i++)
+                {
+                    dest <<= 1;
+                    var ok = src.TryReadBit(out b);
+                    if (!ok) return false;
+                    dest = dest | (uint)b;
+                }
+            }
+            return false;
+        }
+
+        private void EliasOmegaEncodeOne(uint src, BitwiseStreamWrapper dest)
+        {
+            var stack = new Stack<bool>(); // TODO: get rid of this
+            while (src > 1) {
+                uint len = 0;
+                for (uint tmp = src; tmp > 0; tmp >>= 1) len++; // 1 + floor(log₂(data))
+
+                for (int i = 0; i < len; i++) stack.Push(((src>>i)&1) == 1); 
+
+                src = len - 1;
+            }
+
+            while (stack.Count > 0) {
+                dest.WriteBit(stack.Pop());
+            }
+            dest.WriteBit(0);
+        }
     }
 }

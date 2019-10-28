@@ -331,10 +331,11 @@ nearly the same feelings towards the ocean with me.####";
             var expected = Moby;
 
             // Equivalent deflate: 645b
+            // Original: 1.11kb; Encoded: 672b (simple learning + 16)
+            // Original: 1.11kb; Encoded: 740b (simple learning + 1)
             // Original: 1.11kb; Encoded: 785b (rolling 1000)
-            // Original: 1.11kb; Encoded: 740b (simple learning)
-            // Original: 1.11kb; Encoded: 859b (learning markov +2)
-            // Original: 1.11kb; Encoded: 893b (prescan -- 637b without preamble -- 8 bytes to spare)
+            // Original: 1.11kb; Encoded: 859b (learning markov + 2)
+            // Original: 1.11kb; Encoded: 893b (prescan -- 637b without preamble)
 
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
