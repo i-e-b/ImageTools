@@ -236,7 +236,9 @@ namespace ImageTools.Tests
             AC encoded 'Y' size = 140.86kb          (rolling[8000] with divide)
             Deflate encoded 'Y' size = 123.47kb
             AC encoded 'Y' size = 121.46kb          (learning markov -- finally beat deflate!)
+            AC encoded 'Y' size = 121.2kb           (learning markov with 256 byte lead-in)
             AC encoded 'Y' size = 121.04kb          (learning markov with +2)
+            AC encoded 'Y' size = 120.27kb          (learning markov with 256b lead-in and +2 growth)
 
             ELIAS OMEGA CODED:
             ==================
@@ -274,7 +276,7 @@ namespace ImageTools.Tests
                 Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
 
                 msY.Seek(0, SeekOrigin.Begin);
-                var model = new ProbabilityModels.LearningMarkov();
+                var model = new ProbabilityModels.LearningMarkov(256);
 
                 // Try our simple encoding
                 var subject = new ArithmeticEncode(model);

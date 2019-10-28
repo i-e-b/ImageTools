@@ -140,7 +140,7 @@ namespace ImageTools.DataCompression.Encoding
         public IEnumerable<int> Decode(Stream source) {
             if (source == null || source.CanRead == false) throw new Exception("Invalid input stream passed to encoder");
 
-            var src = new BitwiseStreamWrapper(source, BIT_SIZE * 2);
+            var src = new BitwiseStreamWrapper(source, BIT_SIZE);
 
             ulong high = MAX_CODE;
             ulong low = 0;
@@ -150,7 +150,7 @@ namespace ImageTools.DataCompression.Encoding
                 value <<= 1;
                 value += (ulong)src.ReadBit();
             }
-            //while (true) { // data loop
+
             while (src.CanRead()) { // data loop
                 var range = high - low + 1;
                 var scaled_value = ((value - low + 1) * _model.GetCount() - 1) / range;
@@ -176,11 +176,16 @@ namespace ImageTools.DataCompression.Encoding
                     } else {
                         break;
                     }
+
+                    if (!src.CanRead()) {
+                        // Unexpected truncation
+                        yield break;
+                    }
+
                     low <<= 1;
                     high <<= 1;
                     high++;
                     value <<= 1;
-                    if (!src.CanRead()) break;
                     value += (ulong)src.ReadBit();
 
                 } // end of symbol decoding loop

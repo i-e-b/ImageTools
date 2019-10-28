@@ -199,7 +199,7 @@ namespace ImageTools
                     var tmp = new MemoryStream();
                     DataEncoding.FibonacciEncode(buffer, 0, tmp);
                     tmp.Seek(0, SeekOrigin.Begin);
-                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov());
+                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov(256));
                     encoder.Encode(tmp, ms);
                 }
                 else {
@@ -279,7 +279,7 @@ namespace ImageTools
                 // Read, De-quantise, reorder
                 if (USE_CUSTOM_COMPRESSION) {
                     var tmp = new MemoryStream();
-                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov());
+                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov(256));
                     encoder.Decode(storedData, tmp);
                     tmp.Seek(0, SeekOrigin.Begin);
                     DataEncoding.FibonacciDecode(tmp, buffer);
@@ -487,10 +487,17 @@ namespace ImageTools
                 using (var tmp = new MemoryStream(buffer.Length))
                 {   // byte-by-byte writing to DeflateStream is *very* slow, so we buffer
                     DataEncoding.FibonacciEncode(buffer, 0, tmp);
-                    using (var gs = new DeflateStream(ms, CompressionLevel.Optimal, true))
-                    {
-                        tmp.WriteTo(gs);
-                        gs.Flush();
+                    tmp.Seek(0, SeekOrigin.Begin);
+
+                    if (USE_CUSTOM_COMPRESSION) {
+                        var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov(256));
+                        encoder.Encode(tmp,  ms);
+                    } else {
+                        using (var gs = new DeflateStream(ms, CompressionLevel.Optimal, true))
+                        {
+                            tmp.WriteTo(gs);
+                            gs.Flush();
+                        }
                     }
                 }
             }
@@ -559,9 +566,17 @@ namespace ImageTools
                 if (buffer == null) continue;
                 var storedData = new MemoryStream(Pick(ch, Ybytes, Ubytes, Vbytes));
 
-                using (var gs = new DeflateStream(storedData, CompressionMode.Decompress))
-                {
-                    DataEncoding.FibonacciDecode(gs, buffer);
+                if (USE_CUSTOM_COMPRESSION) {
+                    var tmp = new MemoryStream();
+                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov(256));
+                    encoder.Decode(storedData, tmp);
+                    tmp.Seek(0, SeekOrigin.Begin);
+                    DataEncoding.FibonacciDecode(tmp, buffer);
+                } else {
+                    using (var gs = new DeflateStream(storedData, CompressionMode.Decompress))
+                    {
+                        DataEncoding.FibonacciDecode(gs, buffer);
+                    }
                 }
 
                 // Re-expand co-efficients

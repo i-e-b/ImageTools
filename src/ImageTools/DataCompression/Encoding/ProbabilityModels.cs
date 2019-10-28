@@ -277,6 +277,7 @@ namespace ImageTools.DataCompression.Encoding
         /// </summary>
         public class LearningMarkov : IProbabilityModel
         {
+            private readonly int _leadInBytes;
 
             /// <summary>
             /// the map is treated as an independent set of cumulative probabilities.
@@ -284,8 +285,17 @@ namespace ImageTools.DataCompression.Encoding
             private ulong[,] map; // [from,to]
             private int lastSymbol;
             private bool[] frozen;
+            private int leadIn;
 
-            public LearningMarkov() { Reset(); }
+            /// <summary>
+            /// Create a new order-2 model
+            /// </summary>
+            /// <param name="leadInBytes">If greater than zero, this many bytes are ignored for learning at the start of the data. This prevents preamble poisoning.</param>
+            public LearningMarkov(int leadInBytes = 0)
+            {
+                _leadInBytes = leadInBytes;
+                Reset();
+            }
 
             /// <inheritdoc />
             public SymbolProbability GetCurrentProbability(int symbol)
@@ -304,14 +314,15 @@ namespace ImageTools.DataCompression.Encoding
             private void Update(int prev, int next)
             {
                 if (frozen[prev]) return;
-                
-                var max = ArithmeticEncode.MAX_FREQ / 3;
+                if (leadIn-- > 0) return;
+
+                const ulong max = ArithmeticEncode.MAX_FREQ / 3;
                 if (map[prev, 257] > max) {
                     frozen[prev] = true;
                     return;
                 }
 
-                for (int i = next + 1; i < 258; i++) map[prev, i]++;
+                for (int i = next + 1; i < 258; i++) map[prev, i]+=2;
             }
 
             /// <inheritdoc />
@@ -338,6 +349,7 @@ namespace ImageTools.DataCompression.Encoding
             public void Reset()
             {
                 lastSymbol = 0;
+                leadIn = _leadInBytes;
                 map = new ulong[258,258];
                 frozen = new bool[258];
                 for (int i = 0; i < 258; i++)
