@@ -13,17 +13,17 @@ namespace ImageTools.DataCompression.Encoding
     /// </summary>
     public class ArithmeticEncode
     {
-        // Assuming a code value of UInt32
+        // Assuming a code value of long
 
-        public const int BIT_SIZE = sizeof(UInt32) * 8;
+        public const int BIT_SIZE = sizeof(long) * 8;
         public const int CODE_VALUE_BITS = BIT_SIZE / 2;
         public const int PRECISION = CODE_VALUE_BITS;
         public const int FREQUENCY_BITS = BIT_SIZE - CODE_VALUE_BITS;
-        public const uint MAX_CODE = (1u << CODE_VALUE_BITS) - 1;
-        public const uint MAX_FREQ = (1u << FREQUENCY_BITS) - 1;
-        public const uint ONE_QUARTER = 1u << (CODE_VALUE_BITS - 2);
-        public const uint ONE_HALF = 2 * ONE_QUARTER;
-        public const uint THREE_QUARTERS = 3 * ONE_QUARTER;
+        public const ulong MAX_CODE = (1ul << CODE_VALUE_BITS) - 1;
+        public const ulong MAX_FREQ = (1ul << FREQUENCY_BITS) - 1;
+        public const ulong ONE_QUARTER = 1ul << (CODE_VALUE_BITS - 2);
+        public const ulong ONE_HALF = 2 * ONE_QUARTER;
+        public const ulong THREE_QUARTERS = 3 * ONE_QUARTER;
 
 
         private readonly IProbabilityModel _model;
@@ -54,8 +54,8 @@ namespace ImageTools.DataCompression.Encoding
 
             using (var src = source.GetEnumerator())
             {
-                long high = MAX_CODE;
-                long low = 0;
+                ulong high = MAX_CODE;
+                ulong low = 0;
                 int pending_bits = 0;
 
                 while (src.MoveNext()) // data loop
@@ -142,13 +142,13 @@ namespace ImageTools.DataCompression.Encoding
 
             var src = new BitwiseStreamWrapper(source, BIT_SIZE * 2);
 
-            long high = MAX_CODE;
-            long low = 0;
-            long value = 0;
+            ulong high = MAX_CODE;
+            ulong low = 0;
+            ulong value = 0;
 
             for ( int i = 0 ; i < CODE_VALUE_BITS ; i++ ) {
                 value <<= 1;
-                value += src.ReadBit();
+                value += (ulong)src.ReadBit();
             }
             //while (true) { // data loop
             while (src.CanRead()) { // data loop
@@ -181,7 +181,7 @@ namespace ImageTools.DataCompression.Encoding
                     high++;
                     value <<= 1;
                     if (!src.CanRead()) break;
-                    value += src.ReadBit();
+                    value += (ulong)src.ReadBit();
 
                 } // end of symbol decoding loop
             } // end of data loop
@@ -235,9 +235,9 @@ namespace ImageTools.DataCompression.Encoding
     }
 
     public struct SymbolProbability { 
-        public UInt32 low;
-        public UInt32 high; 
-        public UInt32 count;
+        public ulong low;
+        public ulong high; 
+        public ulong count;
     };
 
     public interface IBitwiseIO
@@ -256,7 +256,7 @@ namespace ImageTools.DataCompression.Encoding
         /// <summary>
         /// Decoding step
         /// </summary>
-        SymbolProbability GetChar(long scaledValue, ref int decodedSymbol);
+        SymbolProbability GetChar(ulong scaledValue, ref int decodedSymbol);
 
         /// <summary>
         /// Reset between encode/decode
@@ -266,7 +266,7 @@ namespace ImageTools.DataCompression.Encoding
         /// <summary>
         /// Current maximum cumulative frequency value
         /// </summary>
-        UInt32 GetCount();
+        ulong GetCount();
 
         /// <summary>
         /// Minimum number of symbol bits needed

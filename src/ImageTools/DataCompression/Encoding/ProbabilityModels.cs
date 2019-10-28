@@ -11,13 +11,13 @@ namespace ImageTools.DataCompression.Encoding
         public class PushToFrontModel : IProbabilityModel
         {
             private readonly int[] _symbols;
-            private readonly uint[] _cumlFreq;
-            private readonly uint _total;
+            private readonly ulong[] _cumlFreq;
+            private readonly ulong _total;
 
             public PushToFrontModel(int fallOff = 3)
             {
                 _symbols = new int[257]; // the closer to the front, the higher the expected probability
-                _cumlFreq = new uint[258]; // cumulative frequencies for the positions
+                _cumlFreq = new ulong[258]; // cumulative frequencies for the positions
 
                 uint sum = 0;
                 uint prob = 0x7000;
@@ -65,7 +65,7 @@ namespace ImageTools.DataCompression.Encoding
             }
 
             /// <inheritdoc />
-            public SymbolProbability GetChar(long scaledValue, ref int decodedSymbol)
+            public SymbolProbability GetChar(ulong scaledValue, ref int decodedSymbol)
             {
 
                 for (int i = 0; i < 257; i++)
@@ -92,7 +92,7 @@ namespace ImageTools.DataCompression.Encoding
             }
 
             /// <inheritdoc />
-            public uint GetCount() { return _total; }
+            public ulong GetCount() { return _total; }
 
             /// <inheritdoc />
             public int RequiredSymbolBits() { return 13; }
@@ -115,12 +115,12 @@ namespace ImageTools.DataCompression.Encoding
         /// </summary>
         public class SimpleLearningModel : IProbabilityModel
         {
-            private readonly uint[] cumulative_frequency;
+            private readonly ulong[] cumulative_frequency;
             private bool _frozen;
 
             public SimpleLearningModel()
             {
-                cumulative_frequency = new uint[258];
+                cumulative_frequency = new ulong[258];
                 Reset();
             }
 
@@ -150,7 +150,7 @@ namespace ImageTools.DataCompression.Encoding
             }
 
             /// <inheritdoc />
-            public SymbolProbability GetChar(long scaledValue, ref int decodedSymbol)
+            public SymbolProbability GetChar(ulong scaledValue, ref int decodedSymbol)
             {
                 for (int i = 0; i < 257; i++)
                     if (scaledValue < cumulative_frequency[i + 1])
@@ -177,7 +177,7 @@ namespace ImageTools.DataCompression.Encoding
             }
 
             /// <inheritdoc />
-            public uint GetCount()
+            public ulong GetCount()
             {
                 return cumulative_frequency[257];
             }
@@ -203,11 +203,11 @@ namespace ImageTools.DataCompression.Encoding
         /// </summary>
         public class BraindeadModel : IProbabilityModel
         {
-            private readonly uint[] cumulative_frequency;
+            private readonly ulong[] cumulative_frequency;
 
             public BraindeadModel()
             {
-                cumulative_frequency = new uint[258];
+                cumulative_frequency = new ulong[258];
                 Reset();
             }
 
@@ -224,7 +224,7 @@ namespace ImageTools.DataCompression.Encoding
             }
 
             /// <inheritdoc />
-            public SymbolProbability GetChar(long scaledValue, ref int decodedSymbol)
+            public SymbolProbability GetChar(ulong scaledValue, ref int decodedSymbol)
             {
                 for (int i = 0; i < 257; i++)
                     if (scaledValue < cumulative_frequency[i + 1])
@@ -249,7 +249,7 @@ namespace ImageTools.DataCompression.Encoding
             }
 
             /// <inheritdoc />
-            public uint GetCount()
+            public ulong GetCount()
             {
                 return cumulative_frequency[257];
             }
@@ -281,7 +281,7 @@ namespace ImageTools.DataCompression.Encoding
             /// <summary>
             /// the map is treated as an independent set of cumulative probabilities.
             /// </summary>
-            private uint[,] map; // [from,to]
+            private ulong[,] map; // [from,to]
             private int lastSymbol;
             private bool[] frozen;
 
@@ -304,16 +304,18 @@ namespace ImageTools.DataCompression.Encoding
             private void Update(int prev, int next)
             {
                 if (frozen[prev]) return;
+                
+                var max = ArithmeticEncode.MAX_FREQ / 3;
+                if (map[prev, 257] > max) {
+                    frozen[prev] = true;
+                    return;
+                }
+
                 for (int i = next + 1; i < 258; i++) map[prev, i]++;
-
-                var limit = ArithmeticEncode.MAX_FREQ - 258;
-                if (map[prev, 257] < limit) return;
-
-                frozen[prev] = true;
             }
 
             /// <inheritdoc />
-            public SymbolProbability GetChar(long scaledValue, ref int decodedSymbol)
+            public SymbolProbability GetChar(ulong scaledValue, ref int decodedSymbol)
             {
                 for (int i = 0; i < 257; i++)
                     if (scaledValue < map[lastSymbol, i + 1])
@@ -336,7 +338,7 @@ namespace ImageTools.DataCompression.Encoding
             public void Reset()
             {
                 lastSymbol = 0;
-                map = new uint[258,258];
+                map = new ulong[258,258];
                 frozen = new bool[258];
                 for (int i = 0; i < 258; i++)
                 {
@@ -349,7 +351,7 @@ namespace ImageTools.DataCompression.Encoding
             }
 
             /// <inheritdoc />
-            public uint GetCount()
+            public ulong GetCount()
             {
                 return map[lastSymbol, 257];
             }

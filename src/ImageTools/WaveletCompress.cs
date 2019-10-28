@@ -3,8 +3,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.IO.Compression;
-using System.Text;
-using ImageTools.DataCompression.LZMA;
+using ImageTools.DataCompression.Encoding;
 using ImageTools.ImageDataFormats;
 using ImageTools.SpaceFillingCurves;
 using ImageTools.Utilities;
@@ -37,6 +36,10 @@ namespace ImageTools
 
     public class WaveletCompress
     {
+        // If true, will use arithmetic coding with markov model IN SOME PLACES.
+        const bool USE_CUSTOM_COMPRESSION = true;
+
+
         /// <summary>
         /// Delegate for multi-dimensional wavelet decomposition.
         /// This should have a matching `GeneralRestore`
@@ -192,13 +195,22 @@ namespace ImageTools
                 ToStorageOrder3D(buffer, img3d, (int)Math.Log(img3d.Width, 2));
                 Quantise3D(buffer, QuantiseType.Reduce, ch);
 
-                using (var tmp = new MemoryStream(buffer.Length))
-                {   // byte-by-byte writing to DeflateStream is *very* slow, so we buffer
+                if (USE_CUSTOM_COMPRESSION) {
+                    var tmp = new MemoryStream();
                     DataEncoding.FibonacciEncode(buffer, 0, tmp);
-                    using (var gs = new DeflateStream(ms, CompressionLevel.Optimal, true))
-                    {
-                        tmp.WriteTo(gs);
-                        gs.Flush();
+                    tmp.Seek(0, SeekOrigin.Begin);
+                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov());
+                    encoder.Encode(tmp, ms);
+                }
+                else {
+                    using (var tmp = new MemoryStream(buffer.Length))
+                    {   // byte-by-byte writing to DeflateStream is *very* slow, so we buffer
+                        DataEncoding.FibonacciEncode(buffer, 0, tmp);
+                        using (var gs = new DeflateStream(ms, CompressionLevel.Optimal, true))
+                        {
+                            tmp.WriteTo(gs);
+                            gs.Flush();
+                        }
                     }
                 }
             }
@@ -265,9 +277,17 @@ namespace ImageTools
                 }
 
                 // Read, De-quantise, reorder
-                using (var gs = new DeflateStream(storedData, CompressionMode.Decompress))
-                {
-                    DataEncoding.FibonacciDecode(gs, buffer);
+                if (USE_CUSTOM_COMPRESSION) {
+                    var tmp = new MemoryStream();
+                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov());
+                    encoder.Decode(storedData, tmp);
+                    tmp.Seek(0, SeekOrigin.Begin);
+                    DataEncoding.FibonacciDecode(tmp, buffer);
+                } else {
+                    using (var gs = new DeflateStream(storedData, CompressionMode.Decompress))
+                    {
+                        DataEncoding.FibonacciDecode(gs, buffer);
+                    }
                 }
                 Quantise3D(buffer, QuantiseType.Expand, ch);
                 FromStorageOrder3D(buffer, img3d, (int)Math.Log(img3d.Width, 2));
@@ -634,6 +654,27 @@ namespace ImageTools
 
                 // fib encode
                 DataEncoding.FibonacciEncode(buffer, 0, ms);
+
+                // alternate encodings...
+                /*var bw = new BitwiseStreamWrapper(ms,1);
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    int n = (int)buffer[i];
+                    n = (n >= 0) ? (n * 2) : (n * -2) - 1; // value to be encoded
+                    DataEncoding.EliasOmegaEncodeOne((uint)n, bw);
+                }*/
+                
+                // encode with difference
+                /*var last = 0;
+                var bw = new BitwiseStreamWrapper(ms,1);
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    int v = (int)buffer[i];
+                    int n = v - last;
+                    n = (n >= 0) ? (n * 2) : (n * -2) - 1; // ensure positive
+                    last = v;
+                    DataEncoding.EliasOmegaEncodeOne((uint)n, bw);
+                }*/
             }
         }
 
@@ -1631,18 +1672,21 @@ namespace ImageTools
             }
         }
 
+
         private static void ReadFromFileFibonacci(float[] buffer, int ch, string name)
         {
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\" + name + "_fib_test_" + ch + ".dat";
 
-            if (false)
+            if (USE_CUSTOM_COMPRESSION)
             {
-                // LZMA (slower, slightly better compression)
-                var raw = File.ReadAllBytes(testpath.Replace(".dat", ".lzma"));
+                // Custom Markov/AC compression
+                var raw = File.ReadAllBytes(testpath.Replace(".dat", ".mac"));
+                Console.WriteLine($"Reading {Bin.Human(raw.Length)} bytes.");
                 using (var instream = new MemoryStream(raw))
                 using (var ms = new MemoryStream())
                 {
-                    CompressionUtility.Decompress(instream, ms, null);
+                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov());
+                    encoder.Decode(instream, ms);
                     ms.Seek(0, SeekOrigin.Begin);
                     DataEncoding.FibonacciDecode(ms, buffer);
                 }
@@ -1677,23 +1721,24 @@ namespace ImageTools
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_fib_test_"+ch+".dat";
             if (File.Exists(testpath)) File.Delete(testpath);
 
-            if (false)
+            if (USE_CUSTOM_COMPRESSION)
             {
-                // LZMA (better compression, but a lot slower)
+                // Custom Markov/AC compression
                 using (var ms = new MemoryStream())
                 {
                     DataEncoding.FibonacciEncode(buffer, packedLength, ms);
                     ms.Seek(0, SeekOrigin.Begin);
-                    using (var fs2 = File.Open(testpath.Replace(".dat", ".lzma"), FileMode.Create))
+                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov());
+                    using (var fs2 = File.Open(testpath.Replace(".dat", ".mac"), FileMode.Create))
                     {
-                        CompressionUtility.Compress(ms, fs2, null);
+                        encoder.Encode(ms, fs2);
                         fs2.Flush();
                     }
                 }
             }
             else
             {
-                // Deflate
+                // Deflate compression
                 using (var ms = new MemoryStream(buffer.Length)) // this is bytes/8
                 {   // byte-by-byte input to deflate stream is *very* slow, so we buffer it first
                     DataEncoding.FibonacciEncode(buffer, packedLength, ms);

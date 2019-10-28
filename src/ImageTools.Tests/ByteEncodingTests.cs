@@ -145,7 +145,7 @@ namespace ImageTools.Tests
         public void elias_omega_code () {
             // This is the 'recursive' version of Peter Elias' universal code family
 
-            var samples = new uint[] { 1, 2, 3, 10, 50, 100, 255, 1024, 10000 };
+            var samples = new uint[] { 0, 1, 2, 3, 10, 50, 100, 255, 1024, 10000 };
             var ms = new MemoryStream();
             var bits = new BitwiseStreamWrapper(ms, 5);
 
@@ -154,7 +154,7 @@ namespace ImageTools.Tests
             foreach (var sample in samples)
             {
                 Console.Write($"{sample}, ");
-                EliasOmegaEncodeOne(sample, bits);
+                DataEncoding.EliasOmegaEncodeOne(sample, bits);
             }
 
             bits.Flush();
@@ -162,7 +162,10 @@ namespace ImageTools.Tests
 
             // Display
             Console.WriteLine("Bitwise result:");
+            var s = 7;
             while(bits.TryReadBit(out var b)) {
+                s = (s+1)%8;
+                if (s==0) Console.Write(" ");
                 Console.Write(b);
             }
             
@@ -172,47 +175,93 @@ namespace ImageTools.Tests
             // Decode
             Console.WriteLine("\r\nDecoding: (Note that this is not a self-synchronising code, and we read spare values off the end)");
             var safety = 50;
-            while (EliasOmegaTryDecodeOne(bits, out uint result) ) {
+            while (DataEncoding.EliasOmegaTryDecodeOne(bits, out uint result) ) {
                 if (safety-- < 0) { Assert.Fail("Decode loop did not terminate correctly"); }
                 Console.Write($"{result}, ");
             }
         }
 
-        private bool EliasOmegaTryDecodeOne(BitwiseStreamWrapper src, out uint dest)
-        {
-            dest = 1;
-            while (src.TryReadBit(out var b)) {
-                if (b == 0) return true;
-                uint len = dest;
-                dest = 1;
+        [Test]
+        public void byte_block_code () {
+            // a simple flagged code that fits codes in bytes, and is always byte-aligned
+            // this supports 22 bit unsigned integer range
 
-                for (int i = 0; i < len; i++)
-                {
-                    dest <<= 1;
-                    var ok = src.TryReadBit(out b);
-                    if (!ok) return false;
-                    dest = dest | (uint)b;
-                }
+            var samples = new ushort[] { 0, 1, 2, 3, 10, 50, 100, 255, 1024, 10000, 18383, 65535 };
+            var ms = new MemoryStream();
+            var bits = new BitwiseStreamWrapper(ms, 5);
+
+            // Encode to stream
+            Console.WriteLine("Encoding:");
+            foreach (var sample in samples)
+            {
+                Console.Write($"{sample}, ");
+                DataEncoding.ByteBlockEncodeOne(sample, bits);
             }
-            return false;
+
+            bits.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+
+            // Display
+            Console.WriteLine("Bitwise result:");
+            var s = 7;
+            while(bits.TryReadBit(out var b)) {
+                s = (s+1)%8;
+                if (s==0) Console.Write(" ");
+                Console.Write(b);
+            }
+            
+            ms.Seek(0, SeekOrigin.Begin);
+            bits = new BitwiseStreamWrapper(ms, 5);
+
+            // Decode
+            Console.WriteLine("\r\nDecoding: (Note that this is not a self-synchronising code, and we read spare values off the end)");
+            var safety = 50;
+            while (DataEncoding.ByteBlockTryDecodeOne(bits, out var result) ) {
+                if (safety-- < 0) { Assert.Fail("Decode loop did not terminate correctly"); }
+                Console.Write($"{result}, ");
+            }
         }
 
-        private void EliasOmegaEncodeOne(uint src, BitwiseStreamWrapper dest)
-        {
-            var stack = new Stack<bool>(); // TODO: get rid of this
-            while (src > 1) {
-                uint len = 0;
-                for (uint tmp = src; tmp > 0; tmp >>= 1) len++; // 1 + floor(log₂(data))
+        [Test]
+        public void short_byte_block_code () {
+            // same as byte block, but with a special case for 0 value
+            // this makes it no longer byte-aligned
 
-                for (int i = 0; i < len; i++) stack.Push(((src>>i)&1) == 1); 
+            var samples = new uint[] { 0, 1, 2, 3, 10, 50, 100, 255, 1024, 10000, 18383, 65535 };
+            var ms = new MemoryStream();
+            var bits = new BitwiseStreamWrapper(ms, 5);
 
-                src = len - 1;
+            // Encode to stream
+            Console.WriteLine("Encoding:");
+            foreach (var sample in samples)
+            {
+                Console.Write($"{sample}, ");
+                DataEncoding.ShortByteBlockEncodeOne(sample, bits);
             }
 
-            while (stack.Count > 0) {
-                dest.WriteBit(stack.Pop());
+            bits.Flush();
+            ms.Seek(0, SeekOrigin.Begin);
+
+            // Display
+            Console.WriteLine("Bitwise result:");
+            var s = 7;
+            while(bits.TryReadBit(out var b)) {
+                s = (s+1)%8;
+                if (s==0) Console.Write(" ");
+                Console.Write(b);
             }
-            dest.WriteBit(0);
+            
+            ms.Seek(0, SeekOrigin.Begin);
+            bits = new BitwiseStreamWrapper(ms, 5);
+
+            // Decode
+            Console.WriteLine("\r\nDecoding: (Note that this is not a self-synchronising code, and we read spare values off the end)");
+            var safety = 50;
+            while (DataEncoding.ShortByteBlockTryDecodeOne(bits, out var result) ) {
+                if (safety-- < 0) { Assert.Fail("Decode loop did not terminate correctly"); }
+                Console.Write($"{result}, ");
+            }
         }
+
     }
 }

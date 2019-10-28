@@ -208,34 +208,24 @@ namespace ImageTools.Tests
              
             UINT32:
             =======
-
             Raw 'Y' size = 4mb
-            AC encoded 'Y' size = 261.75kb	        (simple learning model)
-            AC encoded 'Y' size = 243.36kb          (learning markov)
-            AC encoded 'Y' size = 352.09kb          (push to front model, falloff = 3)
             AC encoded 'Y' size = 200.58kb          (fixed prescan model)
             Deflate encoded 'Y' size = 180.08kb
 
             UINT16:
             =======
             Raw 'Y' size = 2mb
-            AC encoded 'Y' size = 244.59kb          (simple learning model)
-            AC encoded 'Y' size = 299.75kb          (push to front model, falloff = 3)
             AC encoded 'Y' size = 180.85kb          (fixed prescan model)
             Deflate encoded 'Y' size = 151.15kb
 
             INT16:
             ======
             Raw 'Y' size = 2mb
-            AC encoded 'Y' size = 336.18kb			(simple learning model)
-            AC encoded 'Y' size = 327.33kb          (push to front model)
-            AC encoded 'Y' size = 228.48kb          (fixed prescan model)
             AC encoded 'Y' size = 202.89kb          (learning markov)
             Deflate encoded 'Y' size = 154.31kb
 
             FIBONACCI CODED:
             ================
-
             Raw 'Y' size = 319kb
             AC encoded 'Y' size = 231.1kb           (push to front model)
             AC encoded 'Y' size = 187.81kb          (rolling[4250])
@@ -244,9 +234,24 @@ namespace ImageTools.Tests
             AC encoded 'Y' size = 157.26kb          (fixed prescan limited to 256)
             AC encoded 'Y' size = 148.77kb          (fixed prescan model)
             AC encoded 'Y' size = 140.86kb          (rolling[8000] with divide)
+            Deflate encoded 'Y' size = 123.47kb
             AC encoded 'Y' size = 121.46kb          (learning markov -- finally beat deflate!)
             AC encoded 'Y' size = 121.04kb          (learning markov with +2)
-            Deflate encoded 'Y' size = 123.47kb
+
+            ELIAS OMEGA CODED:
+            ==================
+            Raw 'Y' size = 228.34kb
+            AC encoded 'Y' size = 126.76kb          (learning markov) Interesting that the raw size is smaller, but the compression is worse.
+
+            BYTE BLOCK CODED:
+            =================
+            Raw 'Y' size = 1mb
+            AC encoded 'Y' size = 131.08kb          (learning markov)
+
+            SHORT BYTE BLOCK CODED:
+            =======================
+            Raw 'Y' size = 267.13kb
+            AC encoded 'Y' size = 136.13kb          (learning markov)
             
             */
 
@@ -269,11 +274,7 @@ namespace ImageTools.Tests
                 Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
 
                 msY.Seek(0, SeekOrigin.Begin);
-                //var model = new ProbabilityModels.PrescanModel(msY);
-                //var model = new ProbabilityModels.PushToFrontModel();
-                //var model = new ProbabilityModels.SimpleLearningModel();
                 var model = new ProbabilityModels.LearningMarkov();
-                //var model = new ProbabilityModels.RollingLearningModel(8000);
 
                 // Try our simple encoding
                 var subject = new ArithmeticEncode(model);

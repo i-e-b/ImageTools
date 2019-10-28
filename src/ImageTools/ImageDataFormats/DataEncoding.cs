@@ -498,5 +498,202 @@ namespace ImageTools.ImageDataFormats
             return outp;
         }
 
+        public static bool EliasOmegaTryDecodeOne(BitwiseStreamWrapper src, out uint dest)
+        {
+            dest = 1;
+            while (src.TryReadBit(out var b))
+            {
+                if (b == 0) {
+                    dest--; // so we can encode zero
+                    return true;
+                }
+                uint len = dest;
+                dest = 1;
+
+                for (int i = 0; i < len; i++)
+                {
+                    dest <<= 1;
+                    var ok = src.TryReadBit(out b);
+                    if (!ok) return false;
+                    dest = dest | (uint)b;
+                }
+            }
+            return false;
+        }
+
+        public static void EliasOmegaEncodeOne(uint src, BitwiseStreamWrapper dest)
+        {
+            src++; // so we can encode zero
+            ulong stack = 0;
+            var scount = 0;
+            while (src > 1)
+            {
+                uint len = 0;
+                for (uint tmp = src; tmp > 0; tmp >>= 1) len++; // 1 + floor(log₂(data))
+
+                for (int i = 0; i < len; i++)
+                {
+                    stack |= ((src >> i) & 1) << scount;
+                    scount++;
+                }
+
+                src = len - 1;
+            }
+
+            scount--;
+            while (scount >= 0)
+            {
+                dest.WriteBit((int)((stack >> (scount)) & 1));
+                scount--;
+            }
+            dest.WriteBit(0);
+        }
+
+
+        public static bool ByteBlockTryDecodeOne(BitwiseStreamWrapper src, out uint value)
+        {
+            value = 0;
+            var ok = src.TryReadBit(out var b);
+            if (!ok) return false;
+
+            if (b == 0) { // one byte (7 bit data)
+                for (int i = 0; i < 7; i++) {
+                    value |= (uint)(src.ReadBit() << i);
+                }
+                return true;
+            }
+            
+            ok = src.TryReadBit(out b);
+            if (!ok) return false;
+            if (b == 0) { // two byte (14 bits data)
+                for (int i = 0; i < 14; i++) {
+                    value |= (uint)(src.ReadBit() << i);
+                }
+                value += 127;
+                return true;
+            }
+            
+            //3 bytes (22 bit data)
+            for (int i = 0; i < 22; i++) {
+                value |= (uint)(src.ReadBit() << i);
+            }
+            value += 16384 + 127;
+            return true;
+        }
+
+        public static void ByteBlockEncodeOne(uint value, BitwiseStreamWrapper dest)
+        {
+            if (value < 127) { // one byte (7 bits data)
+                dest.WriteBit(0);
+                for (int i = 0; i < 7; i++) {
+                    dest.WriteBit((int) ((value >> i) & 1));
+                }
+                return;
+            }
+
+            value -= 127;
+
+            if (value < 16384) { // two bytes (14 bits data)
+                dest.WriteBit(1);
+                dest.WriteBit(0);
+                for (int i = 0; i < 14; i++) {
+                    dest.WriteBit((int) ((value >> i) & 1));
+                }
+                return;
+            }
+
+            value -= 16384;
+
+            // Otherwise 3 bytes (22 bit data)
+            dest.WriteBit(1);
+            dest.WriteBit(1);
+            for (int i = 0; i < 22; i++)
+            {
+                dest.WriteBit((int)((value >> i) & 1));
+            }
+        }
+
+        
+        public static void ShortByteBlockEncodeOne(uint value, BitwiseStreamWrapper dest)
+        {
+            if (value == 0) {
+                dest.WriteBit(0);
+                return;
+            }
+
+            value--; // implied minimum size
+
+            if (value < 32) { // one byte (6 bits data)
+                dest.WriteBit(1);
+                dest.WriteBit(0);
+                for (int i = 0; i < 6; i++) {
+                    dest.WriteBit((int) ((value >> i) & 1));
+                }
+                return;
+            }
+
+            value -= 31;
+
+            if (value < 8192) { // two bytes (13 bits data)
+                dest.WriteBit(1);
+                dest.WriteBit(1);
+                dest.WriteBit(0);
+                for (int i = 0; i < 13; i++) {
+                    dest.WriteBit((int) ((value >> i) & 1));
+                }
+                return;
+            }
+
+            value -= 8191;
+
+            // Otherwise 3 bytes (21 bit data -- MAX)
+            dest.WriteBit(1);
+            dest.WriteBit(1);
+            dest.WriteBit(1);
+            for (int i = 0; i < 21; i++)
+            {
+                dest.WriteBit((int)((value >> i) & 1));
+            }
+        }
+        
+        public static bool ShortByteBlockTryDecodeOne(BitwiseStreamWrapper src, out uint value)
+        {
+            value = 0;
+            var ok = src.TryReadBit(out var b);
+            if (!ok) return false;
+            
+            if (b == 0) { // zero value
+                return true;
+            }
+
+            ok = src.TryReadBit(out b);
+            if (!ok) return false;
+
+            if (b == 0) {  // one byte (6 bits data)
+                for (int i = 0; i < 6; i++) {
+                    value |= (uint)(src.ReadBit() << i);
+                }
+                value += 1;
+                return true;
+            }
+            
+            ok = src.TryReadBit(out b);
+            if (!ok) return false;
+
+            if (b == 0) { // two byte (13 bits data)
+                for (int i = 0; i < 13; i++) {
+                    value |= (uint)(src.ReadBit() << i);
+                }
+                value += 31 + 1;
+                return true;
+            }
+            
+            //3 bytes (21 bit data)
+            for (int i = 0; i < 21; i++) {
+                value |= (uint)(src.ReadBit() << i);
+            }
+            value += 8191 + 31 + 1;
+            return true;
+        }
     }
 }

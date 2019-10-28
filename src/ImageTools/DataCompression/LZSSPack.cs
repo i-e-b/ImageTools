@@ -214,7 +214,7 @@ namespace ImageTools.DataCompression
         /// </summary>
         public class WideFlaggedModel : IProbabilityModel
         {
-            private readonly uint[] cumulative_frequency;
+            private readonly ulong[] cumulative_frequency;
             private bool _frozen;
 
             /// <summary>A two byte back reference (dist, len)</summary>
@@ -230,7 +230,7 @@ namespace ImageTools.DataCompression
 
             public WideFlaggedModel()
             {
-                cumulative_frequency = new uint[TableSize];
+                cumulative_frequency = new ulong[TableSize];
                 Reset();
             }
 
@@ -261,7 +261,7 @@ namespace ImageTools.DataCompression
             }
 
             /// <inheritdoc />
-            public SymbolProbability GetChar(long scaledValue, ref int decodedSymbol)
+            public SymbolProbability GetChar(ulong scaledValue, ref int decodedSymbol)
             {
                 for (int i = 0; i < CumulativeCount; i++)
                     if (scaledValue < cumulative_frequency[i + 1])
@@ -288,7 +288,7 @@ namespace ImageTools.DataCompression
             }
 
             /// <inheritdoc />
-            public uint GetCount()
+            public ulong GetCount()
             {
                 return cumulative_frequency[CumulativeCount];
             }
