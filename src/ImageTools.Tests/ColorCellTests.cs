@@ -69,7 +69,7 @@ namespace ImageTools.Tests
         public void compressing_and_restoring_a_color_cell_image__mixed_image__low_quality () {
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
-                var bytes = ColorCellEncoding.EncodeImage2D_Tight(bmp);
+                var bytes = ColorCellEncoding.EncodeImage2D_Tight(bmp, dither:false);
 
                 using (var bmp2 = ColorCellEncoding.DecodeImage2D_Tight(bytes))
                 {
@@ -82,6 +82,25 @@ namespace ImageTools.Tests
             }
 
             Assert.That(Load.FileExists("./outputs/CC_16bpp_3.bmp"));
+        }
+
+        [Test]
+        public void compressing_and_restoring_a_color_cell_image__mixed_image__low_quality__with_dither () {
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                var bytes = ColorCellEncoding.EncodeImage2D_Tight(bmp, dither:true);
+
+                using (var bmp2 = ColorCellEncoding.DecodeImage2D_Tight(bytes))
+                {
+                    bmp2.SaveBmp("./outputs/CC_16bpp_3_dither.bmp");
+                }
+
+                var bpp = (bytes.Length*8.0) / (bmp.Width * bmp.Height);
+
+                Console.WriteLine($"Encoded to {Bin.Human(bytes.Length)} ({bpp} bpp)");
+            }
+
+            Assert.That(Load.FileExists("./outputs/CC_16bpp_3_dither.bmp"));
         }
         
         [Test]
@@ -107,7 +126,7 @@ namespace ImageTools.Tests
         public void compressing_and_restoring_a_color_cell_image__natural_image__low_quality () {
             using (var bmp = Load.FromFile("./inputs/4.png"))
             {
-                var bytes = ColorCellEncoding.EncodeImage2D_Tight(bmp);
+                var bytes = ColorCellEncoding.EncodeImage2D_Tight(bmp, dither:false);
 
                 using (var bmp2 = ColorCellEncoding.DecodeImage2D_Tight(bytes))
                 {
@@ -120,6 +139,25 @@ namespace ImageTools.Tests
             }
 
             Assert.That(Load.FileExists("./outputs/CC_16bpp_4.bmp"));
+        }
+        
+        [Test]
+        public void compressing_and_restoring_a_color_cell_image__natural_image__low_quality__with_dither () {
+            using (var bmp = Load.FromFile("./inputs/4.png"))
+            {
+                var bytes = ColorCellEncoding.EncodeImage2D_Tight(bmp, dither: true);
+
+                using (var bmp2 = ColorCellEncoding.DecodeImage2D_Tight(bytes))
+                {
+                    bmp2.SaveBmp("./outputs/CC_16bpp_4_dither.bmp");
+                }
+
+                var bpp = (bytes.Length*8.0) / (bmp.Width * bmp.Height);
+
+                Console.WriteLine($"Encoded to {Bin.Human(bytes.Length)} ({bpp} bpp)");
+            }
+
+            Assert.That(Load.FileExists("./outputs/CC_16bpp_4_dither.bmp"));
         }
 
         /// <summary>
@@ -151,7 +189,7 @@ namespace ImageTools.Tests
         {
             using (var bmp = Load.FromFile("./inputs/6.png"))
             {
-                var bytes = ColorCellEncoding.EncodeImage2D_Tight(bmp);
+                var bytes = ColorCellEncoding.EncodeImage2D_Tight(bmp, dither: false);
 
                 using (var bmp2 = ColorCellEncoding.DecodeImage2D_Tight(bytes))
                 {

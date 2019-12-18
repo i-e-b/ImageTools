@@ -142,7 +142,7 @@ namespace ImageTools
         /// The output is far more constrained than `EncodeImage2D`,
         /// resulting in smaller file sizes, but worse image quality
         /// </summary>
-        public static byte[] EncodeImage2D_Tight(Bitmap src) {
+        public static byte[] EncodeImage2D_Tight(Bitmap src, bool dither) {
             if (src == null) return null;
             BitmapTools.ImageToPlanesf(src, ColorSpace.RGBToYiq, out var Y, out var U, out var V);
             int width = src.Width;
@@ -169,10 +169,10 @@ namespace ImageTools
             {
                 for (int bx = 0; bx < blockW; bx += 8) // block x axis
                 {
-                    // pick 4x4 block into an array
+                    // pick 8x8 block into an array
                     PickBlock64(by, width, bx, block, Y, U, V);
                     // calculate the upper and lower colors, and the bit pattern
-                    AveBlock64(block, out var upperY, out var lowerY, out var aveU, out var aveV, out var bits);
+                    AveBlock64(block, dither, out var upperY, out var lowerY, out var aveU, out var aveV, out var bits);
 
                     // alter green/purple balance (to compensate for bit loss)
                     aveV = ColorSpace.clip(aveV + 12);
@@ -328,7 +328,7 @@ namespace ImageTools
         }
 
         
-        private static void AveBlock64(TripleFloat[] block, out float upperY, out float lowerY, out float U, out float V, out UInt64 bits)
+        private static void AveBlock64(TripleFloat[] block, bool dither, out float upperY, out float lowerY, out float U, out float V, out ulong bits)
         {
             // set outputs to starting condition
             upperY = 0;
@@ -351,27 +351,37 @@ namespace ImageTools
             int countUpper = 0;
             int countLower = 0;
 
-            // Separate colors either side of the average
+            // calculate the upper and lower
             for (int i = 0; i < 64; i++)
             {
                 var sample = block[i];
                 if (sample.Y >= aveY) {
                     countUpper++;
                     upperY += sample.Y;
-                    bits |= 1UL << i;
                 } else {
                     countLower++;
                     lowerY += sample.Y;
                 }
             }
 
-            if (countLower > 0) {
-                lowerY /= countLower;
+            if (countLower > 0) { lowerY /= countLower; }
+            if (countUpper > 0) { upperY /= countUpper; }
+            
+            // Separate colors either side of the average
+            float error = 0;
+            for (int i = 0; i < 64; i++)
+            {
+                if ((i % 8) == 0) error = 0; // prevent error diffusion wrapping
+                var sample = block[i];
+                if (sample.Y >= aveY - error) {
+                    if (dither) error += sample.Y - upperY;
+                    bits |= 1UL << i;
+                } else {
+                    if (dither) error += sample.Y - lowerY;
+                }
+
             }
 
-            if (countUpper > 0) {
-                upperY /= countUpper;
-            }
         }
 
         private static void PickBlock16(int by, int width, int bx, TripleFloat[] block, float[] Y, float[] U, float[] V)

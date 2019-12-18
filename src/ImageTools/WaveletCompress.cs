@@ -1117,7 +1117,7 @@ namespace ImageTools
                 // Unquantised: native: 708kb; Ordered:  705kb
                 // Reorder, Quantise and reduce co-efficients
                 var packedLength = ToStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight);
-                QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Reduce);
+                //QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Reduce);
 
                 // Write output
                 WriteToFileFibonacci(buffer, ch, packedLength, "p_2");
@@ -1129,7 +1129,7 @@ namespace ImageTools
                 ReadFromFileFibonacci(buffer, ch, "p_2");
 
                 // Re-expand co-efficients
-                QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Expand);
+                //QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Expand);
                 FromStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight);
 
                 // Restore
@@ -1183,10 +1183,36 @@ namespace ImageTools
                     CDF.Fwt97(buffer, work, length, 0, 1);
                 }
 
+                // Quantise
+                for (int i = 0; i < rounds; i++)
+                {
+                    var upper = bufferSize >> i;
+                    var lower = bufferSize >> (i+1);
+                    var strength = rounds - i;
+                    for (int j = lower; j < upper; j++)
+                    {
+                        buffer[j] /= strength;
+                    }
+                }
+
                 WriteToFileFibonacci(buffer, ch, buffer.Length, "morton");
                 
                 // read output
                 ReadFromFileFibonacci(buffer, ch, "morton");
+
+
+                
+                // Dequantise
+                for (int i = 0; i < rounds; i++)
+                {
+                    var upper = bufferSize >> i;
+                    var lower = bufferSize >> (i+1);
+                    var strength = rounds - i;
+                    for (int j = lower; j < upper; j++)
+                    {
+                        buffer[j] *= strength;
+                    }
+                }
 
                 // Restore
                 for (int i = rounds - 1; i >= 0; i--)
@@ -1559,7 +1585,7 @@ namespace ImageTools
 
             // about the same as 100% JPEG
             //fYs = new double[]{ 1, 1, 1, 1, 1, 1, 1, 1, 1};
-            //fCs = new double[]{10000, 2, 1, 1, 1, 1, 1, 1, 1};
+            //fCs = new double[]{300, 200, 200, 50, 20, 1, 1, 1, 1};
                         
             var rounds = (int)Math.Log(packedLength, 2);
             for (int r = 0; r < rounds; r++)
@@ -1735,6 +1761,7 @@ namespace ImageTools
         {
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\"+name+"_fib_test_"+ch+".dat";
             if (File.Exists(testpath)) File.Delete(testpath);
+            Directory.CreateDirectory(Path.GetDirectoryName(testpath));
 
             if (USE_CUSTOM_COMPRESSION)
             {
