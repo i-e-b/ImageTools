@@ -43,11 +43,14 @@ namespace ImageTools.Tests
         }
 
         [Test]
-        public void haar_reduce_test() {
+        public void haar_reduce_and_expand_test() {
 
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
+                var orig = bmp.Width*bmp.Height * 4;
+
                 var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, Haar.Forward);
+                Console.WriteLine($"Original = {Bin.Human(orig)}, compressed = {Bin.Human(compressed.ByteSize())}");
                 
                 using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, Haar.Inverse))
                 {
@@ -56,6 +59,26 @@ namespace ImageTools.Tests
             }
 
             Assert.That(Load.FileExists("./outputs/Haar_3.bmp"));
+        }
+        
+
+        [Test]
+        public void experimental_wavelet_reduce_and_expand_test() {
+
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                var orig = bmp.Width*bmp.Height * 4;
+
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, ExperimentalWavelet.Forward);
+                Console.WriteLine($"Original = {Bin.Human(orig)}, compressed = {Bin.Human(compressed.ByteSize())}");
+                
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, ExperimentalWavelet.Inverse))
+                {
+                    bmp2.SaveBmp("./outputs/WaveExp_3.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/WaveExp_3.bmp"));
         }
                 
         [Test]

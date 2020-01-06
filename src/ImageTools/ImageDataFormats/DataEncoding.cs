@@ -259,13 +259,15 @@ namespace ImageTools.ImageDataFormats
                 n = (n >= 0) ? (n * 2) : (n * -2) - 1; // value to be encoded
                 n += 1; // always greater than zero
 
+                if (n > 514229) throw new Exception($"Value out of bounds: {inValue} at index {idx}");
+
                 // Fibonacci encode
                 ulong res = 0UL;
                 var maxidx = -1;
 
                 // find starting position
                 var i = 2;
-                while (fseq[i] < n) i++;
+                while (fseq[i] < n) { i++; }
 
                 // scan backwards marking value bits
                 while (n > 0)

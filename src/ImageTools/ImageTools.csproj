@@ -55,6 +55,7 @@
     <Compile Include="WaveletCompress.cs" />
     <Compile Include="ImageDataFormats\ColorSpace.cs" />
     <Compile Include="DataCompression\LZMA\Lzma.cs" />
+    <Compile Include="WaveletTransforms\ExperimentalWavelet.cs" />
     <Compile Include="WaveletTransforms\Haar.cs" />
     <Compile Include="SpaceFillingCurves\Hilbert.cs" />
     <Compile Include="Utilities\Image3d.cs" />

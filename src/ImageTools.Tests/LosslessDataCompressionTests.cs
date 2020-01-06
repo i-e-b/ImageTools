@@ -145,7 +145,7 @@ namespace ImageTools.Tests
         public void encoder_supports_large_input_data () {
             var sw = new Stopwatch();
 
-            var subject = new ArithmeticEncode(new ProbabilityModels.LearningMarkov());
+            var subject = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D());
             var result = new MemoryStream();
 
             sw.Restart();
@@ -239,6 +239,7 @@ namespace ImageTools.Tests
             AC encoded 'Y' size = 121.2kb           (learning markov with 256 byte lead-in)
             AC encoded 'Y' size = 121.04kb          (learning markov with +2)
             AC encoded 'Y' size = 120.27kb          (learning markov with 256b lead-in and +2 growth)
+            AC encoded 'Y' size = 129.28kb          (learning markov-3 with 256b lead-in and +2 growth)
 
             ELIAS OMEGA CODED:
             ==================
@@ -276,7 +277,7 @@ namespace ImageTools.Tests
                 Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
 
                 msY.Seek(0, SeekOrigin.Begin);
-                var model = new ProbabilityModels.LearningMarkov(256);
+                var model = new ProbabilityModels.LearningMarkov_2D(256);
 
                 // Try our simple encoding
                 var subject = new ArithmeticEncode(model);
@@ -537,7 +538,7 @@ nearly the same feelings towards the ocean with me.####";
 
                 lzY.Seek(0, SeekOrigin.Begin);
                 //var model = new ProbabilityModels.PrescanModel(lzY);
-                var model = new ProbabilityModels.LearningMarkov();
+                var model = new ProbabilityModels.LearningMarkov_2D();
                 var arithmeticEncode = new ArithmeticEncode(model);
                 lzY.Seek(0, SeekOrigin.Begin);
                 model.WritePreamble(acY);
@@ -603,7 +604,7 @@ nearly the same feelings towards the ocean with me.####";
                 //msY.CopyTo(lzY);
 
                 lzY.Seek(0, SeekOrigin.Begin);
-                var model = new ProbabilityModels.LearningMarkov();
+                var model = new ProbabilityModels.LearningMarkov_2D();
                 var arithmeticEncode = new ArithmeticEncode(model);
                 lzY.Seek(0, SeekOrigin.Begin);
                 model.WritePreamble(acY);

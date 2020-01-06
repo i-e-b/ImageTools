@@ -273,9 +273,9 @@ namespace ImageTools.DataCompression.Encoding
         }
 
         /// <summary>
-        /// A very simple table-based markov predictor
+        /// A very simple table-based markov predictor. Predicts based on 1 previous value
         /// </summary>
-        public class LearningMarkov : IProbabilityModel
+        public class LearningMarkov_2D : IProbabilityModel
         {
             private readonly int _leadInBytes;
 
@@ -291,7 +291,7 @@ namespace ImageTools.DataCompression.Encoding
             /// Create a new order-2 model
             /// </summary>
             /// <param name="leadInBytes">If greater than zero, this many bytes are ignored for learning at the start of the data. This prevents preamble poisoning.</param>
-            public LearningMarkov(int leadInBytes = 0)
+            public LearningMarkov_2D(int leadInBytes = 0)
             {
                 _leadInBytes = leadInBytes;
                 Reset();
@@ -366,6 +366,119 @@ namespace ImageTools.DataCompression.Encoding
             public ulong GetCount()
             {
                 return map[lastSymbol, 257];
+            }
+
+            /// <inheritdoc />
+            public int RequiredSymbolBits() { return 11; }
+
+            /// <inheritdoc />
+            public byte[] Preamble() { return new byte[0]; }
+
+            /// <inheritdoc />
+            public void WritePreamble(Stream dest) { }
+
+            /// <inheritdoc />
+            public void ReadPreamble(Stream src) { }
+        }
+
+        
+        /// <summary>
+        /// A table-based markov predictor. Predicts based on 2 previous values
+        /// </summary>
+        public class LearningMarkov_3D : IProbabilityModel
+        {
+            private readonly int _leadInBytes;
+
+            /// <summary>
+            /// the map is treated as an independent set of cumulative probabilities.
+            /// </summary>
+            private ulong[,,] map; // [lsA, lsB, cuml prob]
+            private int lsA, lsB;
+            private bool[,] frozen;
+            private int leadIn;
+
+            /// <summary>
+            /// Create a new order-3 model
+            /// </summary>
+            /// <param name="leadInBytes">If greater than zero, this many bytes are ignored for learning at the start of the data. This prevents preamble poisoning.</param>
+            public LearningMarkov_3D(int leadInBytes = 0)
+            {
+                _leadInBytes = leadInBytes;
+                Reset();
+            }
+
+            /// <inheritdoc />
+            public SymbolProbability GetCurrentProbability(int symbol)
+            {
+                var p = new SymbolProbability
+                {
+                    low = map[lsA,lsB,symbol],
+                    high = map[lsA,lsB,symbol + 1],
+                    count = map[lsA,lsB, 257]
+                };
+                Update(lsA, lsB, symbol);
+                lsA = lsB;
+                lsB = symbol;
+                return p;
+            }
+
+            private void Update(int prev1, int prev2, int next)
+            {
+                if (frozen[prev1, prev2]) return;
+                if (leadIn-- > 0) return;
+
+                const ulong max = ArithmeticEncode.MAX_FREQ / 3;
+                if (map[prev1, prev2, 257] > max) {
+                    frozen[prev1, prev2] = true;
+                    return;
+                }
+
+                for (int i = next + 1; i < 258; i++) map[prev1, prev2, i]+=2;
+            }
+
+            /// <inheritdoc />
+            public SymbolProbability GetChar(ulong scaledValue, ref int decodedSymbol)
+            {
+                for (int i = 0; i < 257; i++)
+                    if (scaledValue < map[lsA, lsB, i + 1])
+                    {
+                        decodedSymbol = i;
+                        var p = new SymbolProbability
+                        {
+                            low = map[lsA, lsB, i],
+                            high = map[lsA, lsB, i + 1],
+                            count = map[lsA, lsB, 257]
+                        };
+                        Update(lsA, lsB, decodedSymbol);
+                        lsA = lsB;
+                        lsB = decodedSymbol;
+                        return p;
+                    }
+                throw new Exception("Decoder model found no symbol range for scaled value = " + scaledValue);
+            }
+
+            /// <inheritdoc />
+            public void Reset()
+            {
+                lsA = lsB = 0;
+                leadIn = _leadInBytes;
+                map = new ulong[258,258,258];
+                frozen = new bool[258,258];
+                for (int i = 0; i < 258; i++)
+                for (int j = 0; j < 258; j++)
+                {
+                    frozen[i,j] = false;
+                    for (uint p = 0; p < 258; p++)
+                    {
+                        map[i,j,p] = p;
+                    }
+                }
+            }
+
+            /// <inheritdoc />
+            public ulong GetCount()
+            {
+                return map[lsA,lsB, 257];
             }
 
             /// <inheritdoc />

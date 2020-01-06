@@ -183,5 +183,12 @@ namespace ImageTools.ImageDataFormats
                 ws?.WriteByte(b);
             }
         }
+
+        public int ByteSize()
+        {
+            int sum = 0;
+            for (int p = 0; p < Planes.Length; p++) { sum += Planes[p].Length; }
+            return sum;
+        }
     }
 }

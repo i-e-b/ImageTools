@@ -199,7 +199,7 @@ namespace ImageTools
                     var tmp = new MemoryStream();
                     DataEncoding.FibonacciEncode(buffer, 0, tmp);
                     tmp.Seek(0, SeekOrigin.Begin);
-                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov(256));
+                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(256));
                     encoder.Encode(tmp, ms);
                 }
                 else {
@@ -279,7 +279,7 @@ namespace ImageTools
                 // Read, De-quantise, reorder
                 if (USE_CUSTOM_COMPRESSION) {
                     var tmp = new MemoryStream();
-                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov(256));
+                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(256));
                     encoder.Decode(storedData, tmp);
                     tmp.Seek(0, SeekOrigin.Begin);
                     DataEncoding.FibonacciDecode(tmp, buffer);
@@ -490,7 +490,7 @@ namespace ImageTools
                     tmp.Seek(0, SeekOrigin.Begin);
 
                     if (USE_CUSTOM_COMPRESSION) {
-                        var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov(256));
+                        var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(256));
                         encoder.Encode(tmp,  ms);
                     } else {
                         using (var gs = new DeflateStream(ms, CompressionLevel.Optimal, true))
@@ -568,7 +568,7 @@ namespace ImageTools
 
                 if (USE_CUSTOM_COMPRESSION) {
                     var tmp = new MemoryStream();
-                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov(256));
+                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(256));
                     encoder.Decode(storedData, tmp);
                     tmp.Seek(0, SeekOrigin.Begin);
                     DataEncoding.FibonacciDecode(tmp, buffer);
@@ -1565,6 +1565,7 @@ namespace ImageTools
 
         private static void QuantisePlanar2(float[] buffer, int ch, int packedLength, QuantiseType mode)
         {
+            return; // no quantise
             if (packedLength < buffer.Length) packedLength = buffer.Length;
             // ReSharper disable JoinDeclarationAndInitializer
             double[] fYs, fCs;   
@@ -1726,7 +1727,7 @@ namespace ImageTools
                 using (var instream = new MemoryStream(raw))
                 using (var ms = new MemoryStream())
                 {
-                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov());
+                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D());
                     encoder.Decode(instream, ms);
                     ms.Seek(0, SeekOrigin.Begin);
                     DataEncoding.FibonacciDecode(ms, buffer);
@@ -1770,7 +1771,7 @@ namespace ImageTools
                 {
                     DataEncoding.FibonacciEncode(buffer, packedLength, ms);
                     ms.Seek(0, SeekOrigin.Begin);
-                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov());
+                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D());
                     using (var fs2 = File.Open(testpath.Replace(".dat", ".mac"), FileMode.Create))
                     {
                         encoder.Encode(ms, fs2);
