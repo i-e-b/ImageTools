@@ -36,7 +36,11 @@ namespace ImageTools
 
     public class WaveletCompress
     {
-        // If true, will use arithmetic coding with markov model IN SOME PLACES.
+
+        /// <summary>
+        /// If true, will use arithmetic coding with markov model IN SOME PLACES.
+        /// The custom compression currently introduces major artefacts when the stream is truncated during decoding.
+        /// </summary>
         const bool USE_CUSTOM_COMPRESSION = true;
 
 
@@ -165,15 +169,14 @@ namespace ImageTools
                         // Wavelet decompose vertical
                         for (int x = 0; x < width; x++) // each column
                         {
-                            CDF.Fwt97(buffer, hx, height, zo + x, img3d.Width);
+                            CDF.Fwt53(buffer, hx, height, zo + x, img3d.Width);
                         }
 
                         // Wavelet decompose horizontal
                         for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
-                            CDF.Fwt97
-                                (buffer, wx, width, zo + yo, 1);
+                            CDF.Fwt53(buffer, wx, width, zo + yo, 1);
                         }
                     }
                 }
@@ -245,7 +248,7 @@ namespace ImageTools
             {
                 // reduce factor to demonstrate shortened files
                 var length = (int)(fs.Length * 1.0);
-                Console.WriteLine($"Reading {Bin.Human(length)} bytes of a total {Bin.Human(fs.Length)}");
+                Console.WriteLine($"Reading {Bin.Human(length)} of a total {Bin.Human(fs.Length)}");
                 var trunc_sim = new TruncatedStream(fs, length);
 
                 container = InterleavedFile.ReadFromStream(trunc_sim);
@@ -324,13 +327,13 @@ namespace ImageTools
                         for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
-                            CDF.Iwt97(buffer, wx, width, zo + yo, 1);
+                            CDF.Iwt53(buffer, wx, width, zo + yo, 1);
                         }
 
                         // vertical
                         for (int x = 0; x < width; x++) // each column
                         {
-                            CDF.Iwt97(buffer, hx, height, zo + x, img3d.Width);
+                            CDF.Iwt53(buffer, hx, height, zo + x, img3d.Width);
                         }
                     }
                 }
@@ -361,6 +364,7 @@ namespace ImageTools
             // Good quality (test = 529kb) (morton = 477kb) (cbcr = 400kb) (zsep = 378kb)
             //              (lzma = 325kb) (cube = 362kb) (flat-morton: 401kb)
             //              (cdf-ord = 369kb) (cdf-more-round = 367kb) (marv = 313.15kb)
+            //              (marv-expcol = 171.46kb)
             fYs = new double[]{  5,  4,  3, 2, 1 };
             fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
             
@@ -384,7 +388,7 @@ namespace ImageTools
             
             // Very strong compression (test = 95.3kb) (morton = 72.4kb) (cbcr = 64.4kb)
             //                         (zsep = 35.3kb) (lzma = 31.5kb) (ring = 57.6)
-            //                         (cdf-ord = 30.0kb)
+            //                         (cdf-ord = 30.0kb) (marv-expcol = 13.01kb)
             // sqrt 2nd: 27.4; no sqrt: 30.0; sqrt 1st: 15.2kb
             //fYs = new double[]{200,  80,  60,  40, 10,  5,  4 };
             //fCs = new double[]{999, 999, 400, 200, 80, 40, 20 };

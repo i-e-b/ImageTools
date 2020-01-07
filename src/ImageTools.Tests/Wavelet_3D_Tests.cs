@@ -52,6 +52,7 @@ namespace ImageTools.Tests
         {
             // CDF 9/7 results in 300.12kb (0.59 bpp)
             // CDF 5/3 results in 315.37kb (0.62 bpp)
+            // Mixture results in 315.15kb (0.61 bpp)
 
 
             // STEP 1: Load frames
@@ -65,7 +66,7 @@ namespace ImageTools.Tests
             var img3d = new Image3d(frames);
 
             // Raw frames as doubles is *big*
-            Console.WriteLine($"3D image memory size: {img3d.ByteSize() / 1048576L} MB");
+            Console.WriteLine($"3D image memory size: {img3d.ByteSize() / 1048576L} MB, for {img3d.Y.LongLength} pixels");
 
             Assert.That(img3d.Y.LongLength, Is.EqualTo(256 * 256 * 64)); // every dimension must be a power of 2, but not the same one
 
@@ -76,7 +77,7 @@ namespace ImageTools.Tests
             var outputsize = WaveletCompress.ReduceImage3D_ToFile(img3d, targetPath);
             sw.Stop();
             Console.WriteLine($"Compression took {sw.Elapsed}. Written to {targetPath}");
-            var bitdepth = (outputsize * 8.0) / img3d.Y.LongLength;
+            var bitdepth = (outputsize * 8.0) / img3d.PixelCount();
             Console.WriteLine($"Storage takes {bitdepth:0.00} bpp");
 
             // STEP 3: Restore original from file
@@ -118,11 +119,11 @@ namespace ImageTools.Tests
             var sw = new Stopwatch();
             sw.Start();
             var targetPath = Path.Combine(basePath, "outputs/expcol_w3d.bin");
-            WaveletCompress.ReduceImage3D_ToFile(img3d, targetPath);
+            var outputsize = WaveletCompress.ReduceImage3D_ToFile(img3d, targetPath);
             sw.Stop();
             Console.WriteLine($"Compression took {sw.Elapsed}. Written to {targetPath}");
 
-            var bpp = (new System.IO.FileInfo(targetPath).Length * 8.0) / (img3d.PixelCount());
+            var bpp = (outputsize * 8.0) / (img3d.PixelCount());
             Console.WriteLine($"BPP: {bpp}");
 
             // STEP 3: Restore original from file
