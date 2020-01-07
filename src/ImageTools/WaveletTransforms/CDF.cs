@@ -145,5 +145,95 @@
             for (i = 0; i < n; i++) { buf[i * stride + offset] = x[i]; }
         }
 
+
+
+        /// <summary>
+        ///  fwt53 - Forward biorthogonal 5/3 wavelet transform (lifting implementation)
+        ///<para></para><list type="bullet">
+        ///  <item><description>buf is an input signal, which will be replaced by its output transform.</description></item>
+        ///  <item><description>x is a temporary buffer provided by caller. It must be at least `n` long</description></item>
+        ///  <item><description>n is the length of the signal, and must be a power of 2.</description></item>
+        ///  <item><description>s is the stride across the signal (for multi dimensional signals)</description></item>
+        /// </list>
+        ///<para></para>
+        ///  The first half part of the output signal contains the approximation coefficients.
+        ///  The second half part contains the detail coefficients (aka. the wavelets coefficients).
+        ///<para></para>
+        ///  See also iwt53.
+        /// </summary>
+        public static void Fwt53 (float[] buf, float[] x, int n, int offset, int stride) {
+            float a;
+            int i;
+
+            // pick out stride data
+            for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
+
+            // Predict 1
+            a = -0.5f;
+            for (i = 1; i < n - 2; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
+            }
+            x[n - 1] += 2 * a * x[n - 2];
+
+            // Update 1
+            a = 0.25f;
+            for (i = 2; i < n; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
+            }
+            x[0] += 2 * a * x[1];
+
+            // Pack into buffer (using stride and offset)
+            // The raw output is like [DC][AC][DC][AC]...
+            // we want it as          [DC][DC]...[AC][AC]
+            var hn = n/2;
+            for (i = 0; i < hn; i++) {
+                buf[i * stride + offset] = x[i*2];
+                buf[(i + hn) * stride + offset] = x[1 + i * 2];
+            }
+        }
+
+        /// <summary>
+        /// iwt53 - Inverse biorthogonal 5/3 wavelet transform
+        /// <para></para>
+        /// This is the inverse of fwt53 so that iwt53(fwt53(x,n),n)=x for every signal x of length n.
+        /// <para></para>
+        /// See also fwt53.
+        /// </summary>
+        public static void Iwt53 (float[] buf, float[] x, int n, int offset, int stride) {
+            
+            float a;
+            int i;
+                        
+            // Unpack from stride into working buffer
+            // The raw input is like [DC][DC]...[AC][AC]
+            // we want it as         [DC][AC][DC][AC]...
+            var hn = n/2;
+            for (i = 0; i < hn; i++) {
+                x[i*2] = buf[i * stride + offset];
+                x[1 + i * 2] = buf[(i + hn) * stride + offset];
+            }
+
+            // Undo update 1
+            a = -0.25f;
+            for (i = 2; i < n; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
+            }
+            x[0] += 2 * a * x[1];
+
+            // Undo predict 1
+            a = 0.5f;
+            for (i = 1; i < n - 2; i += 2)
+            {
+                x[i] += a * (x[i - 1] + x[i + 1]);
+            }
+            x[n - 1] += 2 * a * x[n - 2];
+            
+
+            // write back stride data
+            for (i = 0; i < n; i++) { buf[i * stride + offset] = x[i]; }
+        }
     }
 }

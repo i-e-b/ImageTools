@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using ImageTools.ImageDataFormats;
 using ImageTools.Utilities;
@@ -43,17 +44,21 @@ namespace ImageTools.Tests
         }
 
         [Test]
-        public void haar_reduce_and_expand_test() {
+        public void Roundtrip_haar_reduce_and_expand_test() {
 
+            var sw = new Stopwatch();
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
                 var orig = bmp.Width*bmp.Height * 4;
 
+                sw.Start();
                 var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, Haar.Forward);
                 Console.WriteLine($"Original = {Bin.Human(orig)}, compressed = {Bin.Human(compressed.ByteSize())}");
                 
                 using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, Haar.Inverse))
                 {
+                    sw.Stop();
+                    Console.WriteLine($"Round trip took {sw.Elapsed}");
                     bmp2.SaveBmp("./outputs/Haar_3.bmp");
                 }
             }
@@ -63,22 +68,73 @@ namespace ImageTools.Tests
         
 
         [Test]
-        public void experimental_wavelet_reduce_and_expand_test() {
+        public void Roundtrip_integer_wavelet_reduce_and_expand_test() {
 
+            var sw = new Stopwatch();
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
                 var orig = bmp.Width*bmp.Height * 4;
 
-                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, ExperimentalWavelet.Forward);
+                sw.Start();
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, IntegerWavelet.Forward);
                 Console.WriteLine($"Original = {Bin.Human(orig)}, compressed = {Bin.Human(compressed.ByteSize())}");
                 
-                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, ExperimentalWavelet.Inverse))
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, IntegerWavelet.Inverse))
                 {
-                    bmp2.SaveBmp("./outputs/WaveExp_3.bmp");
+                    sw.Stop();
+                    Console.WriteLine($"Round trip took {sw.Elapsed}");
+                    bmp2.SaveBmp("./outputs/WaveInt_3.bmp");
                 }
             }
 
-            Assert.That(Load.FileExists("./outputs/WaveExp_3.bmp"));
+            Assert.That(Load.FileExists("./outputs/WaveInt_3.bmp"));
+        }
+
+
+        [Test]
+        public void Roundtrip_CDF53_reduce_and_expand_test() {
+
+            var sw = new Stopwatch();
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                var orig = bmp.Width*bmp.Height * 4;
+
+                sw.Start();
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, CDF.Fwt53);
+                Console.WriteLine($"Original = {Bin.Human(orig)}, compressed = {Bin.Human(compressed.ByteSize())}");
+                
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, CDF.Iwt53))
+                {
+                    sw.Stop();
+                    Console.WriteLine($"Round trip took {sw.Elapsed}");
+                    bmp2.SaveBmp("./outputs/CDF53_RT_3.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/CDF53_RT_3.bmp"));
+        }
+
+        [Test]
+        public void Roundtrip_CDF97_reduce_and_expand_test() {
+
+            var sw = new Stopwatch();
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                var orig = bmp.Width*bmp.Height * 4;
+
+                sw.Start();
+                var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, CDF.Fwt97);
+                Console.WriteLine($"Original = {Bin.Human(orig)}, compressed = {Bin.Human(compressed.ByteSize())}");
+                
+                using (var bmp2 = WaveletCompress.RestoreImage2D_FromFile(compressed, CDF.Iwt97))
+                {
+                    sw.Stop();
+                    Console.WriteLine($"Round trip took {sw.Elapsed}");
+                    bmp2.SaveBmp("./outputs/CDF97_RT_3.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/CDF97_RT_3.bmp"));
         }
                 
         [Test]

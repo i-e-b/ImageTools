@@ -149,6 +149,10 @@ namespace ImageTools.ImageDataFormats
             return (uint)((clip(R) << 16) + (clip(G) << 8) + clip(B));
         }
         
+        /// <summary>
+        /// Lossy conversion from YCoCg to RGB
+        /// This is a (luma + blue/orange + purple/green) space
+        /// </summary>
         public static void YCoCgToRGB(double Y, double Co, double Cg, out double R, out double G, out double B) {
             Co = (Co - 127) * 2;
             Cg = (Cg - 127) * 2;
@@ -158,6 +162,11 @@ namespace ImageTools.ImageDataFormats
             B   = tmp - (Co / 2);
             R   = B + Co;
         }
+        
+        /// <summary>
+        /// Lossy conversion from RGB to YCoCg
+        /// This is a (luma + blue/orange + purple/green) space
+        /// </summary>
         public static void RGBToYCoCg(double R, double G, double B, out double Y, out double Co, out double Cg) {
             Co = R - B;
             var tmp = B + (Co / 2);
@@ -448,8 +457,7 @@ namespace ImageTools.ImageDataFormats
 
         
         /// <summary>
-        /// Experimental color space.
-        /// This is biased to allow more error in red and blue, less in green.
+        /// Lossless conversion from YUV 
         /// </summary>
         public static void YUVToRGB(double Y, double U, double V, out double R, out double G, out double B)
         {

@@ -118,13 +118,11 @@ namespace ImageTools
         /// <summary>
         /// Compress a 3D image to a single file. This can be restored by `RestoreImage3D_FromFile`
         /// </summary>
-        public static void ReduceImage3D_ToFile(Image3d img3d, string filePath) {
+        public static long ReduceImage3D_ToFile(Image3d img3d, string filePath) {
             // this is the first half of `ReduceImage3D_2`
             DC_to_AC(img3d.Y);
             DC_to_AC(img3d.U);
             DC_to_AC(img3d.V);
-
-            int rounds;
 
             var msY = new MemoryStream();
             var msU = new MemoryStream();
@@ -150,7 +148,7 @@ namespace ImageTools
                 }
 
                 // Reduce each plane independently
-                rounds = (int)Math.Log(img3d.Width, 2);
+                var rounds = (int)Math.Log(img3d.Width, 2);
                 for (int i = 0; i < rounds; i++)
                 {
                     var height = img3d.Height >> i;
@@ -174,7 +172,8 @@ namespace ImageTools
                         for (int y = 0; y < height >> 1; y++) // each row
                         {
                             var yo = (y * img3d.Width);
-                            CDF.Fwt97(buffer, wx, width, zo + yo, 1);
+                            CDF.Fwt97
+                                (buffer, wx, width, zo + yo, 1);
                         }
                     }
                 }
@@ -186,7 +185,7 @@ namespace ImageTools
                     var dx = new float[depth];
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
-                        CDF.Fwt97(buffer, dx, depth, xy, img3d.zspan);
+                        CDF.Fwt53(buffer, dx, depth, xy, img3d.zspan);
                     }
                 }
 
@@ -199,7 +198,7 @@ namespace ImageTools
                     var tmp = new MemoryStream();
                     DataEncoding.FibonacciEncode(buffer, 0, tmp);
                     tmp.Seek(0, SeekOrigin.Begin);
-                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(256));
+                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(0));
                     encoder.Encode(tmp, ms);
                 }
                 else {
@@ -232,6 +231,7 @@ namespace ImageTools
                 container.WriteToStream(fs);
                 fs.Flush();
             }
+            return container.ByteSize();
         }
 
         /// <summary>
@@ -279,7 +279,7 @@ namespace ImageTools
                 // Read, De-quantise, reorder
                 if (USE_CUSTOM_COMPRESSION) {
                     var tmp = new MemoryStream();
-                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(256));
+                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(0));
                     encoder.Decode(storedData, tmp);
                     tmp.Seek(0, SeekOrigin.Begin);
                     DataEncoding.FibonacciDecode(tmp, buffer);
@@ -302,7 +302,7 @@ namespace ImageTools
                     var dx = new float[depth];
                     for (int xy = 0; xy < img3d.zspan; xy++)
                     {
-                        CDF.Iwt97(buffer, dx, depth, xy, img3d.zspan);
+                        CDF.Iwt53(buffer, dx, depth, xy, img3d.zspan);
                     }
                 }
                 // each plane independently
@@ -354,26 +354,27 @@ namespace ImageTools
 
             // Test MJPEG = 1,864kb
 
-            // MJPEG 100% equivalent (zsep = 1,270kb) (lzma = 1,170kb) (cdf-ord = 1,210kb)
+            // MJPEG 100% equivalent (zsep = 1,270kb) (lzma = 1,170kb) (cdf-ord = 1,210kb) (marv = 1,133kb)
             //fYs = new double[]{ 1 };
             //fCs = new double[]{ 999,2 };
 
             // Good quality (test = 529kb) (morton = 477kb) (cbcr = 400kb) (zsep = 378kb)
             //              (lzma = 325kb) (cube = 362kb) (flat-morton: 401kb)
-            //              (cdf-ord = 369kb) (cdf-more-round = 367kb)
-            //fYs = new double[]{  5,  4,  3, 2, 1 };
-            //fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
-            
-            // Good quality,long tail (cdf-more-round = 351kb)
-            fYs = new double[]{  5,  4,  3, 2, 1.5 };
+            //              (cdf-ord = 369kb) (cdf-more-round = 367kb) (marv = 313.15kb)
+            fYs = new double[]{  5,  4,  3, 2, 1 };
             fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
+            
+            // Good quality,long tail (cdf-more-round = 351kb) (marv = 298.13kb)
+            //fYs = new double[]{  5,  4,  3, 2, 1.5 };
+            //fCs = new double[]{ 24, 15, 10, 7, 5, 3, 2 };
 
             // Medium compression (test = 224kb) (morton = 177kb) (cbcr = 151kb) (zsep = 131kb)
             //                    (lzma = 115kb) (cube = 162kb) (cdf-ord = 128kb/110kb)
+            //                    (marv = 110.25kb)
             //fYs = new double[]{ 24, 12, 7,  5, 3, 2, 1 };
             //fCs = new double[]{ 50, 24, 12, 7, 5, 3, 2 };
             
-            // Flat compression (cbcr = 116kb) (zsep = 95.1kb) (lzma 80.3kb)
+            // Flat compression (cbcr = 116kb) (zsep = 95.1kb) (lzma = 80.3kb) (marv = 65.7kb)
             //fYs = new double[]{ 14, 14, 14, 14, 8, 4, 1 };
             //fCs = new double[]{ 400, 200, 100, 100, 90, 40, 20 };
 
@@ -415,17 +416,10 @@ namespace ImageTools
         private static void DC_to_AC(float[] buffer) {
             for (int i = 0; i < buffer.Length; i++) { 
                 buffer[i] -= DC_BIAS;
-                
-                // Experimental: square values (keeping sign)
-                //buffer[i] *= Math.Abs(buffer[i]);
             }
         }
         private static void AC_to_DC(float[] buffer) {
             for (int i = 0; i < buffer.Length; i++) { 
-                // Experiment: reduce power (matches DC_to_AC)
-                //var sign = buffer[i] < 0 ? -1.0f : 1.0f;
-                //buffer[i] = (float)Math.Sqrt(Math.Abs(buffer[i])) * sign;
-
                 buffer[i] += DC_BIAS;
             }
         }
@@ -1565,7 +1559,6 @@ namespace ImageTools
 
         private static void QuantisePlanar2(float[] buffer, int ch, int packedLength, QuantiseType mode)
         {
-            return; // no quantise
             if (packedLength < buffer.Length) packedLength = buffer.Length;
             // ReSharper disable JoinDeclarationAndInitializer
             double[] fYs, fCs;   
@@ -1584,7 +1577,7 @@ namespace ImageTools
             //fYs = new double[]{ 180, 150, 100, 40, 8, 5, 3.5, 1.5 };
             //fCs = new double[]{1000, 200, 200, 50, 20, 10, 4};
 
-            // about the same as 100% JPEG
+            // about the same as 100% JPEG 4:2:0
             //fYs = new double[]{ 1, 1, 1, 1, 1, 1, 1, 1, 1};
             //fCs = new double[]{300, 200, 200, 50, 20, 1, 1, 1, 1};
                         

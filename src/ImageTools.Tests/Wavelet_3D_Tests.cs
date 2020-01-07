@@ -50,6 +50,10 @@ namespace ImageTools.Tests
         [Test]
         public void single_file_storage()
         {
+            // CDF 9/7 results in 300.12kb (0.59 bpp)
+            // CDF 5/3 results in 315.37kb (0.62 bpp)
+
+
             // STEP 1: Load frames
             var basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             var filePath = Path.Combine(basePath, "../../inputs/EasyFrames");
@@ -69,9 +73,11 @@ namespace ImageTools.Tests
             var sw = new Stopwatch();
             sw.Start();
             var targetPath = Path.Combine(basePath, "outputs/w3d_a_packed.bin");
-            WaveletCompress.ReduceImage3D_ToFile(img3d, targetPath);
+            var outputsize = WaveletCompress.ReduceImage3D_ToFile(img3d, targetPath);
             sw.Stop();
             Console.WriteLine($"Compression took {sw.Elapsed}. Written to {targetPath}");
+            var bitdepth = (outputsize * 8.0) / img3d.Y.LongLength;
+            Console.WriteLine($"Storage takes {bitdepth:0.00} bpp");
 
             // STEP 3: Restore original from file
             sw.Reset();

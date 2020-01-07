@@ -78,7 +78,7 @@ namespace ImageTools.Tests
 
                 var bpp = (bytes.Length*8.0) / (bmp.Width * bmp.Height);
 
-                Console.WriteLine($"Encoded to {Bin.Human(bytes.Length)} ({bpp} bpp)");
+                Console.WriteLine($"Encoded '3.png' to {Bin.Human(bytes.Length)} ({bpp} bpp)");
             }
 
             Assert.That(Load.FileExists("./outputs/CC_16bpp_3.bmp"));
