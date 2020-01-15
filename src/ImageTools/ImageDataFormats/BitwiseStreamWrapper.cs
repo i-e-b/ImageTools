@@ -171,7 +171,16 @@ namespace ImageTools.ImageDataFormats
 
         public bool CanRead()
         {
-            return _runoutBits > 1;
+            return _runoutBits > 0;
+        }
+
+        /// <summary>
+        /// Returns true if at least the given number of BYTES are available in the original data (i.e. excludes run-out)
+        /// </summary>
+        public bool HasHeadspace(int byteSize)
+        {
+            var avail = _original.Length - _original.Position;
+            return avail >= byteSize;
         }
     }
 }

@@ -322,7 +322,7 @@ namespace ImageTools.DataCompression.Encoding
                     return;
                 }
 
-                for (int i = next + 1; i < 258; i++) map[prev, i]+=2;
+                for (int i = next + 1; i < 258; i++) map[prev, i] += 2;
             }
 
             /// <inheritdoc />
@@ -433,7 +433,7 @@ namespace ImageTools.DataCompression.Encoding
                     return;
                 }
 
-                for (int i = next + 1; i < 258; i++) map[prev1, prev2, i]+=2;
+                for (int i = next + 1; i < 258; i++) map[prev1, prev2, i]++;
             }
 
             /// <inheritdoc />

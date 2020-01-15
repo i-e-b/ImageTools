@@ -156,7 +156,8 @@ namespace ImageTools.DataCompression.Encoding
                 var scaled_value = ((value - low + 1) * _model.GetCount() - 1) / range;
                 int c = 0;
                 var p = _model.GetChar( scaled_value, ref c );
-                if ( c >= _terminationSymbol ) yield break;
+                if (c == _terminationSymbol) { yield break; }
+                if (c > _terminationSymbol) { break; } // something went wrong
                 yield return c;
 
                 high = low + (range * p.high) / p.count - 1;
@@ -177,9 +178,8 @@ namespace ImageTools.DataCompression.Encoding
                         break;
                     }
 
-                    if (!src.CanRead()) {
-                        // Unexpected truncation
-                        yield break;
+                    if (!src.CanRead()) { // Unexpected truncation
+                        break;
                     }
 
                     low <<= 1;
@@ -190,6 +190,10 @@ namespace ImageTools.DataCompression.Encoding
 
                 } // end of symbol decoding loop
             } // end of data loop
+
+            
+            // Unexpected truncation. We should end with a termination symbol.
+            yield return -1; // signal the failure
         }
 
         /// <summary>

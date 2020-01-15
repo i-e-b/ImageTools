@@ -4,6 +4,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.IO.Compression;
 using ImageTools.DataCompression.Encoding;
+using ImageTools.DataCompression.Experimental;
 using ImageTools.ImageDataFormats;
 using ImageTools.SpaceFillingCurves;
 using ImageTools.Utilities;
@@ -463,7 +464,7 @@ namespace ImageTools
                 {
                     var height = p2Height >> i;
                     var width = p2Width >> i;
-
+                    
                     // Wavelet decompose vertical
                     for (int x = 0; x < width; x++) // each column
                     {
@@ -484,13 +485,16 @@ namespace ImageTools
                 // Write output
                 using (var tmp = new MemoryStream(buffer.Length))
                 {   // byte-by-byte writing to DeflateStream is *very* slow, so we buffer
-                    DataEncoding.FibonacciEncode(buffer, 0, tmp);
-                    tmp.Seek(0, SeekOrigin.Begin);
 
                     if (USE_CUSTOM_COMPRESSION) {
-                        var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(256));
-                        encoder.Encode(tmp,  ms);
+                        DataEncoding.FibonacciEncode(buffer, 0, tmp);
+                        tmp.Seek(0, SeekOrigin.Begin);
+
+                        var coder = new TruncatableEncoder();
+                        coder.CompressStream(tmp, ms);
                     } else {
+                        DataEncoding.FibonacciEncode(buffer, 0, tmp);
+                        tmp.Seek(0, SeekOrigin.Begin);
                         using (var gs = new DeflateStream(ms, CompressionLevel.Optimal, true))
                         {
                             tmp.WriteTo(gs);
@@ -566,9 +570,11 @@ namespace ImageTools
 
                 if (USE_CUSTOM_COMPRESSION) {
                     var tmp = new MemoryStream();
-                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(256));
-                    encoder.Decode(storedData, tmp);
+
+                    var coder = new TruncatableEncoder();
+                    coder.DecompressStream(storedData, tmp);
                     tmp.Seek(0, SeekOrigin.Begin);
+
                     DataEncoding.FibonacciDecode(tmp, buffer);
                 } else {
                     using (var gs = new DeflateStream(storedData, CompressionMode.Decompress))

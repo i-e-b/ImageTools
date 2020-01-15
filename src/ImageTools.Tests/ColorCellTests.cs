@@ -27,6 +27,7 @@ namespace ImageTools.Tests
 
             Assert.That(Load.FileExists("./outputs/CC_32bpp_1.bmp"));
         }
+
         [Test]
         public void compressing_and_restoring_a_color_cell_image__test_image_2 () {
             using (var bmp = Load.FromFile("./inputs/2.jpg"))

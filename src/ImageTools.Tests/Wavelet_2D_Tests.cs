@@ -299,7 +299,6 @@ namespace ImageTools.Tests
             Assert.That(Load.FileExists("./outputs/Cdf97_3_1to1.bmp"));
         }
 
-        
         [Test]
         public void decompressing_a_truncated_file_to_normal_image_size()
         {
@@ -308,12 +307,17 @@ namespace ImageTools.Tests
             {
                 var compressed = WaveletCompress.ReduceImage2D_ToFile(bmp, CDF.Fwt97);
 
+                Console.WriteLine($"Compressed to {Bin.Human(compressed.ByteSize())}");
+
                 var ms = new MemoryStream();
                 compressed.WriteToStream(ms);
                 ms.Seek(0, SeekOrigin.Begin);
-                var bytes = new byte[ms.Length / 2];
+                var bytes = new byte[(long)(ms.Length * 0.5)];
                 ms.Read(bytes, 0, bytes.Length);
                 var trunc = new MemoryStream(bytes);
+
+                
+                Console.WriteLine($"Restoring image from first {Bin.Human(bytes.Length)}");
 
                 var truncated = InterleavedFile.ReadFromStream(trunc);
 

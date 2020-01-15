@@ -40,11 +40,12 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DataCompression\Encoding\ArithmeticEncode.cs" />
-    <Compile Include="DataCompression\Encoding\ProbabilityModels.cs" />
-    <Compile Include="DataCompression\LZMWPack.cs" />
-    <Compile Include="DataCompression\LZSSPack.cs" />
-    <Compile Include="DataCompression\LZWPack.cs" />
+    <Compile Include="DataCompression\ArithmeticEncoding\ArithmeticEncode.cs" />
+    <Compile Include="DataCompression\ArithmeticEncoding\ProbabilityModels.cs" />
+    <Compile Include="DataCompression\Experimental\TruncatableEncoder.cs" />
+    <Compile Include="DataCompression\LzType\LZMWPack.cs" />
+    <Compile Include="DataCompression\LzType\LZSSPack.cs" />
+    <Compile Include="DataCompression\LzType\LZWPack.cs" />
     <Compile Include="ImageDataFormats\BitwiseStreamWrapper.cs" />
     <Compile Include="ErrorDiffusionScale.cs" />
     <Compile Include="PixelScale.cs" />
@@ -54,7 +55,7 @@
     <Compile Include="ColorCellEncoding.cs" />
     <Compile Include="WaveletCompress.cs" />
     <Compile Include="ImageDataFormats\ColorSpace.cs" />
-    <Compile Include="DataCompression\LZMA\Lzma.cs" />
+    <Compile Include="DataCompression\LzType\LZMA\Lzma.cs" />
     <Compile Include="WaveletTransforms\IntegerWavelet.cs" />
     <Compile Include="WaveletTransforms\Haar.cs" />
     <Compile Include="SpaceFillingCurves\Hilbert.cs" />
@@ -74,6 +75,7 @@
   <ItemGroup>
     <None Include=".editorconfig" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

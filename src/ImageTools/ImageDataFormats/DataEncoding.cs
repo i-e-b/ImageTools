@@ -205,9 +205,11 @@ namespace ImageTools.ImageDataFormats
                             // convert back to signed, add to list
                             if (accum > 0) {
                                 long n = accum - 1L;
-                                if ((n % 2) == 0) output[outidx++] = ((int)(n >> 1));
-                                else output[outidx++] = ((int)(((n + 1) >> 1) * -1));
+                                if ((n % 2) == 0) output[outidx++] = (int)(n >> 1);
+                                else output[outidx++] = (int)(((n + 1) >> 1) * -1);
                             } // else damaged data
+
+
                             // `b11`; reset, move to next number
                             accum = 0;
                             pos = 0;
@@ -217,7 +219,10 @@ namespace ImageTools.ImageDataFormats
                         lastWas1 = true;
                     } else lastWas1 = false;
 
-                    if (pos >= fseq.Length - 3) return; // should throw? Break sequence?
+                    if (pos >= fseq.Length - 3) {
+                        //pos = 0; // Option 1: reset value and continue -- this works best for transient errors
+                        return; // Option 2: Break sequence -- this works best for truncation
+                    }
                     accum += f * fseq[pos + 2];
                     pos++;
                 }
@@ -235,7 +240,7 @@ namespace ImageTools.ImageDataFormats
         /// The input of double values are truncated during encoding.
         /// </summary>
         /// <param name="buffer">Input buffer. Values will be truncated and must be in the range +- 196418</param>
-        /// <param name="length">Number of smaples to encode. Must be equal-or-less than buffer length. To encode entire buffer, pass zero.</param>
+        /// <param name="length">Number of samples to encode. Must be equal-or-less than buffer length. To encode entire buffer, pass zero.</param>
         /// <param name="output">Writable stream for output</param>
         public static void FibonacciEncode(float[] buffer, int length, Stream output)
         {
@@ -696,6 +701,133 @@ namespace ImageTools.ImageDataFormats
             }
             value += 8191 + 31 + 1;
             return true;
+        }
+
+
+        public static void ShortByteEncode(float[] input, int length, Stream output){
+            if (output == null || input == null) throw new Exception("Null param");
+            if (length < 1) length += input.Length;
+
+            var dest = new BitwiseStreamWrapper(output, 1);
+            for (int i = 0; i < length; i++)
+            {
+                // Signed to unsigned
+                int n = (int)input[i];
+                n = (n >= 0) ? (n * 2) : (n * -2) - 1; // value to be encoded
+
+                ShortByteBlockEncodeOne((uint) n, dest);
+            }
+            dest.Flush();
+        }
+
+        public static void ShortByteDecode(Stream input, float[] output) {
+            if (output == null || input == null) throw new Exception("Null param");
+            var src = new BitwiseStreamWrapper(input, 32);
+            var outidx = 0;
+
+            while (src.CanRead()) {
+                var ok = ShortByteBlockTryDecodeOne(src, out var n);
+                if (!ok) {
+                    Console.WriteLine($"Decode failed at step {outidx}");
+                    break;
+                }
+                
+                // unsigned to signed
+                if ((n % 2) == 0) output[outidx++] = (int)(n >> 1);
+                else output[outidx++] = (int)(((n + 1) >> 1) * -1);
+
+                if (outidx >= output.Length) {
+                    Console.WriteLine($"Overran output at step {outidx}");
+                    break;
+                }
+            }
+        }
+
+        private const int CHECK_BLOCK_LENGTH = 256;
+
+        /// <summary>
+        /// Lossy encode floating point input (truncates to ints)
+        /// Stores result in check-sum blocks
+        /// </summary>
+        public static void CheckBlockEncode(float[] input, int length, Stream output){
+            if (output == null || input == null) throw new Exception("Null param");
+            if (length < 1) length += input.Length;
+
+            // we use a simple sum, so that long runs of zeros stay that way
+
+            var dest = new BitwiseStreamWrapper(output, 1);
+            uint sum = 0;
+            var count = 0;
+            for (int i = 0; i < length; i++)
+            {
+                // Signed to unsigned
+                int v = (int)input[i];
+                uint n = (uint)((v >= 0) ? (v * 2) : (v * -2) - 1); // value to be encoded
+
+                sum += n;
+                ShortByteBlockEncodeOne(n, dest);
+
+                if (count++ >= CHECK_BLOCK_LENGTH) {
+                    count = 0;
+
+                    ShortByteBlockEncodeOne(sum, dest);
+                    sum = 0;
+                }
+            }
+            dest.Flush();
+        }
+
+        /// <summary>
+        /// Lossy decode floating point input (truncates to ints)
+        /// Any blocks that fail checksum are zeroed
+        /// </summary>
+        public static void CheckBlockDecode(Stream input, float[] output) {
+            if (output == null || input == null) throw new Exception("Null param");
+            var src = new BitwiseStreamWrapper(input, 32);
+            var outidx = 0;
+
+            // need to buffer blocks of output
+            var buffer = new float[CHECK_BLOCK_LENGTH+2];
+
+            uint sum = 0;
+            var count = 0;
+            while (src.CanRead()) {
+                var ok = ShortByteBlockTryDecodeOne(src, out var n);
+                if (!ok) { n = 0; }
+
+                sum += n;
+
+                // unsigned to signed
+                if ((n % 2) == 0) buffer[count] = (int)(n >> 1);
+                else buffer[count] = (int)(((n + 1) >> 1) * -1);
+                
+                if (count++ >= CHECK_BLOCK_LENGTH) {
+                    count = 0;
+                    
+                    ok = ShortByteBlockTryDecodeOne(src, out var s); // don't output this one
+
+                    if (ok && s == sum) { // checksum is good, copy values over
+                        for (int i = 0; i <= CHECK_BLOCK_LENGTH; i++)
+                        {
+                            output[outidx++] = buffer[i];
+                        }
+                    } else { // failed check -- write zeros
+                        for (int i = 0; i <= CHECK_BLOCK_LENGTH; i++)
+                        {
+                            output[outidx++] = 0;
+                        }
+                    }
+
+                    sum = 0;
+                }
+
+
+                if (outidx + CHECK_BLOCK_LENGTH >= output.Length)
+                {
+                    Console.WriteLine($"Overran output at step {outidx}");
+                    break;
+                }
+            }
         }
     }
 }
