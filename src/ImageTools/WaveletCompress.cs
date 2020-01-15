@@ -3,7 +3,6 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.IO.Compression;
-using ImageTools.DataCompression.Encoding;
 using ImageTools.DataCompression.Experimental;
 using ImageTools.ImageDataFormats;
 using ImageTools.SpaceFillingCurves;
@@ -40,7 +39,6 @@ namespace ImageTools
 
         /// <summary>
         /// If true, will use arithmetic coding with markov model IN SOME PLACES.
-        /// The custom compression currently introduces major artefacts when the stream is truncated during decoding.
         /// </summary>
         const bool USE_CUSTOM_COMPRESSION = true;
 
@@ -202,8 +200,11 @@ namespace ImageTools
                     var tmp = new MemoryStream();
                     DataEncoding.FibonacciEncode(buffer, 0, tmp);
                     tmp.Seek(0, SeekOrigin.Begin);
-                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(0));
-                    encoder.Encode(tmp, ms);
+                    
+                    var coder = new TruncatableEncoder();
+                    coder.CompressStream(tmp, ms);
+                    //var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(0));
+                    //encoder.Encode(tmp, ms);
                 }
                 else {
                     using (var tmp = new MemoryStream(buffer.Length))
@@ -283,8 +284,11 @@ namespace ImageTools
                 // Read, De-quantise, reorder
                 if (USE_CUSTOM_COMPRESSION) {
                     var tmp = new MemoryStream();
-                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(0));
-                    encoder.Decode(storedData, tmp);
+                    //var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(0));
+                    //encoder.Decode(storedData, tmp);
+                    
+                    var coder = new TruncatableEncoder();
+                    coder.DecompressStream(storedData,tmp);
                     tmp.Seek(0, SeekOrigin.Begin);
                     DataEncoding.FibonacciDecode(tmp, buffer);
                 } else {
@@ -1730,8 +1734,11 @@ namespace ImageTools
                 using (var instream = new MemoryStream(raw))
                 using (var ms = new MemoryStream())
                 {
-                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D());
-                    encoder.Decode(instream, ms);
+                    var coder = new TruncatableEncoder();
+                    coder.DecompressStream(instream, ms);
+
+                    //var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D());
+                    //encoder.Decode(instream, ms);
                     ms.Seek(0, SeekOrigin.Begin);
                     DataEncoding.FibonacciDecode(ms, buffer);
                 }
@@ -1774,10 +1781,13 @@ namespace ImageTools
                 {
                     DataEncoding.FibonacciEncode(buffer, packedLength, ms);
                     ms.Seek(0, SeekOrigin.Begin);
-                    var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D());
                     using (var fs2 = File.Open(testpath.Replace(".dat", ".mac"), FileMode.Create))
                     {
-                        encoder.Encode(ms, fs2);
+                        var coder = new TruncatableEncoder();
+                        coder.CompressStream(ms, fs2);
+
+                        //var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D());
+                        //encoder.Encode(ms, fs2);
                         fs2.Flush();
                     }
                 }

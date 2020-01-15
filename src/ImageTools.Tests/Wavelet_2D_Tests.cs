@@ -312,7 +312,7 @@ namespace ImageTools.Tests
                 var ms = new MemoryStream();
                 compressed.WriteToStream(ms);
                 ms.Seek(0, SeekOrigin.Begin);
-                var bytes = new byte[(long)(ms.Length * 0.5)];
+                var bytes = new byte[(long)(ms.Length * 0.6)];
                 ms.Read(bytes, 0, bytes.Length);
                 var trunc = new MemoryStream(bytes);
 

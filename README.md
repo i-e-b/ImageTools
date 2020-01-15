@@ -26,6 +26,7 @@ Experiments covering
 ## Plans and To-do
 
 In no particular order:
+* [ ] Try bit-plane reordering, so we can truncate lower-significance bits only?
 * [x] Try image compression with Haar wavelet, to see how bad it is
     - Pretty bad. The compression ratio is good, but the quantisation artefacts are horrible.
 * [x] Pixel-art style up-scaling
