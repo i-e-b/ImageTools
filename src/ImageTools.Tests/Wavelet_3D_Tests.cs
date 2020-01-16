@@ -50,9 +50,8 @@ namespace ImageTools.Tests
         [Test]
         public void single_file_storage()
         {
-            // CDF 9/7 results in 300.12kb (0.59 bpp)
-            // CDF 5/3 results in 315.37kb (0.62 bpp)
-            // Mixture results in 315.15kb (0.61 bpp)
+            // No check blocks   = 332.25kb (0.65 bpp)
+            // With check blocks = 351.18kb (0.69 bpp)
 
 
             // STEP 1: Load frames
@@ -100,6 +99,10 @@ namespace ImageTools.Tests
         [Test]
         public void experimental_color_space()
         {
+            // Old compression: BPP: 0.42; Total 215.91kb
+            // Checked Arithm.: BPP: 0.40; Total 204.99kb
+
+
             // STEP 1: Load frames
             var basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             var filePath = Path.Combine(basePath, "../../inputs/EasyFrames");

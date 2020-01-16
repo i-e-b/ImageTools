@@ -14,7 +14,7 @@ namespace ImageTools.Tests
 
         [Test]
         public void signed_to_unsigned () {
-            var input = new[]{ 0,0,-1,1000,-2000,1,0 };
+            var input = new float[]{ 0,0,-1,1000,-2000,1,0 };
 
             var result = DataEncoding.SignedToUnsigned(input);
 

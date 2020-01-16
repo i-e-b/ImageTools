@@ -42,6 +42,7 @@
   <ItemGroup>
     <Compile Include="DataCompression\ArithmeticEncoding\ArithmeticEncode.cs" />
     <Compile Include="DataCompression\ArithmeticEncoding\ProbabilityModels.cs" />
+    <Compile Include="DataCompression\Experimental\NybbleEncoder.cs" />
     <Compile Include="DataCompression\Experimental\TruncatableEncoder.cs" />
     <Compile Include="DataCompression\LzType\LZMWPack.cs" />
     <Compile Include="DataCompression\LzType\LZSSPack.cs" />

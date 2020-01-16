@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.IO.Compression;
+using ImageTools.DataCompression.Encoding;
 using ImageTools.DataCompression.Experimental;
 using ImageTools.ImageDataFormats;
 using ImageTools.SpaceFillingCurves;
@@ -491,12 +492,15 @@ namespace ImageTools
                 {   // byte-by-byte writing to DeflateStream is *very* slow, so we buffer
 
                     if (USE_CUSTOM_COMPRESSION) {
+                        
                         DataEncoding.FibonacciEncode(buffer, 0, tmp);
                         tmp.Seek(0, SeekOrigin.Begin);
 
                         var coder = new TruncatableEncoder();
                         coder.CompressStream(tmp, ms);
-                    } else {
+                    }
+                    else
+                    {
                         DataEncoding.FibonacciEncode(buffer, 0, tmp);
                         tmp.Seek(0, SeekOrigin.Begin);
                         using (var gs = new DeflateStream(ms, CompressionLevel.Optimal, true))
@@ -1530,7 +1534,6 @@ namespace ImageTools
             return incrPos;
         }
 
-
         private static void FromMortonOrder3D(float[] input, float[] output, Image3d img3d)
         {
             var limit = (int)Math.Pow(img3d.MaxDimension, 3);
@@ -1575,7 +1578,7 @@ namespace ImageTools
         {
             if (packedLength < buffer.Length) packedLength = buffer.Length;
             // ReSharper disable JoinDeclarationAndInitializer
-            double[] fYs, fCs;   
+            double[] fYs, fCs;
             // ReSharper restore JoinDeclarationAndInitializer
 
             // Planar two splits in half, starting with top/bottom, and alternating between
@@ -1586,15 +1589,19 @@ namespace ImageTools
             // pretty good:
             fYs = new double[]{12, 9, 4, 2.3, 1.5 };
             fCs = new double[]{15, 10, 2 };
-            
+
             // heavily crushed
             //fYs = new double[]{ 180, 150, 100, 40, 8, 5, 3.5, 1.5 };
             //fCs = new double[]{1000, 200, 200, 50, 20, 10, 4};
 
             // about the same as 100% JPEG 4:2:0
             //fYs = new double[]{ 1, 1, 1, 1, 1, 1, 1, 1, 1};
-            //fCs = new double[]{300, 200, 200, 50, 20, 1, 1, 1, 1};
-                        
+            //fCs = new double[]{300, 200, 200, 50, 20, 1, 1, 1, 1};o
+
+            // Unquantised
+            //fYs = new double[] { 1 };
+            //fCs = new double[] { 1 };
+
             var rounds = (int)Math.Log(packedLength, 2);
             for (int r = 0; r < rounds; r++)
             {

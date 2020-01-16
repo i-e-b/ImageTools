@@ -205,7 +205,7 @@ namespace ImageTools.ImageDataFormats
                             // convert back to signed, add to list
                             if (accum > 0) {
                                 long n = accum - 1L;
-                                if ((n % 2) == 0) output[outidx++] = (int)(n >> 1);
+                                if ((n & 1) == 0) output[outidx++] = (int)(n >> 1);
                                 else output[outidx++] = (int)(((n + 1) >> 1) * -1);
                             } // else damaged data
 
@@ -234,6 +234,68 @@ namespace ImageTools.ImageDataFormats
         private static readonly uint[] fseq = {0,1,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,1597,
             2584,4181,6765,10946,17711,28657,46368,75025,121393,196418,317811,514229  };
 
+        public static void FibonacciEncode(int[] buffer, int length, Stream output)
+        {
+            var bf = new byte[8]; // if each bit is set. Value is 0xFF or 0x00
+            var v = new byte[]{ 1<<7, 1<<6, 1<<5, 1<<4, 1<<3, 1<<2, 1<<1, 1 }; // values of the flag
+            var bytePos = 0;
+
+            if (length <= 0) length = buffer.Length;
+
+            // for each number, build up the fib code.
+            // any time we exceed a byte we write it out and reset
+            // Negative numbers are handled by the same process as `SignedToUnsigned`
+            // this streams out numbers MSB-first (?)
+
+            for (var idx = 0; idx < length; idx++)
+            {
+                var n = buffer[idx];
+
+                if (n < 1 || n > 514229) throw new Exception($"Value out of bounds: {n} at index {idx}");
+
+                // Fibonacci encode
+                ulong res = 0UL;
+                var maxidx = -1;
+
+                // find starting position
+                var i = 2;
+                while (fseq[i] < n) { i++; }
+
+                // scan backwards marking value bits
+                while (n > 0)
+                {
+                    if (fseq[i] <= n)
+                    {
+                        res |= 1UL << (i - 2);
+                        n -= (int)fseq[i];
+                        if (maxidx < i) maxidx = i;
+                    }
+                    i--;
+                }
+                res |= 1UL << (maxidx - 1);
+
+                // output to stream
+                for (int boc = 0; boc < maxidx; boc++)
+                {
+                    bf[bytePos] = (byte)(0xFF * ((res >> (boc)) & 1));
+                    bytePos++;
+
+                    if (bytePos > 7)
+                    { // completed a byte (same as above)
+                        int bv = (bf[0] & v[0]) | (bf[1] & v[1]) | (bf[2] & v[2]) | (bf[3] & v[3]) | (bf[4] & v[4]) | (bf[5] & v[5]) | (bf[6] & v[6]) | (bf[7] & v[7]);
+                        output.WriteByte((byte)bv);
+                        bf[0] = bf[1] = bf[2] = bf[3] = bf[4] = bf[5] = bf[6] = bf[7] = 0;
+                        bytePos = 0;
+                    }
+                }
+            }
+
+            // If we didn't land on a byte boundary, push the last one out here
+            if (bytePos != 0) { // completed a byte (slightly different to the others above)
+                int bv = (bf[0] & v[0]) | (bf[1] & v[1]) | (bf[2] & v[2]) | (bf[3] & v[3]) | (bf[4] & v[4]) | (bf[5] & v[5]) | (bf[6] & v[6]) | (bf[7] & v[7]);
+                output.WriteByte((byte)bv);
+            }
+        }
 
         /// <summary>
         /// Encode an array of integer values into a byte stream.
@@ -483,24 +545,36 @@ namespace ImageTools.ImageDataFormats
         /// <summary>
         /// Lossless convert to positive numbers only
         /// </summary>
-        public static uint[] SignedToUnsigned(int[] input)
-        {
-            var outp = new uint[input.Length];
-            for (int i = 0; i < input.Length; i++)
-            {
-                if (input[i] >= 0) outp[i] = (uint)(input[i] * 2); // positive becomes even
-                else outp[i] = (uint)(input[i] * -2) - 1;          // negative becomes odd
-            }
-            return outp;
-        }
-
-        public static int[] UnsignedToSigned(uint[] input)
+        public static int[] SignedToUnsigned(float[] input)
         {
             var outp = new int[input.Length];
             for (int i = 0; i < input.Length; i++)
             {
-                if ((input[i] % 2) == 0) outp[i] = (int) (input[i] >> 1);
+                var n = (int)input[i];
+                if (n >= 0) outp[i] = n * 2; // positive becomes even
+                else outp[i] = (n * -2) - 1; // negative becomes odd
+            }
+            return outp;
+        }
+
+        public static int[] UnsignedToSigned(int[] input)
+        {
+            var outp = new int[input.Length];
+            for (int i = 0; i < input.Length; i++)
+            {
+                if ((input[i] & 1) == 0) outp[i] = (int) (input[i] >> 1);
                 else outp[i] = (int) (((input[i] + 1) >> 1) * -1);
+            }
+            return outp;
+        }
+        
+        public static float[] UnsignedToSignedFloat(int[] input)
+        {
+            var outp = new float[input.Length];
+            for (int i = 0; i < input.Length; i++)
+            {
+                if ((input[i] & 1) == 0) outp[i] = input[i] >> 1;
+                else outp[i] = ((input[i] + 1) >> 1) * -1;
             }
             return outp;
         }
@@ -829,5 +903,6 @@ namespace ImageTools.ImageDataFormats
                 }
             }
         }
+
     }
 }
