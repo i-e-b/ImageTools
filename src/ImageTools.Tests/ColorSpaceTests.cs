@@ -443,5 +443,71 @@ namespace ImageTools.Tests
                 }
             }
         }
+
+        [Test, Description("Invert brightess without changing colour")]
+        public void invert_brightness_but_not_colour__img3 () {
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                using (var dst = new Bitmap(bmp)) {
+                    BitmapTools.ImageToPlanes(bmp, ColorSpace.RGB_To_HSP, out var Hue, out var Sat, out var Light);
+
+                    for (int i = 0; i < Light.Length; i++) { Light[i] = 255 - Light[i]; }
+
+                    BitmapTools.PlanesToImage(dst, ColorSpace.HSP_To_RGB,0, Hue, Sat, Light);
+                    dst.SaveBmp("./outputs/3_Invert_HSP.bmp");
+                }
+                
+                using (var dst = new Bitmap(bmp)) {
+                    BitmapTools.ImageToPlanes(bmp, ColorSpace.RGBToYCoCg, out var Y, out var Co, out var Cg);
+
+                    for (int i = 0; i < Y.Length; i++) { Y[i] = 255 - Y[i]; }
+
+                    BitmapTools.PlanesToImage(dst, ColorSpace.YCoCgToRGB,0, Y, Co, Cg);
+                    dst.SaveBmp("./outputs/3_Invert_YCoCg.bmp");
+                }
+                
+                using (var dst = new Bitmap(bmp)) {
+                    BitmapTools.ImageToPlanes(bmp, ColorSpace.RGBToYiq, out var Y, out var I, out var Q);
+
+                    for (int i = 0; i < Y.Length; i++) { Y[i] = 255 - Y[i]; }
+
+                    BitmapTools.PlanesToImage(dst, ColorSpace.YiqToRGB,0, Y, I, Q);
+                    dst.SaveBmp("./outputs/3_Invert_Yiq.bmp");
+                }
+            }
+        }
+        
+        [Test, Description("Invert brightess without changing colour")]
+        public void invert_brightness_but_not_colour__img4 () {
+            using (var bmp = Load.FromFile("./inputs/4.png"))
+            {
+                using (var dst = new Bitmap(bmp)) {
+                    BitmapTools.ImageToPlanes(bmp, ColorSpace.RGB_To_HSP, out var Hue, out var Sat, out var Light);
+
+                    for (int i = 0; i < Light.Length; i++) { Light[i] = 255 - Light[i]; }
+
+                    BitmapTools.PlanesToImage(dst, ColorSpace.HSP_To_RGB,0, Hue, Sat, Light);
+                    dst.SaveBmp("./outputs/4_Invert_HSP.bmp");
+                }
+                
+                using (var dst = new Bitmap(bmp)) {
+                    BitmapTools.ImageToPlanes(bmp, ColorSpace.RGBToYCoCg, out var Y, out var Co, out var Cg);
+
+                    for (int i = 0; i < Y.Length; i++) { Y[i] = 255 - Y[i]; }
+
+                    BitmapTools.PlanesToImage(dst, ColorSpace.YCoCgToRGB,0, Y, Co, Cg);
+                    dst.SaveBmp("./outputs/4_Invert_YCoCg.bmp");
+                }
+                
+                using (var dst = new Bitmap(bmp)) {
+                    BitmapTools.ImageToPlanes(bmp, ColorSpace.RGBToYiq, out var Y, out var I, out var Q);
+
+                    for (int i = 0; i < Y.Length; i++) { Y[i] = 255 - Y[i]; }
+
+                    BitmapTools.PlanesToImage(dst, ColorSpace.YiqToRGB,0, Y, I, Q);
+                    dst.SaveBmp("./outputs/4_Invert_Yiq.bmp");
+                }
+            }
+        }
     }
 }
