@@ -44,6 +44,7 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ImageRotationTests.cs" />
     <Compile Include="LosslessDataCompressionTests.cs" />
     <Compile Include="BlurringImages.cs" />
     <Compile Include="ByteEncodingTests.cs" />

@@ -50,6 +50,7 @@
     <Compile Include="ImageDataFormats\BitwiseStreamWrapper.cs" />
     <Compile Include="ErrorDiffusionScale.cs" />
     <Compile Include="PixelScale.cs" />
+    <Compile Include="Rotate.cs" />
     <Compile Include="Utilities\BitmapTools.cs" />
     <Compile Include="Blur.cs" />
     <Compile Include="WaveletTransforms\CDF.cs" />

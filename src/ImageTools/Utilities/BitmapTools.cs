@@ -309,6 +309,7 @@ namespace ImageTools.Utilities
             var ri = new Rectangle(Point.Empty, dst.Size);
             var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
             var len = dstData.Height * dstData.Width;
+            if (len > Y.Length) len = Y.Length;
             try
             {
                 var s = (uint*)dstData.Scan0;

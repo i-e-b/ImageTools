@@ -4,7 +4,7 @@ using NUnit.Framework;
 
 namespace ImageTools.Tests
 {
-	[TestFixture]
+    [TestFixture]
 	public class BlurringImages
 	{
 		[Test]

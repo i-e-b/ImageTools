@@ -6,7 +6,7 @@ using ImageTools.WaveletTransforms;
 
 namespace ImageTools
 {
-	public static class Blur
+    public static class Blur
 	{
 		/// <summary>
 		/// Blur a bitmap into a new bitmap (original is unchanged)
