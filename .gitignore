@@ -1,5 +1,6 @@
 .vs/
 packages/
+.idea/
 obj
 bin
 deploy

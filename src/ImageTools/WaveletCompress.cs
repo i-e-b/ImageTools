@@ -207,6 +207,7 @@ namespace ImageTools
                     //var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(0));
                     //encoder.Encode(tmp, ms);
                 }
+#pragma warning disable 162
                 else {
                     using (var tmp = new MemoryStream(buffer.Length))
                     {   // byte-by-byte writing to DeflateStream is *very* slow, so we buffer
@@ -218,6 +219,7 @@ namespace ImageTools
                         }
                     }
                 }
+#pragma warning restore 162
             }
         
             // Individual stream sum    = 128kb
@@ -292,12 +294,14 @@ namespace ImageTools
                     coder.DecompressStream(storedData,tmp);
                     tmp.Seek(0, SeekOrigin.Begin);
                     DataEncoding.FibonacciDecode(tmp, buffer);
+#pragma warning disable 162
                 } else {
                     using (var gs = new DeflateStream(storedData, CompressionMode.Decompress))
                     {
                         DataEncoding.FibonacciDecode(gs, buffer);
                     }
                 }
+#pragma warning restore 162
                 Quantise3D(buffer, QuantiseType.Expand, ch);
                 FromStorageOrder3D(buffer, img3d, (int)Math.Log(img3d.Width, 2));
                 
@@ -500,6 +504,7 @@ namespace ImageTools
                         coder.CompressStream(tmp, ms);
                     }
                     else
+#pragma warning disable 162
                     {
                         DataEncoding.FibonacciEncode(buffer, 0, tmp);
                         tmp.Seek(0, SeekOrigin.Begin);
@@ -509,6 +514,7 @@ namespace ImageTools
                             gs.Flush();
                         }
                     }
+#pragma warning restore 162
                 }
             }
 
@@ -576,6 +582,7 @@ namespace ImageTools
                 if (buffer == null) continue;
                 var storedData = new MemoryStream(Pick(ch, Ybytes, Ubytes, Vbytes));
 
+#pragma warning disable 162
                 if (USE_CUSTOM_COMPRESSION) {
                     var tmp = new MemoryStream();
 
@@ -590,6 +597,7 @@ namespace ImageTools
                         DataEncoding.FibonacciDecode(gs, buffer);
                     }
                 }
+#pragma warning restore 162
 
                 // Re-expand co-efficients
                 QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Expand);
@@ -1732,7 +1740,8 @@ namespace ImageTools
         private static void ReadFromFileFibonacci(float[] buffer, int ch, string name)
         {
             var testpath = @"C:\gits\ImageTools\src\ImageTools.Tests\bin\Debug\outputs\" + name + "_fib_test_" + ch + ".dat";
-
+            
+#pragma warning disable 162
             if (USE_CUSTOM_COMPRESSION)
             {
                 // Custom Markov/AC compression
@@ -1773,6 +1782,7 @@ namespace ImageTools
                     DataEncoding.FibonacciDecode(ms, buffer);
                 }
             }
+#pragma warning restore 162
         }
 
         private static void WriteToFileFibonacci(float[] buffer, int ch, int packedLength, string name)
@@ -1781,6 +1791,7 @@ namespace ImageTools
             if (File.Exists(testpath)) File.Delete(testpath);
             Directory.CreateDirectory(Path.GetDirectoryName(testpath));
 
+#pragma warning disable 162
             if (USE_CUSTOM_COMPRESSION)
             {
                 // Custom Markov/AC compression
@@ -1816,6 +1827,7 @@ namespace ImageTools
                     }
                 }
             }
+#pragma warning restore 162
         }
 
         private static int Saturate(float value)
