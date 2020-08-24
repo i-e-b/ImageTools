@@ -48,6 +48,7 @@
     <Compile Include="DataCompression\LzType\LZMWPack.cs" />
     <Compile Include="DataCompression\LzType\LZSSPack.cs" />
     <Compile Include="DataCompression\LzType\LZWPack.cs" />
+    <Compile Include="DistanceField.cs" />
     <Compile Include="ImageDataFormats\BitwiseStreamWrapper.cs" />
     <Compile Include="ErrorDiffusionScale.cs" />
     <Compile Include="PixelScale.cs" />

@@ -41,6 +41,13 @@
             }
             return size.ToString("#0.##") + prefix[i];
         }
+
+        public static int Pin(this int v, int lower, int upper)
+        {
+            if (v < lower) return lower;
+            if (v > upper) return upper;
+            return v;
+        }
     }
 
 }
