@@ -6,7 +6,7 @@ using ImageTools.WaveletTransforms;
 
 namespace ImageTools
 {
-    public static class Blur
+	public static class Blur
 	{
 		/// <summary>
 		/// Blur a bitmap into a new bitmap (original is unchanged)
@@ -223,7 +223,6 @@ namespace ImageTools
 			}
 		}
 
-
         /// <summary>
         /// Apply a soft-focus effect into a new bitmap (original is unchanged).
         /// NOTE: This currently assumes a square power-of-two sized source image
@@ -235,7 +234,6 @@ namespace ImageTools
         {
             // Blur factors (these are specific to make the soft-focus effect)
             var factors = new[] { 1, 2, 3 };
-
 
             if (sourceImage == null) return null;
             BitmapTools.ArgbImageToYUVPlanes_f(sourceImage, out var Y, out var U, out var V);
@@ -321,7 +319,52 @@ namespace ImageTools
             return dest;
         }
 
-
+        public static Bitmap LowpassBlur(Bitmap sourceImage, int radius)
+        {
+	        if (sourceImage == null) return null;
+	        BitmapTools.ArgbImageToYUVPlanes_f(sourceImage, out var Y, out var U, out var V);
+	        
+	        var height = sourceImage.Height;
+	        var width = sourceImage.Width;
+	        
+	        var resonance = (float) Math.Sqrt(2);
+	        var fY = new ButterworthBandpass(0.25f, radius, ButterworthBandpass.PassType.Lowpass, resonance);
+	        var fU = new ButterworthBandpass(0.25f, radius, ButterworthBandpass.PassType.Lowpass, resonance);
+	        var fV = new ButterworthBandpass(0.25f, radius, ButterworthBandpass.PassType.Lowpass, resonance);
+	        
+	        // lowpass in X
+	        for (int y = 0; y < height; y++)
+	        {
+		        var oy = y * width;
+		        fY.Prime(Y[oy]); fU.Prime(U[oy]); fV.Prime(V[oy]);
+		        
+		        for (int x = 0; x < width; x++)
+		        {
+			        var i = oy + x;
+			        Y[i] = fY.Update(Y[i]);
+			        U[i] = fU.Update(U[i]);
+			        V[i] = fV.Update(V[i]);
+		        }
+	        }
+	        
+	        // lowpass in Y
+			for (int x = 0; x < width; x++)
+	        {
+		        fY.Prime(Y[x]); fU.Prime(U[x]); fV.Prime(V[x]);
+		        
+		        for (int y = 0; y < height; y++)
+		        {
+			        var i = y*width + x;
+			        Y[i] = fY.Update(Y[i]);
+			        U[i] = fU.Update(U[i]);
+			        V[i] = fV.Update(V[i]);
+		        }
+	        }
+	        
+	        var dest = new Bitmap(sourceImage.Width, sourceImage.Height, PixelFormat.Format32bppArgb);
+	        BitmapTools.YUVPlanes_To_ArgbImage(dest, 0, Y, U, V);
+	        return dest;
+        }
         
         /// <summary>
         /// Apply a soft-focus effect into a new bitmap (original is unchanged).
@@ -428,5 +471,5 @@ namespace ImageTools
         }
         private static int min(int a, int b) { return Math.Min(a, b); }
 		private static int max(int a, int b) { return Math.Max(a, b); }
-    }
+	}
 }
