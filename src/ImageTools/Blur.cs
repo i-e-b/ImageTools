@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using ImageTools.AnalyticalTransforms;
 using ImageTools.Utilities;
 using ImageTools.WaveletTransforms;
 

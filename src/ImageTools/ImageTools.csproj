@@ -41,6 +41,9 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AnalyticalTransforms\CubicInterpolate.cs" />
+    <Compile Include="AnalyticalTransforms\FilterButterworth.cs" />
+    <Compile Include="CubicScale.cs" />
     <Compile Include="DataCompression\ArithmeticEncoding\ArithmeticEncode.cs" />
     <Compile Include="DataCompression\ArithmeticEncoding\ProbabilityModels.cs" />
     <Compile Include="DataCompression\Experimental\NybbleEncoder.cs" />
@@ -49,7 +52,6 @@
     <Compile Include="DataCompression\LzType\LZSSPack.cs" />
     <Compile Include="DataCompression\LzType\LZWPack.cs" />
     <Compile Include="DistanceField.cs" />
-    <Compile Include="FilterButterworth.cs" />
     <Compile Include="ImageDataFormats\BitwiseStreamWrapper.cs" />
     <Compile Include="ErrorDiffusionScale.cs" />
     <Compile Include="PixelScale.cs" />
@@ -80,7 +82,6 @@
   <ItemGroup>
     <None Include=".editorconfig" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

@@ -2,6 +2,8 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using ImageTools.Utilities;
+// ReSharper disable InconsistentNaming
+// ReSharper disable IdentifierTypo
 
 namespace ImageTools
 {
@@ -12,6 +14,8 @@ namespace ImageTools
         }
 
         public static Bitmap ShearRotate(Bitmap source, double angleDegrees) {
+            if (source == null) return null;
+            
             var shear_x = -Math.Tan(deg2rad(angleDegrees) / 2.0);
             var shear_y = Math.Sin(deg2rad(angleDegrees));
 

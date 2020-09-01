@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
+using ImageTools.AnalyticalTransforms;
 using ImageTools.Utilities;
 using NUnit.Framework;
 
@@ -262,9 +263,71 @@ namespace ImageTools.Tests
 			Console.WriteLine("Go check the build output and ensure that \"/outputs/moire_scaled_np2_2.jpg\" looks ok");
 		}
 
+		[Test]
+		public void cubic_spline_resampling_down_square()
+		{
+			using (var bmp = Load.FromFile("./inputs/3.png"))
+			{
+				var targetWidth = (int)(bmp.Width * 0.75);
+				var targetHeight = (int)(bmp.Height * 0.75);
+				using (var bmp2 = CubicScale.MaintainAspect(bmp, targetWidth, targetHeight))
+				{
+					bmp2.SaveJpeg("./outputs/3_scaled_75_cubic.jpg");
+				}
+			}
 
-        
-        [Test]
+			Assert.That(Load.FileExists("./outputs/3_scaled_75_cubic.jpg"));
+		}
+		
+		[Test]
+		public void cubic_spline_resampling_up_square()
+		{
+			using (var bmp = Load.FromFile("./inputs/3.png"))
+			{
+				var targetWidth = (int)(bmp.Width * 1.5);
+				var targetHeight = (int)(bmp.Height * 1.5);
+				using (var bmp2 = CubicScale.DisregardAspect(bmp, targetWidth, targetHeight))
+				{
+					bmp2.SaveJpeg("./outputs/3_scaled_150_cubic.jpg");
+				}
+			}
+
+			Assert.That(Load.FileExists("./outputs/3_scaled_150_cubic.jpg"));
+		}
+		
+		[Test]
+		public void cubic_spline_resampling_down_non_square()
+		{
+			using (var bmp = Load.FromFile("./inputs/1.jpg"))
+			{
+				var targetWidth = (int)(bmp.Width * 0.75);
+				var targetHeight = (int)(bmp.Height * 0.75);
+				using (var bmp2 = CubicScale.MaintainAspect(bmp, targetWidth, targetHeight))
+				{
+					bmp2.SaveJpeg("./outputs/1_scaled_75_cubic.jpg");
+				}
+			}
+
+			Assert.That(Load.FileExists("./outputs/1_scaled_75_cubic.jpg"));
+		}
+		
+		[Test]
+		public void cubic_spline_resampling_up_non_square()
+		{
+			using (var bmp = Load.FromFile("./inputs/1.jpg"))
+			{
+				var targetWidth = (int)(bmp.Width * 1.5);
+				var targetHeight = (int)(bmp.Height * 1.5);
+				using (var bmp2 = CubicScale.DisregardAspect(bmp, targetWidth, targetHeight))
+				{
+					bmp2.SaveJpeg("./outputs/1_scaled_150_cubic.jpg");
+				}
+			}
+
+			Assert.That(Load.FileExists("./outputs/1_scaled_150_cubic.jpg"));
+		}
+
+		[Test]
         public void FastScale_75pc_sketch()
         {
             using (var bmp = Load.FromFile("./inputs/sketch.jpg"))

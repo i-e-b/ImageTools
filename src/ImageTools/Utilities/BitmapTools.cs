@@ -1,7 +1,9 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using ImageTools.ImageDataFormats;
+// ReSharper disable InconsistentNaming
 
 namespace ImageTools.Utilities
 {
@@ -365,6 +367,37 @@ namespace ImageTools.Utilities
             }
         }
 
+        public static unsafe void YUVPlanes_To_ArgbImage_Slice(Bitmap dst,
+            int offset, int srcWidth,
+            double[] Y, double[] U, double[] V)
+        {
+            var ri = new Rectangle(Point.Empty, dst.Size);
+            var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+
+            var dstHeight = dstData.Height;
+            var dstWidth = dstData.Width;
+            try
+            {
+                int stride = dstData.Stride / sizeof(uint);
+                var s = (uint*)dstData.Scan0;
+                
+                for (int y = 0; y < dstHeight; y++)
+                {
+                    var dst_yo = stride * y;
+                    var src_yo = offset + (srcWidth * y);
+                    for (int x = 0; x < dstWidth; x++)
+                    {
+                        var src_i = src_yo + x;
+                        var dst_i = dst_yo + x;
+                        s[dst_i] = ColorSpace.YUV_To_RGB32(Y[src_i], U[src_i], V[src_i]);
+                    }       
+                }
+            }
+            finally
+            {
+                dst.UnlockBits(dstData);
+            }
+        }
 
 
         public static unsafe void ArgbImageToYUVPlanes(Bitmap src, out double[] Y, out double[] U, out double[] V)
@@ -410,6 +443,49 @@ namespace ImageTools.Utilities
                     Y[i] = (float)y;
                     U[i] = (float)u;
                     V[i] = (float)v;
+                }
+            }
+            finally
+            {
+                src.UnlockBits(srcData);
+            }
+        }
+
+        /// <summary>
+        /// Convert an image into YUV planes, with extra space for further operations
+        /// </summary>
+        public static unsafe void ArgbImageToYUVPlanes_Overscale(Bitmap src, int width, int height, out double[] Y, out double[] U, out double[] V)
+        {
+            var ri = new Rectangle(Point.Empty, src.Size);
+            var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            
+            var srcWidth = src.Width;
+            var dstWidth = Math.Max(width, srcWidth);
+            
+            var srcHeight = src.Height;
+            var dstHeight = Math.Max(height, srcHeight);
+            
+            var len = dstWidth * dstHeight;
+            Y = new double[len];
+            U = new double[len];
+            V = new double[len];
+            
+            try
+            {
+                var s = (uint*)srcData.Scan0;
+                for (int y = 0; y < srcHeight; y++)
+                {
+                    var sy = y * srcWidth;
+                    var dy = y * dstWidth;
+                    for (int x = 0; x < srcWidth; x++)
+                    {
+                        var i = x + sy;
+                        var j = x + dy;
+                        ColorSpace.RGB32_To_YUV(s[i], out var _y, out var _u, out var _v);
+                        Y[j] = _y;
+                        U[j] = _u;
+                        V[j] = _v;
+                    }
                 }
             }
             finally
