@@ -81,23 +81,63 @@ namespace ImageTools.Tests
         }
 
         [Test]
-        public void render_from_scaled_fields()
+        public void render_from_scaled_fields_nearest_neighbour()
         {
             using (var bmp = Load.FromFile("./inputs/glyph.png"))
             {
                 var horzField = DistanceField.HorizontalDistance(bmp);
                 var vertField = DistanceField.VerticalDistance(bmp);
-                
-                var scaled = DistanceField.ReduceToVectors(3, horzField, vertField);
-                
-                using (var bmp2 = DistanceField.RenderToImage(3, scaled)) // we can expand to prevent drop-out
+
+                for (int i = 1; i < 7; i++)
                 {
-                    bmp2.SaveJpeg("./outputs/df_downscale.jpg");
+                    var shade = 4 + (i*i)/2.0;
+                    var thresh = -4 + i;
+                    
+                    var scaled = DistanceField.ReduceToVectors_nearest(i, horzField, vertField);
+                    
+                    using (var bmp2 = DistanceField.RenderToImage(thresh, shade, scaled)) { bmp2.SaveBmp($"./outputs/df_nearest_shade_{i}.bmp"); }
+                    using (var bmp2 = DistanceField.RenderToImage(2*i, scaled)) { bmp2.SaveBmp($"./outputs/df_nearest_diff_{i}.bmp"); }
                 }
             }
+        }
+        
+        [Test]
+        public void render_from_scaled_fields_experimental()
+        {
+            using (var bmp = Load.FromFile("./inputs/glyph.png"))
+            {
+                var horzField = DistanceField.HorizontalDistance(bmp);
+                var vertField = DistanceField.VerticalDistance(bmp);
 
-            Assert.That(Load.FileExists("./outputs/df_downscale.jpg"));
+                for (int i = 1; i < 7; i++)
+                {
+                    var scaled = DistanceField.ReduceToVectors_experimental(i, horzField, vertField);
+                    
+                    using (var bmp2 = DistanceField.RenderToImage(0, i*i, scaled)) { bmp2.SaveBmp($"./outputs/df_exp_shade_{i}.bmp"); }
+                    using (var bmp2 = DistanceField.RenderToImage(0, scaled)) { bmp2.SaveBmp($"./outputs/df_exp_diff_{i}.bmp"); }
+                }
+            }
+        }
+        
+        [Test]
+        public void render_from_scaled_fields_cubic_interpolation()
+        {
+            using (var bmp = Load.FromFile("./inputs/glyph.png"))
+            {
+                var horzField = DistanceField.HorizontalDistance(bmp);
+                var vertField = DistanceField.VerticalDistance(bmp);
 
+                for (int i = 1; i < 7; i++)
+                {
+                    var shade = 4 + (i*i)/2.0;
+                    var thresh = -4 + i;
+                    
+                    var scaled = DistanceField.ReduceToVectors_cubicSpline(i, horzField, vertField);
+                    
+                    using (var bmp2 = DistanceField.RenderToImage(thresh, shade, scaled)) { bmp2.SaveBmp($"./outputs/df_cubic_shade_{i}.bmp"); }
+                    using (var bmp2 = DistanceField.RenderToImage(2*i, scaled)) { bmp2.SaveBmp($"./outputs/df_cubic_diff_{i}.bmp"); }
+                }
+            }
         }
     }
 }

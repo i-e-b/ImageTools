@@ -59,7 +59,7 @@ namespace ImageTools
                     var oy = y * planeWidth;
                     for (int x = 0; x < src.Width; x++) { input[x] = plane[oy + x]; }
                     var output = CubicSplines.Resample(input, xSamples);
-                    for (int x = 0; x < targetWidth; x++) { plane[oy + x] = (float) output[x]; }
+                    for (int x = 0; x < targetWidth; x++) { plane[oy + x] = output[x]; }
                 }
             }
             
@@ -70,7 +70,7 @@ namespace ImageTools
                 {
                     for (int y = 0; y < src.Height; y++) { input[y] = plane[(y*planeWidth) + x]; }
                     var output = CubicSplines.Resample(input, ySamples);
-                    for (int y = 0; y < targetHeight; y++) { plane[(y*planeWidth) + x] = (float) output[y]; }
+                    for (int y = 0; y < targetHeight; y++) { plane[(y*planeWidth) + x] = output[y]; }
                 }
             }
 

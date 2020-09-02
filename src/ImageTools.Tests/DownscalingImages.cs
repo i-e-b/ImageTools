@@ -272,11 +272,11 @@ namespace ImageTools.Tests
 				var targetHeight = (int)(bmp.Height * 0.75);
 				using (var bmp2 = CubicScale.MaintainAspect(bmp, targetWidth, targetHeight))
 				{
-					bmp2.SaveJpeg("./outputs/3_scaled_75_cubic.jpg");
+					bmp2.SaveBmp("./outputs/3_scaled_75_cubic.bmp");
 				}
 			}
 
-			Assert.That(Load.FileExists("./outputs/3_scaled_75_cubic.jpg"));
+			Assert.That(Load.FileExists("./outputs/3_scaled_75_cubic.bmp"));
 		}
 		
 		[Test]
@@ -288,11 +288,11 @@ namespace ImageTools.Tests
 				var targetHeight = (int)(bmp.Height * 1.5);
 				using (var bmp2 = CubicScale.DisregardAspect(bmp, targetWidth, targetHeight))
 				{
-					bmp2.SaveJpeg("./outputs/3_scaled_150_cubic.jpg");
+					bmp2.SaveBmp("./outputs/3_scaled_150_cubic.bmp");
 				}
 			}
 
-			Assert.That(Load.FileExists("./outputs/3_scaled_150_cubic.jpg"));
+			Assert.That(Load.FileExists("./outputs/3_scaled_150_cubic.bmp"));
 		}
 		
 		[Test]
@@ -304,11 +304,11 @@ namespace ImageTools.Tests
 				var targetHeight = (int)(bmp.Height * 0.75);
 				using (var bmp2 = CubicScale.MaintainAspect(bmp, targetWidth, targetHeight))
 				{
-					bmp2.SaveJpeg("./outputs/1_scaled_75_cubic.jpg");
+					bmp2.SaveBmp("./outputs/1_scaled_75_cubic.bmp");
 				}
 			}
 
-			Assert.That(Load.FileExists("./outputs/1_scaled_75_cubic.jpg"));
+			Assert.That(Load.FileExists("./outputs/1_scaled_75_cubic.bmp"));
 		}
 		
 		[Test]
@@ -320,11 +320,11 @@ namespace ImageTools.Tests
 				var targetHeight = (int)(bmp.Height * 1.5);
 				using (var bmp2 = CubicScale.DisregardAspect(bmp, targetWidth, targetHeight))
 				{
-					bmp2.SaveJpeg("./outputs/1_scaled_150_cubic.jpg");
+					bmp2.SaveBmp("./outputs/1_scaled_150_cubic.bmp");
 				}
 			}
 
-			Assert.That(Load.FileExists("./outputs/1_scaled_150_cubic.jpg"));
+			Assert.That(Load.FileExists("./outputs/1_scaled_150_cubic.bmp"));
 		}
 
 		[Test]
