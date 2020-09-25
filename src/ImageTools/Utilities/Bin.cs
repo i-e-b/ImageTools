@@ -42,10 +42,23 @@
             return size.ToString("#0.##") + prefix[i];
         }
 
+        /// <summary>
+        /// Pin number to range
+        /// </summary>
         public static int Pin(this int v, int lower, int upper)
         {
             if (v < lower) return lower;
             if (v > upper) return upper;
+            return v;
+        }
+        
+        /// <summary>
+        /// Pin number to range, with exclusive upper bound
+        /// </summary>
+        public static int PinXu(this int v, int lower, int exclusiveUpper)
+        {
+            if (v < lower) return lower;
+            if (v >= exclusiveUpper) return exclusiveUpper - 1;
             return v;
         }
     }

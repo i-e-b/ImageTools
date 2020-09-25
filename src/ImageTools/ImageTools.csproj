@@ -43,6 +43,7 @@
   <ItemGroup>
     <Compile Include="AnalyticalTransforms\CubicInterpolate.cs" />
     <Compile Include="AnalyticalTransforms\FilterButterworth.cs" />
+    <Compile Include="BiCubicBoxScale.cs" />
     <Compile Include="CubicScale.cs" />
     <Compile Include="DataCompression\ArithmeticEncoding\ArithmeticEncode.cs" />
     <Compile Include="DataCompression\ArithmeticEncoding\ProbabilityModels.cs" />

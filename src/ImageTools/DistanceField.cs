@@ -4,6 +4,8 @@ using System.Linq;
 using ImageTools.AnalyticalTransforms;
 using ImageTools.Utilities;
 
+// ReSharper disable InconsistentNaming
+
 namespace ImageTools
 {
     public class DistanceField
@@ -90,6 +92,128 @@ namespace ImageTools
             return outp;
         }
 
+        /// <summary>
+        /// Measure signed distance to shape edges.
+        /// Dark pixel are considered 'inside' (negative).
+        /// Also stores 2-vector of normal to the nearest surface.
+        /// </summary>
+        public static Vector1_2[,] DistanceAndGradient(Bitmap bmp)
+        {
+            if (bmp == null || bmp.Width < 1 || bmp.Height < 1) return new Vector1_2[0, 0];
+
+            int x, y, j;
+            var width = bmp.Width;
+            var height = bmp.Height;
+            var outp = new Vector1_2[width, height];
+            var nearest_edge = new EdgeInfo[width, height]; //X,Y location of nearest edge point
+            var maxDim = Math.Max(width, height);
+            var maxDistSqr = (double) (maxDim * maxDim);
+
+            // First, fill up the 'nearest_edge' matrix from the image
+            // surfaces at the edge of the image are allowed to act weird.
+            for (y = 0; y < height; y++)
+            {
+                var t = (y - 1).PinXu(0, height);
+                var b = (y + 1).PinXu(0, height);
+                for (x = 0; x < width; x++)
+                {
+                    var l = (x - 1).PinXu(0, width);
+                    var r = (x + 1).PinXu(0, width);
+
+                    var pixIn = IsInObj(bmp, x, y);
+                    var it = IsInObj(bmp, x, t);
+                    var ib = IsInObj(bmp, x, b);
+                    var il = IsInObj(bmp, l, y);
+                    var ir = IsInObj(bmp, r, y);
+
+                    var edge = pixIn && (!it || !ib || !il || !ir);
+                    nearest_edge[x, y] = new EdgeInfo {Inside = pixIn, IsEdge = edge, X = x, Y = y};
+                }
+            }
+
+            // 'jump-flood' fill the space to (somewhat) efficiently calculate
+            // the exact distance and normal values
+            for (j = maxDim / 2; j >= 1; j /= 2)
+            {
+                Console.WriteLine(j);
+                for (y = 0; y < height; y++)
+                {
+                    var t = (y - j).PinXu(0, height);
+                    var b = (y + j).PinXu(0, height);
+
+                    for (x = 0; x < width; x++)
+                    {
+                        var l = (x - j).PinXu(0, width);
+                        var r = (x + j).PinXu(0, width);
+                        // Every round we merge 9 samples, keeping only the minimum distance
+                        // Note: we don't need the real distance, just the relative -- so we can square and not square-root.
+
+                        var s1 = nearest_edge[l, t];
+                        var s2 = nearest_edge[x, t];
+                        var s3 = nearest_edge[r, t];
+                        var s4 = nearest_edge[l, y];
+                        var s5 = nearest_edge[x, y];
+                        var s6 = nearest_edge[r, y];
+                        var s7 = nearest_edge[l, b];
+                        var s8 = nearest_edge[x, b];
+                        var s9 = nearest_edge[r, b];
+
+                        nearest_edge[x, y] = MergeSamples(maxDistSqr, x, y, s5.Inside,
+                            s1, s2, s3,
+                            s4, s5, s6,
+                            s7, s8, s9);
+                        
+                    }
+                }
+            }
+
+            // Finally, calculate the true distances and normals into the output:
+            for (y = 0; y < height; y++)
+            {
+                for (x = 0; x < width; x++)
+                {
+                    var s = nearest_edge[x, y];
+                    var dx = (double)s.X - x;
+                    var dy = (double)s.Y - y;
+                    var dist = Math.Max(1, Math.Sqrt(dx*dx + dy*dy));
+                    dx /= dist;
+                    dy /= dist;
+                    if (s.Inside) dist = -dist;
+                    outp[x, y] = new Vector1_2 {Dist = dist, Gx = dx, Gy = dy};
+                }
+            }
+
+            return outp;
+        }
+
+        private static EdgeInfo MergeSamples(double max, double x, double y, bool inside, params EdgeInfo[] neighborSamples)
+        {
+            var result = new EdgeInfo{Inside = inside};
+            var bestDistance = max; // active sample point
+            foreach (var candidateSample in neighborSamples)
+            {
+                if (!candidateSample.IsEdge) continue;
+
+                var dx = candidateSample.X - x;
+                var dy = candidateSample.Y - y;
+                var dc = (dx * dx) + (dy * dy);
+                if (dc >= bestDistance) continue;
+                
+                // new sample is better
+                bestDistance = dc;
+                result.X = candidateSample.X;
+                result.Y = candidateSample.Y;
+                result.IsEdge = true;
+            }
+            return result;
+        }
+
+        private static bool IsInObj(Bitmap bmp, int x, int y)
+        {
+            return bmp.GetPixel(x, y).GetBrightness() <= 0.5f;
+        }
+
+
         public static Bitmap RenderFieldToImage(int[,] field)
         {
             if (field == null || field.Length < 4) return null;
@@ -142,6 +266,29 @@ namespace ImageTools
             return bmp;
         }
 
+        public static Bitmap RenderFieldToImage(Vector1_2[,] field)
+        {
+            if (field == null || field.Length < 4) return null;
+
+            var width = field.GetLength(0);
+            var height = field.GetLength(1);
+            var bmp = new Bitmap(width, height);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    var fv = field[x, y];
+                    var dx = Math.Abs((int) (fv.Gx * 127) + 127).Pin(0, 200);
+                    var dy = Math.Abs((int) (fv.Gy * 127) + 127).Pin(0, 255);
+                    var dd = Math.Abs((int)( 127 - fv.Dist)).Pin(0, 255);
+                    bmp.SetPixel(x, y, Color.FromArgb(dy, dd, dx));
+                }
+            }
+
+            return bmp;
+        }
+
         public static Bitmap RenderToImage(int threshold, int[,] horzField, int[,] vertField)
         {
             if (horzField == null || horzField.Length < 4) return null;
@@ -168,7 +315,7 @@ namespace ImageTools
         /// <summary>
         /// Render with a specified shade across the minimum distance
         /// </summary>
-        public static Bitmap RenderToImage(double threshold, double shade, Vector[,] vectors)
+        public static Bitmap RenderToImage(double threshold, double shade, Vector2[,] vectors)
         {
             if (vectors == null || vectors.Length < 4) return null;
 
@@ -184,19 +331,19 @@ namespace ImageTools
                     var v = vectors[x, y];
                     var thresh = Math.Min(v.Dx, v.Dy) - threshold;
                     var s = shade - thresh;
-                    var g = 255 - ((int)(s * rel)).Pin(0, 255);
+                    var g = 255 - ((int) (s * rel)).Pin(0, 255);
 
-                    bmp.SetPixel(x,y,Color.FromArgb(g,g,g));
+                    bmp.SetPixel(x, y, Color.FromArgb(g, g, g));
                 }
             }
 
             return bmp;
         }
-        
+
         /// <summary>
         /// Render with a shade between the minimum and maximum distance
         /// </summary>
-        public static Bitmap RenderToImage(double threshold, Vector[,] vectors)
+        public static Bitmap RenderToImage(double threshold, Vector2[,] vectors)
         {
             if (vectors == null || vectors.Length < 4) return null;
 
@@ -213,18 +360,19 @@ namespace ImageTools
                     if (Math.Min(v.Dx, v.Dy) < threshold) s -= 127;
                     if (Math.Max(v.Dx, v.Dy) < threshold) s -= 127;
 
-                    bmp.SetPixel(x,y,Color.FromArgb(s,s,s));
+                    bmp.SetPixel(x, y, Color.FromArgb(s, s, s));
                 }
             }
 
             return bmp;
         }
 
+
         /// <summary>
         /// Scale a pair of scalar fields into a smaller vector field.
         /// Uses cubic interpolation
         /// </summary>
-        public static Vector[,] ReduceToVectors_cubicSpline(int rounds, int[,] horzField, int[,] vertField)
+        public static Vector2[,] ReduceToVectors_cubicSpline(int rounds, int[,] horzField, int[,] vertField)
         {
             // write to temp, scale that, then copy out to final
             if (horzField == null || horzField.Length < 4) return null;
@@ -236,16 +384,14 @@ namespace ImageTools
             var smallWidth = width >> rounds;
             var smallHeight = height >> rounds;
 
-            var maxDim = Math.Max(width, height);
-
-            var stage = new Vector[width, height];
+            var stage = new Vector2[width, height];
 
             // shrink in X
             for (int y = 0; y < height; y++)
             {
                 var xBuffer = new double[width];
                 var yBuffer = new double[width];
-                
+
                 for (int x = 0; x < width; x++)
                 {
                     xBuffer[x] = horzField[x, y];
@@ -253,9 +399,9 @@ namespace ImageTools
                 }
 
                 var dx = (double) width / smallWidth;
-                var samples = Enumerable.Range(0, smallWidth).Select(j=>j*dx).ToArray();
-                xBuffer = CubicSplines.Resample(xBuffer, samples);
-                yBuffer = CubicSplines.Resample(yBuffer, samples);
+                var samples = Enumerable.Range(0, smallWidth).Select(j => j * dx).ToArray();
+                xBuffer = CubicSplines.Resample1D(xBuffer, samples);
+                yBuffer = CubicSplines.Resample1D(yBuffer, samples);
 
                 for (int x = 0; x < smallWidth; x++)
                 {
@@ -269,7 +415,7 @@ namespace ImageTools
             {
                 var xBuffer = new double[height];
                 var yBuffer = new double[height];
-                
+
                 for (int y = 0; y < height; y++)
                 {
                     xBuffer[y] = (float) stage[x, y].Dx;
@@ -277,9 +423,9 @@ namespace ImageTools
                 }
 
                 var dy = (double) height / smallHeight;
-                var samples = Enumerable.Range(0, smallHeight).Select(j=>j*dy).ToArray();
-                xBuffer = CubicSplines.Resample(xBuffer, samples);
-                yBuffer = CubicSplines.Resample(yBuffer, samples);
+                var samples = Enumerable.Range(0, smallHeight).Select(j => j * dy).ToArray();
+                xBuffer = CubicSplines.Resample1D(xBuffer, samples);
+                yBuffer = CubicSplines.Resample1D(yBuffer, samples);
 
                 for (int y = 0; y < smallHeight; y++)
                 {
@@ -288,7 +434,7 @@ namespace ImageTools
                 }
             }
 
-            var final = new Vector[smallWidth, smallHeight];
+            var final = new Vector2[smallWidth, smallHeight];
             for (int y = 0; y < smallHeight; y++)
             {
                 for (int x = 0; x < smallWidth; x++)
@@ -304,7 +450,7 @@ namespace ImageTools
         /// Scale a pair of scalar fields into a smaller vector field.
         /// Uses nearest-neighbour interpolation
         /// </summary>
-        public static Vector[,] ReduceToVectors_nearest(int rounds, int[,] horzField, int[,] vertField)
+        public static Vector2[,] ReduceToVectors_nearest(int rounds, int[,] horzField, int[,] vertField)
         {
             if (horzField == null || horzField.Length < 4) return null;
             if (vertField == null || vertField.Length < 4) return null;
@@ -315,7 +461,7 @@ namespace ImageTools
             var smallWidth = width >> rounds;
             var smallHeight = height >> rounds;
 
-            var final = new Vector[smallWidth, smallHeight];
+            var final = new Vector2[smallWidth, smallHeight];
 
             var dx = (double) width / smallWidth;
             var dy = (double) height / smallHeight;
@@ -333,12 +479,12 @@ namespace ImageTools
 
             return final;
         }
-        
+
         /// <summary>
         /// Scale a pair of scalar fields into a smaller vector field.
-        /// Uses experimental interpolation to try to prevent drop-outs
+        /// Uses a custom box filter to try to prevent drop-outs
         /// </summary>
-        public static Vector[,] ReduceToVectors_experimental(int rounds, int[,] horzField, int[,] vertField)
+        public static Vector2[,] ReduceToVectors_boxZero(int rounds, int[,] horzField, int[,] vertField)
         {
             if (horzField == null || horzField.Length < 4) return null;
             if (vertField == null || vertField.Length < 4) return null;
@@ -349,34 +495,34 @@ namespace ImageTools
             var smallWidth = width >> rounds;
             var smallHeight = height >> rounds;
 
-            var final = new Vector[smallWidth, smallHeight];
+            var final = new Vector2[smallWidth, smallHeight];
 
             var dx = (double) width / smallWidth;
             var dy = (double) height / smallHeight;
 
-            
-            
+
             for (int y = 0; y < smallHeight; y++)
             {
                 var sy = (int) (y * dy);
-                // this is like a box filter, but rather than averaging,
-                // we keep the closest to zero
                 for (int x = 0; x < smallWidth; x++)
                 {
                     var sx = (int) (x * dx);
 
-                    var hf = 100;
-                    var vf = 100;
+                    var hf = 5120;
+                    var vf = 5120;
                     for (int ddx = 0; ddx < dx; ddx++)
                     {
+                        var sample_x = (sx + ddx).Pin(0, width - 1);
                         for (int ddy = 0; ddy < dy; ddy++)
                         {
-                            var sample_x = (sx+ddx).Pin(0, width-1);
-                            var sample_y = (sy+ddy).Pin(0, height-1);
-                            hf = Math.Min(hf, horzField[sample_x, sample_y]);
-                            vf = Math.Min(vf, vertField[sample_x, sample_y]);
+                            // this is like a box filter, but rather than averaging,
+                            // we keep the closest to zero
+                            var sample_y = (sy + ddy).Pin(0, height - 1);
+                            hf = AbsLowest(hf, horzField[sample_x, sample_y]);
+                            vf = AbsLowest(vf, vertField[sample_x, sample_y]);
                         }
                     }
+
                     final[x, y].Dx = hf;
                     final[x, y].Dy = vf;
                 }
@@ -389,11 +535,207 @@ namespace ImageTools
         {
             return (Math.Abs(s1) < Math.Abs(s2)) ? s1 : s2;
         }
-    }
-    
 
-    public struct Vector
+        public static Vector2[,] RescaleVectors_nearest(Vector2[,] original, int dstWidth, int dstHeight)
+        {
+            if (original == null || original.Length < 4) return null;
+
+            var srcWidth = original.GetLength(0);
+            var srcHeight = original.GetLength(1);
+
+            var final = new Vector2[dstWidth, dstHeight];
+
+            var dx = (double) srcWidth / dstWidth;
+            var dy = (double) srcHeight / dstHeight;
+
+            for (int y = 0; y < dstHeight; y++)
+            {
+                var sy = (int) (y * dy);
+                for (int x = 0; x < dstWidth; x++)
+                {
+                    var sx = (int) (x * dx);
+                    final[x, y].Dx = original[sx, sy].Dx;
+                    final[x, y].Dy = original[sx, sy].Dy;
+                }
+            }
+
+            return final;
+        }
+
+        public static Vector2[,] RescaleVectors_bilinear(Vector2[,] original, int dstWidth, int dstHeight)
+        {
+            if (original == null || original.Length < 4) return null;
+
+            var srcWidth = original.GetLength(0);
+            var srcHeight = original.GetLength(1);
+
+            var final = new Vector2[dstWidth, dstHeight];
+
+            var dx = (double) srcWidth / dstWidth;
+            var dy = (double) srcHeight / dstHeight;
+
+            for (int y = 0; y < dstHeight; y++)
+            {
+                var sy = y * dy;
+                var ty = (int) Math.Floor(sy);
+                var by = (ty + 1).Pin(0, srcHeight - 1);
+                var Ly = sy - ty;
+                var ly = 1.0 - Ly;
+
+                for (int x = 0; x < dstWidth; x++)
+                {
+                    var sx = x * dx;
+                    var tx = (int) Math.Floor(sx);
+                    var bx = (tx + 1).Pin(0, srcWidth - 1);
+                    var Lx = sx - tx;
+                    var lx = 1.0 - Lx;
+
+                    var fx =
+                        (original[tx, ty].Dx * ly * lx) +
+                        (original[bx, ty].Dx * ly * Lx) +
+                        (original[tx, by].Dx * Ly * lx) +
+                        (original[bx, by].Dx * Ly * Lx);
+
+                    var fy =
+                        (original[tx, ty].Dy * ly * lx) +
+                        (original[bx, ty].Dy * ly * Lx) +
+                        (original[tx, by].Dy * Ly * lx) +
+                        (original[bx, by].Dy * Ly * Lx);
+
+                    final[x, y].Dx = fx;
+                    final[x, y].Dy = fy;
+                }
+            }
+
+            return final;
+        }
+
+        public static Vector2[,] RescaleVectors_cubic(Vector2[,] original, int width, int height)
+        {
+            if (original == null || original.Length < 4) return null;
+
+            var srcWidth = original.GetLength(0);
+            var srcHeight = original.GetLength(1);
+
+            var maxWidth = Math.Max(width, srcWidth);
+            var maxHeight = Math.Max(height, srcHeight);
+
+            var stage = new Vector2[maxWidth, maxHeight];
+
+            // TODO: separate the dx and dy scaling, so we do each in its
+            //       prime direction first
+
+            #region Scale DX
+
+            // scale in X
+            for (int y = 0; y < srcHeight; y++)
+            {
+                var xBuffer = new double[srcWidth];
+
+                for (int x = 0; x < srcWidth; x++)
+                {
+                    xBuffer[x] = original[x, y].Dx;
+                }
+
+                xBuffer = CubicSplines.Resample1D(xBuffer, width);
+                for (int x = 0; x < width; x++)
+                {
+                    stage[x, y].Dx = xBuffer[x];
+                }
+            }
+
+            // scale in Y
+            for (int x = 0; x < width; x++)
+            {
+                var xBuffer = new double[srcHeight];
+
+                for (int y = 0; y < srcHeight; y++)
+                {
+                    xBuffer[y] = (float) stage[x, y].Dx;
+                }
+
+                xBuffer = CubicSplines.Resample1D(xBuffer, height);
+                for (int y = 0; y < height; y++)
+                {
+                    stage[x, y].Dx = xBuffer[y];
+                }
+            }
+
+            #endregion
+
+            #region Scale DY
+
+            // scale in Y
+            for (int x = 0; x < srcWidth; x++)
+            {
+                var yBuffer = new double[srcHeight];
+
+                for (int y = 0; y < srcHeight; y++)
+                {
+                    yBuffer[y] = (float) original[x, y].Dy;
+                }
+
+                yBuffer = CubicSplines.Resample1D(yBuffer, height);
+                for (int y = 0; y < height; y++)
+                {
+                    stage[x, y].Dy = yBuffer[y];
+                }
+            }
+
+            // scale in X
+            for (int y = 0; y < height; y++)
+            {
+                var yBuffer = new double[srcWidth];
+
+                for (int x = 0; x < srcWidth; x++)
+                {
+                    yBuffer[x] = stage[x, y].Dy;
+                }
+
+                yBuffer = CubicSplines.Resample1D(yBuffer, width);
+                for (int x = 0; x < width; x++)
+                {
+                    stage[x, y].Dy = yBuffer[x];
+                }
+            }
+
+            #endregion
+
+            if (width >= srcWidth && height >= srcHeight) return stage;
+
+            var final = new Vector2[width, height];
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    final[x, y] = stage[x, y];
+                }
+            }
+
+            return final;
+        }
+    }
+
+    public struct Vector1_2
+    {
+        public double Dist;
+        public double Gx, Gy;
+    }
+
+    public struct Vector2
     {
         public double Dx, Dy;
+    }
+
+    public struct EdgeInfo
+    {
+        /// <summary>True if we are inside an object (so distance should be negative) </summary>
+        public bool Inside;
+
+        /// <summary> True if the X and Y represent a known edge location</summary>
+        public bool IsEdge;
+
+        /// <summary>Location of nearest edge</summary>
+        public int X, Y;
     }
 }

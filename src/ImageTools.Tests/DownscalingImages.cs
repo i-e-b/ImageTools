@@ -280,6 +280,38 @@ namespace ImageTools.Tests
 		}
 		
 		[Test]
+		public void bicubic_spline_resampling_down_square()
+		{
+			using (var bmp = Load.FromFile("./inputs/3.png"))
+			{
+				var targetWidth = (int)(bmp.Width * 0.75);   // TODO: more than 50% change
+				var targetHeight = (int)(bmp.Height * 0.75); // so would create aliasing problems with plain bicubic
+				using (var bmp2 = BiCubicBoxScale.MaintainAspect(bmp, targetWidth, targetHeight))
+				{
+					bmp2.SaveBmp("./outputs/3_scaled_12_bicubic.bmp");
+				}
+			}
+
+			Assert.That(Load.FileExists("./outputs/3_scaled_12_bicubic.bmp"));
+		}
+		
+		[Test]
+		public void bicubic_spline_resampling_up_square()
+		{
+			using (var bmp = Load.FromFile("./inputs/3.png"))
+			{
+				var targetWidth = (int)(bmp.Width * 3);   // TODO: more than 50% change
+				var targetHeight = (int)(bmp.Height * 3); // so would create aliasing problems with plain bicubic
+				using (var bmp2 = BiCubicBoxScale.DisregardAspect(bmp, targetWidth, targetHeight))
+				{
+					bmp2.SaveBmp("./outputs/3_scaled_300_bicubic.bmp");
+				}
+			}
+
+			Assert.That(Load.FileExists("./outputs/3_scaled_300_bicubic.bmp"));
+		}
+		
+		[Test]
 		public void cubic_spline_resampling_up_square()
 		{
 			using (var bmp = Load.FromFile("./inputs/3.png"))
@@ -293,6 +325,22 @@ namespace ImageTools.Tests
 			}
 
 			Assert.That(Load.FileExists("./outputs/3_scaled_150_cubic.bmp"));
+		}
+		
+		[Test]
+		public void cubic_spline_resampling_up_large_square()
+		{
+			using (var bmp = Load.FromFile("./inputs/3.png"))
+			{
+				var targetWidth = (int)(bmp.Width * 3.5);
+				var targetHeight = (int)(bmp.Height * 3.5);
+				using (var bmp2 = CubicScale.DisregardAspect(bmp, targetWidth, targetHeight))
+				{
+					bmp2.SaveBmp("./outputs/3_scaled_350_cubic.bmp");
+				}
+			}
+
+			Assert.That(Load.FileExists("./outputs/3_scaled_350_cubic.bmp"));
 		}
 		
 		[Test]

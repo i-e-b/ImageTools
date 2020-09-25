@@ -7,15 +7,32 @@ namespace ImageTools.AnalyticalTransforms
 {
     public class CubicSplines
     {
+        public static double[] Resample1D(double[] inputs, int sampleCount)
+        {
+            if (inputs == null) return Array.Empty<double>();
+            var dx = (double) inputs.Length / sampleCount;
+            var samples = Enumerable.Range(0, sampleCount).Select(j=>j*dx).ToArray();
+            return Resample1D(inputs, samples);
+        }
+
+        public static double[] Resample1D(double[] inputs, double[] newXPoints)
+        {
+            if (inputs == null || newXPoints == null) return Array.Empty<double>();
+            var buffer = new double[newXPoints.Length];
+            Resample1DInto(inputs, newXPoints, buffer);
+            return buffer;
+        }
+
         /// <summary>
         /// Resample a function using a cubic spline series
         /// </summary>
         /// <param name="inputs">Function values at integral 'x' co-ordinates (0..n)</param>
         /// <param name="newXPoints">The new 'x' co-ordinates to sample. Each value should be between 0 and n</param>
+        /// <param name="outputs">buffer to write into. Must be at least as large as 'newXPoints'</param>
         /// <returns>The interpolated function values for the new 'x' co-ordinates</returns>
-        public static double[] Resample(double[] inputs, double[] newXPoints)
+        public static void Resample1DInto(double[] inputs, double[] newXPoints, double[] outputs)
         {
-            if (inputs == null || newXPoints == null) return null;
+            if (inputs == null || newXPoints == null || outputs == null) return;
             if (inputs.Length < 3) throw new Exception("Input too small");
             var n = inputs.Length;
             var sourceX = Enumerable.Range(0, inputs.Length).ToArray();
@@ -50,8 +67,7 @@ namespace ImageTools.AnalyticalTransforms
             for (long i = 0; i + 1 <= nx; i++)
             {
                 dx[i] = sourceX[i + 1] - sourceX[i];
-                if (dx[i] == 0.0)
-                    return null;
+                if (dx[i] == 0.0) return;
             }
 
             for (long i = 1; i + 1 <= nx; i++)
@@ -109,7 +125,7 @@ namespace ImageTools.AnalyticalTransforms
                 triDiagonalCoefficients[3, i] = inputs[i];
             }
 
-            var newY = new double[newXPoints.Length];
+            var newY = outputs;
             long j = 0;
             for (long i = 0; i < n - 1; i++)
             {
@@ -127,7 +143,31 @@ namespace ImageTools.AnalyticalTransforms
             }
 
             newY[newY.Length - 1] = inputs[n - 1];
-            return newY;
         }
+        
+        
+        /// <summary>
+        /// Takes an array of 4 equidistant values, returns an interpolated value from
+        /// a sample point that can be at a fractional index.
+        /// </summary>
+        public static double SampleInterpolate1D (double x, params double[] p) {
+            return p[1] + 0.5 * x*(p[2] - p[0] + x*(2.0*p[0] - 5.0*p[1] + 4.0*p[2] - p[3] + x*(3.0*(p[1] - p[2]) + p[3] - p[0])));
+        }
+
+        /// <summary>
+        /// Takes a 4x4 array of equidistant values, returns an interpolated value from
+        /// a sample point that can be at a fractional indexes.
+        /// </summary>
+        public static double SampleInterpolate2D (double[,] p, double x, double y) {
+            return SampleInterpolate1D(
+                x,
+                SampleInterpolate1D(y, p[0,0], p[0,1], p[0,2], p[0,3]),
+                SampleInterpolate1D(y, p[1,0], p[1,1], p[1,2], p[1,3]),
+                SampleInterpolate1D(y, p[2,0], p[2,1], p[2,2], p[2,3]),
+                SampleInterpolate1D(y, p[3,0], p[3,1], p[3,2], p[3,3])
+                );
+        }
+        
+        
     }
 }
