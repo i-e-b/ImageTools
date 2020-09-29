@@ -21,7 +21,7 @@ namespace ImageTools.Tests
 
             Assert.That(Load.FileExists("./outputs/df_expanded.bmp"));
         }
-        
+
         [Test]
         public void rendering_orthogonal_field_eroded()
         {
@@ -37,7 +37,7 @@ namespace ImageTools.Tests
 
             Assert.That(Load.FileExists("./outputs/df_eroded.bmp"));
         }
-        
+
         [Test]
         public void rendering_orthogonal_field_as_native()
         {
@@ -64,7 +64,7 @@ namespace ImageTools.Tests
                 {
                     bmp2.SaveBmp("./outputs/df_horz.bmp");
                 }
-                
+
                 var vertField = DistanceField.VerticalDistance(bmp);
                 using (var bmp3 = DistanceField.RenderFieldToImage(vertField))
                 {
@@ -90,17 +90,24 @@ namespace ImageTools.Tests
 
                 for (int i = 1; i < 7; i++)
                 {
-                    var shade = 4 + (i*i)/2.0;
+                    var shade = 4 + (i * i) / 2.0;
                     var thresh = -4 + i;
-                    
+
                     var scaled = DistanceField.ReduceToVectors_nearest(i, horzField, vertField);
-                    
-                    using (var bmp2 = DistanceField.RenderToImage(thresh, shade, scaled)) { bmp2.SaveBmp($"./outputs/df_nearest_shade_{i}.bmp"); }
-                    using (var bmp2 = DistanceField.RenderToImage(2*i, scaled)) { bmp2.SaveBmp($"./outputs/df_nearest_diff_{i}.bmp"); }
+
+                    using (var bmp2 = DistanceField.RenderToImage(thresh, shade, scaled))
+                    {
+                        bmp2.SaveBmp($"./outputs/df_nearest_shade_{i}.bmp");
+                    }
+
+                    using (var bmp2 = DistanceField.RenderToImage(2 * i, scaled))
+                    {
+                        bmp2.SaveBmp($"./outputs/df_nearest_diff_{i}.bmp");
+                    }
                 }
             }
         }
-        
+
         [Test]
         public void render_from_scaled_fields_box_zero()
         {
@@ -112,13 +119,20 @@ namespace ImageTools.Tests
                 for (int i = 1; i < 7; i++)
                 {
                     var scaled = DistanceField.ReduceToVectors_boxZero(i, horzField, vertField);
-                    
-                    using (var bmp2 = DistanceField.RenderToImage(-i, 3.25 + i*1.75, scaled)) { bmp2.SaveBmp($"./outputs/df_exp_shade_{i}.bmp"); }
-                    using (var bmp2 = DistanceField.RenderToImage(i, scaled)) { bmp2.SaveBmp($"./outputs/df_exp_diff_{i}.bmp"); }
+
+                    using (var bmp2 = DistanceField.RenderToImage(-i, 3.25 + i * 1.75, scaled))
+                    {
+                        bmp2.SaveBmp($"./outputs/df_exp_shade_{i}.bmp");
+                    }
+
+                    using (var bmp2 = DistanceField.RenderToImage(i, scaled))
+                    {
+                        bmp2.SaveBmp($"./outputs/df_exp_diff_{i}.bmp");
+                    }
                 }
             }
         }
-        
+
         [Test]
         public void render_from_scaled_fields_cubic_interpolation()
         {
@@ -129,17 +143,24 @@ namespace ImageTools.Tests
 
                 for (int i = 1; i < 7; i++)
                 {
-                    var shade = 4 + (i*i)/2.0;
+                    var shade = 4 + (i * i) / 2.0;
                     var thresh = -4 + i;
-                    
+
                     var scaled = DistanceField.ReduceToVectors_cubicSpline(i, horzField, vertField);
-                    
-                    using (var bmp2 = DistanceField.RenderToImage(thresh, shade, scaled)) { bmp2.SaveBmp($"./outputs/df_cubic_shade_{i}.bmp"); }
-                    using (var bmp2 = DistanceField.RenderToImage(2*i, scaled)) { bmp2.SaveBmp($"./outputs/df_cubic_diff_{i}.bmp"); }
+
+                    using (var bmp2 = DistanceField.RenderToImage(thresh, shade, scaled))
+                    {
+                        bmp2.SaveBmp($"./outputs/df_cubic_shade_{i}.bmp");
+                    }
+
+                    using (var bmp2 = DistanceField.RenderToImage(2 * i, scaled))
+                    {
+                        bmp2.SaveBmp($"./outputs/df_cubic_diff_{i}.bmp");
+                    }
                 }
             }
         }
-        
+
         [Test]
         public void render_from_upscaled_fields_experimental()
         {
@@ -152,13 +173,20 @@ namespace ImageTools.Tests
                 {
                     //var downscaled = DistanceField.ReduceToVectors_boxZero(i, horzField, vertField); // down scale, causes blocking but has less drop-out
                     var downscaled = DistanceField.ReduceToVectors_cubicSpline(i, horzField, vertField); // down scale, smooth results but has drop-out at zero-threshold
-                    
+
                     //var upscaled = DistanceField.RescaleVectors_nearest(downscaled, 1024, 1024); // pretty much useless
                     //var upscaled = DistanceField.RescaleVectors_cubic(downscaled, 1024, 1024); // severe ringing artifacts
                     var upscaled = DistanceField.RescaleVectors_bilinear(downscaled, 1024, 1024); // pretty good
-                    
-                    using (var bmp2 = DistanceField.RenderToImage(i*1.8, 2, upscaled)) { bmp2.SaveBmp($"./outputs/df_upscale_shade_{i}.bmp"); }
-                    using (var bmp2 = DistanceField.RenderToImage(2.5*i, upscaled)) { bmp2.SaveBmp($"./outputs/df_upscale_diff_{i}.bmp"); }
+
+                    using (var bmp2 = DistanceField.RenderToImage(i * 1.8, 2, upscaled))
+                    {
+                        bmp2.SaveBmp($"./outputs/df_upscale_shade_{i}.bmp");
+                    }
+
+                    using (var bmp2 = DistanceField.RenderToImage(2.5 * i, upscaled))
+                    {
+                        bmp2.SaveBmp($"./outputs/df_upscale_diff_{i}.bmp");
+                    }
                 }
             }
         }
@@ -166,6 +194,7 @@ namespace ImageTools.Tests
         [Test]
         public void calculate_natural_distance_and_normal_from_a_bitmap()
         {
+            // This is a 'true' 2D distance field, rather than the separate 1-directional fields above
             using (var bmp = Load.FromFile("./inputs/glyph.png"))
             {
                 var field = DistanceField.DistanceAndGradient(bmp);
@@ -176,6 +205,54 @@ namespace ImageTools.Tests
             }
 
             Assert.That(Load.FileExists("./outputs/df_natural.bmp"));
+        }
+
+        [Test]
+        public void render_from_signed_distance_field()
+        {
+            // This is a 'true' 2D distance field, rather than the separate 1-directional fields above
+            using (var bmp = Load.FromFile("./inputs/glyph.png"))
+            {
+                var field = DistanceField.DistanceAndGradient(bmp);
+                using (var bmp2 = DistanceField.RenderToImage(0.0, field)) { bmp2.SaveBmp("./outputs/df_n_00.bmp"); }
+                using (var bmp2 = DistanceField.RenderToImage(5.0, field)) { bmp2.SaveBmp("./outputs/df_n_50.bmp"); }
+                using (var bmp2 = DistanceField.RenderToImage(-1, field))  { bmp2.SaveBmp("./outputs/df_n-10.bmp"); }
+            }
+
+            Assert.That(Load.FileExists("./outputs/df_n_00.bmp"));
+        }
+        
+        [Test]
+        public void render_from_upscaled_signed_distance_field()
+        {
+            using (var bmp = Load.FromFile("./inputs/glyph.png"))
+            {
+                var field = DistanceField.DistanceAndGradient(bmp);
+
+                for (int i = 1; i < 7; i++)
+                {
+                    var downscaled = DistanceField.ReduceToDistance_cubicSpline(i, field);
+
+                    var upscaled = DistanceField.RescaleDistance_bilinear(downscaled, 1024, 1024);
+
+                    using (var bmp2 = DistanceField.RenderToImage(1.0 * i, upscaled))
+                    {
+                        bmp2.SaveBmp($"./outputs/df_upscale_dist_cubic-bilinear_{i}.bmp");
+                    }
+                }
+                
+                for (int i = 1; i < 7; i++)
+                {
+                    var downscaled = DistanceField.ReduceToVectors_boxZero(i, field);
+
+                    var upscaled = DistanceField.RescaleDistance_bilinear(downscaled, 1024, 1024);
+
+                    using (var bmp2 = DistanceField.RenderToImage((0.5 * i) - 0.75, upscaled))
+                    {
+                        bmp2.SaveBmp($"./outputs/df_upscale_dist_boxZero-bilinear_{i}.bmp");
+                    }
+                }
+            }
         }
     }
 }

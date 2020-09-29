@@ -3,6 +3,8 @@ using System.Drawing;
 using System.Linq;
 using ImageTools.AnalyticalTransforms;
 using ImageTools.Utilities;
+// ReSharper disable PossibleNullReferenceException
+// ReSharper disable UnusedMember.Global
 
 // ReSharper disable InconsistentNaming
 
@@ -135,7 +137,6 @@ namespace ImageTools
             // the exact distance and normal values
             for (j = maxDim / 2; j >= 1; j /= 2)
             {
-                Console.WriteLine(j);
                 for (y = 0; y < height; y++)
                 {
                     var t = (y - j).PinXu(0, height);
@@ -366,7 +367,48 @@ namespace ImageTools
 
             return bmp;
         }
+        
+        public static Bitmap RenderToImage(double threshold, Vector1_2[,] signedField)
+        {
+            if (signedField == null || signedField.Length < 4) return null;
 
+            var width = signedField.GetLength(0);
+            var height = signedField.GetLength(1);
+            var bmp = new Bitmap(width, height);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    var v = signedField[x, y];
+                    var s = (v.Dist < threshold) ? 0 : 255;
+                    bmp.SetPixel(x, y, Color.FromArgb(s, s, s));
+                }
+            }
+
+            return bmp;
+        }
+
+        public static Bitmap RenderToImage(double threshold, double[,] signedField)
+        {
+            if (signedField == null || signedField.Length < 4) return null;
+
+            var width = signedField.GetLength(0);
+            var height = signedField.GetLength(1);
+            var bmp = new Bitmap(width, height);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    var v = signedField[x, y];
+                    var s = (v < threshold) ? 0 : 255;
+                    bmp.SetPixel(x, y, Color.FromArgb(s, s, s));
+                }
+            }
+
+            return bmp;
+        }
 
         /// <summary>
         /// Scale a pair of scalar fields into a smaller vector field.
@@ -440,6 +482,105 @@ namespace ImageTools
                 for (int x = 0; x < smallWidth; x++)
                 {
                     final[x, y] = stage[x, y];
+                }
+            }
+
+            return final;
+        }
+        
+        /// <summary>
+        /// Rescale a distance field. Currently loses normals
+        /// </summary>
+        public static double[,] ReduceToDistance_cubicSpline(int rounds, Vector1_2[,] field)
+        {
+            // write to temp, scale that, then copy out to final
+            if (field == null || field.Length < 4) return null;
+
+            var width = field.GetLength(0);
+            var height = field.GetLength(1);
+
+            var smallWidth = width >> rounds;
+            var smallHeight = height >> rounds;
+
+            var stage = new double[width, height];
+
+            // shrink in X
+            for (int y = 0; y < height; y++)
+            {
+                var buffer = new double[width];
+
+                for (int x = 0; x < width; x++) { buffer[x] = field[x, y].Dist; }
+
+                var dx = (double) width / smallWidth;
+                var samples = Enumerable.Range(0, smallWidth).Select(j => j * dx).ToArray();
+                buffer = CubicSplines.Resample1D(buffer, samples);
+
+                for (int x = 0; x < smallWidth; x++) { stage[x, y] = buffer[x]; }
+            }
+
+            // shrink in Y
+            for (int x = 0; x < width; x++)
+            {
+                var buffer = new double[height];
+
+                for (int y = 0; y < height; y++) { buffer[y] = (float) stage[x, y]; }
+
+                var dy = (double) height / smallHeight;
+                var samples = Enumerable.Range(0, smallHeight).Select(j => j * dy).ToArray();
+                buffer = CubicSplines.Resample1D(buffer, samples);
+
+                for (int y = 0; y < smallHeight; y++) { stage[x, y] = buffer[y]; }
+            }
+
+            var final = new double[smallWidth, smallHeight];
+            for (int y = 0; y < smallHeight; y++)
+            {
+                for (int x = 0; x < smallWidth; x++)
+                {
+                    final[x, y] = stage[x, y];
+                }
+            }
+
+            return final;
+        }
+
+        public static double[,] ReduceToVectors_boxZero(int rounds, Vector1_2[,] field)
+        {
+            if (field == null || field.Length < 4) return null;
+
+            var width = field.GetLength(0);
+            var height = field.GetLength(1);
+
+            var smallWidth = width >> rounds;
+            var smallHeight = height >> rounds;
+
+            var final = new double[smallWidth, smallHeight];
+
+            var dx = (double) width / smallWidth;
+            var dy = (double) height / smallHeight;
+
+
+            for (int y = 0; y < smallHeight; y++)
+            {
+                var sy = (int) (y * dy);
+                for (int x = 0; x < smallWidth; x++)
+                {
+                    var sx = (int) (x * dx);
+
+                    var hf = 5120.0;
+                    for (int ddx = 0; ddx < dx; ddx++)
+                    {
+                        var sample_x = (sx + ddx).Pin(0, width - 1);
+                        for (int ddy = 0; ddy < dy; ddy++)
+                        {
+                            // this is like a box filter, but rather than averaging,
+                            // we keep the closest to zero
+                            var sample_y = (sy + ddy).Pin(0, height - 1);
+                            hf = AbsLowest(hf, field[sample_x, sample_y].Dist);
+                        }
+                    }
+
+                    final[x, y] = hf;
                 }
             }
 
@@ -532,6 +673,11 @@ namespace ImageTools
         }
 
         private static int AbsLowest(int s1, int s2)
+        {
+            return (Math.Abs(s1) < Math.Abs(s2)) ? s1 : s2;
+        }
+        
+        private static double AbsLowest(double s1, double s2)
         {
             return (Math.Abs(s1) < Math.Abs(s2)) ? s1 : s2;
         }
@@ -709,6 +855,47 @@ namespace ImageTools
                 for (int x = 0; x < width; x++)
                 {
                     final[x, y] = stage[x, y];
+                }
+            }
+
+            return final;
+        }
+
+        public static double[,] RescaleDistance_bilinear(double[,] original, int dstWidth, int dstHeight)
+        {
+            if (original == null || original.Length < 4) return null;
+
+            var srcWidth = original.GetLength(0);
+            var srcHeight = original.GetLength(1);
+
+            var final = new double[dstWidth, dstHeight];
+
+            var dx = (double) srcWidth / dstWidth;
+            var dy = (double) srcHeight / dstHeight;
+
+            for (int y = 0; y < dstHeight; y++)
+            {
+                var sy = y * dy;
+                var ty = (int) Math.Floor(sy);
+                var by = (ty + 1).Pin(0, srcHeight - 1);
+                var Ly = sy - ty;
+                var ly = 1.0 - Ly;
+
+                for (int x = 0; x < dstWidth; x++)
+                {
+                    var sx = x * dx;
+                    var tx = (int) Math.Floor(sx);
+                    var bx = (tx + 1).Pin(0, srcWidth - 1);
+                    var Lx = sx - tx;
+                    var lx = 1.0 - Lx;
+
+                    var fx =
+                        (original[tx, ty] * ly * lx) +
+                        (original[bx, ty] * ly * Lx) +
+                        (original[tx, by] * Ly * lx) +
+                        (original[bx, by] * Ly * Lx);
+
+                    final[x, y] = fx;
                 }
             }
 
