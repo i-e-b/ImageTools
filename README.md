@@ -22,23 +22,10 @@ Experiments covering
 * Morton and Hilbert space filling curve reordering
 * Box Blur / Soft-focus / sharpen
 * Image scaling
+* Vector field conversions
 
-## Plans and To-do
+## Viewer App
 
-In no particular order:
-* [ ] Try bit-plane reordering, so we can truncate lower-significance bits only?
-* [x] Try image compression with Haar wavelet, to see how bad it is
-    - Pretty bad. The compression ratio is good, but the quantisation artefacts are horrible.
-* [x] Pixel-art style up-scaling
-* [ ] Reduce memory footprint (think of a way to not hold an entire 3D image in memory twice...)
-* [x] Experiment with non-linear quantisation
-* [x] Find a good way to do non-power-two images
-* [x] Bring in the old bits from 'ImageCompress' (color cell compression) and delete that repo
-* [ ] Try indexed entries for CDF coefficients (quantise by buckets)
-* [ ] Attempt using 'wavelet tree' to encode CDF coefficients
-* [ ] Attempt using the color cell algorithm for CDF coefficients
-* [ ] 3D-image compress a larger video and compare size (requires non-power-two 3D images)
-* [ ] Move some of the encoding and lossless compression out to a separate project.
-* [x] Cleanup and optimise the fibonnacci encoding used in wavelet stuff (enumerable?)
-* [x] Other universal coding (Elias / Golomb)
-* [x] Expand Arithmetic encoder to use long rather than uint.
+There is a simple image viewer app, like the Windows "Photos" app, but much less terrible,
+and able to read some of the formats from the ImageTools libraries.
+
