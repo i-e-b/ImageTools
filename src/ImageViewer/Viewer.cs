@@ -24,11 +24,21 @@ namespace ImageViewer
         private int _mx, _my;
         private float _scale = 1.0f;
 
-        public Form1()
+        public Form1(string[]? args)
         {
             InitializeComponent();
+
             _baseFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-            RefreshImageSet();
+            if (args?.Length > 0)
+            {
+                _baseFolder = Path.GetDirectoryName(args[0]);
+                RefreshImageSet(args[0]);
+            }
+            else
+            {
+                RefreshImageSet();
+            }
+
             MouseWheel += ChangeZoom;
         }
 
@@ -70,12 +80,15 @@ namespace ImageViewer
             }
         }
 
-        private void RefreshImageSet()
+        private void RefreshImageSet(string? initial = null)
         {
             if (string.IsNullOrWhiteSpace(_baseFolder!)) return;
-            _files = Directory.EnumerateFiles(_baseFolder!)
-                .Where(NotKnownBadFiles).ToList();
-            _fileIndex = 0;
+            _files = Directory
+                .EnumerateFiles(_baseFolder!)
+                .Where(NotKnownBadFiles)
+                .ToList();
+            
+            _fileIndex = Math.Max(0, _files.IndexOf(initial??""));
             ReloadImage();
         }
 
