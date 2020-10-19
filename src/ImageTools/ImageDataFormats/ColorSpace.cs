@@ -1,38 +1,9 @@
 ﻿using System;
 using System.Linq;
+// ReSharper disable InconsistentNaming
 
 namespace ImageTools.ImageDataFormats
 {
-    /// <summary>
-    /// RGB colour components
-    /// </summary>
-    public struct ColorRGB {
-        public int R;
-        public int G;
-        public int B;
-
-        public static ColorRGB FromARGB32(uint c) {
-            ColorSpace.CompoundToComponent(c, out _, out var r, out var g, out var b);
-            return new ColorRGB { R = r, G = g, B = b };
-        }
-
-    }
-    
-    /// <summary>
-    /// YUV colour components (this is high-precision YUV, not Ycbcr)
-    /// </summary>
-    public struct ColorYUV {
-        public double Y;
-        public double U;
-        public double V;
-
-        public static ColorYUV FromYUV32(uint c)
-        {
-            ColorSpace.CompoundToComponent(c, out _, out var y, out var u, out var v);
-            return new ColorYUV { Y = y, U = u, V = v };
-        }
-    }
-
     /// <summary>
     /// Tools for reading and converting color spaces
     /// </summary>
@@ -832,6 +803,28 @@ namespace ImageTools.ImageDataFormats
             R = clip(255 * (rm + m));
             G = clip(255 * (gm + m));
             B = clip(255 * (bm + m));
+        }
+        
+        /// <summary>
+        /// Converts an sRGB value (0..255) into a linear double (0..1)
+        /// </summary>
+        public static double SRGBToLinear(int value)
+        {
+            var v = value / 255.0;
+            return v <= 0.04045
+                ? v / 12.92
+                : Math.Pow((v + 0.055) / 1.055, 2.4);
+        }
+
+        /// <summary>
+        /// Converts a linear double (0..1) into sRGB (0..255)
+        /// </summary>
+        public static int LinearToSRGB(double value)
+        {
+            var v = Math.Max(0.0, Math.Min(1.0, value));
+            return v <= 0.0031308
+                ? (int) (v * 12.92 * 255 + 0.5)
+                : (int) ((1.055 * Math.Pow(v, 1 / 2.4) - 0.055) * 255 + 0.5);
         }
     }
 }

@@ -20,7 +20,7 @@ namespace ImageViewer
         private readonly Brush _background = new HatchBrush(HatchStyle.LargeCheckerBoard, Color.Azure, Color.Aqua);
         private bool _drag;
         private readonly object _loadLock = new object();
-        private int _x, _y;
+        private float _x, _y;
         private int _mx, _my;
         private float _scale = 1.0f;
 
@@ -42,6 +42,7 @@ namespace ImageViewer
             MouseWheel += ChangeZoom;
         }
 
+        protected override void OnPaintBackground(PaintEventArgs e) { }
         protected override void OnPaint(PaintEventArgs e)
         {
             e.Graphics.CompositingQuality = CompositingQuality.HighSpeed;
@@ -52,11 +53,11 @@ namespace ImageViewer
             lock (_loadLock)
             {
                 e.Graphics.ScaleTransform(_scale,_scale);
-                if (_imageCache != null) e.Graphics.DrawImage(_imageCache, new PointF(_x / _scale, _y / _scale));
+                if (_imageCache != null) e.Graphics.DrawImage(_imageCache, new PointF(_x, _y));
                 e.Graphics.ScaleTransform(1/_scale,1/_scale);
             }
             
-            e.Graphics.DrawString(_message, Font, Black, 10, pickImgBtn?.Bottom??0 + 10);
+            e.Graphics.DrawString(_message, Font, Black, 10, 10);
         }
 
         private void pickImgBtn_Click(object sender, EventArgs e)
@@ -139,22 +140,32 @@ namespace ImageViewer
             });
         }
 
-        private void leftBtn_Click(object sender, EventArgs e)
+        private void leftBtn_Click(object sender, EventArgs e) => DecrementSelectedFile();
+        private void rightBtn_Click(object sender, EventArgs e) => IncrementSelectedFile();
+
+        private void IncrementSelectedFile()
+        {
+            _fileIndex++;
+            if (_fileIndex >= _files.Count) _fileIndex = _files.Count - 1;
+            else ReloadImage();
+        }
+        
+        private void DecrementSelectedFile()
         {
             _fileIndex--;
             if (_fileIndex < 0) _fileIndex = 0;
             else ReloadImage();
         }
 
-        private void rightBtn_Click(object sender, EventArgs e)
-        {
-            _fileIndex++;
-            if (_fileIndex >= _files.Count) _fileIndex = _files.Count - 1;
-            else ReloadImage();
-        }
-
         private void Form1_MouseDown(object sender, MouseEventArgs e)
         {
+            if (e.Clicks > 1)
+            {
+                _scale = _scale > 1.0f ? 1.0f : 4.0f;
+                Invalidate();
+                return;
+            }
+
             _mx = e.X; _my = e.Y;
             _drag = true;
         }
@@ -164,8 +175,8 @@ namespace ImageViewer
         private void Form1_MouseMove(object sender, MouseEventArgs e)
         {
             if (!_drag) return;
-            _x += e.X - _mx;
-            _y += e.Y - _my;
+            _x += (e.X - _mx) / _scale;
+            _y += (e.Y - _my) / _scale;
             _mx = e.X; _my = e.Y;
             Invalidate();
         }
@@ -174,15 +185,38 @@ namespace ImageViewer
         {
             if (e.Delta == 0) return;
             
-            _scale += e.Delta * 0.0005f; // TODO: this is terrible.
+            var speed = (ModifierKeys & Keys.Control) != 0 ? 0.1f : 0.01f;
+            _scale += Math.Sign(e.Delta) * speed;
                 
             if (_scale < 0.01f) _scale = 0.01f;
             if (_scale > 10.0f) _scale = 10.0f;
                 
             // TODO: compensate for centre point
-                
+            
             Text = (_scale * 100).ToString("0.0");
             Invalidate();
+        }
+
+        private void resetZoomBtn_Click(object sender, EventArgs e)
+        {
+            _x = _y = 0;
+            _scale = 1.0f;
+            Invalidate();
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            switch (keyData)
+            {
+                case Keys.Left:
+                    DecrementSelectedFile();
+                    return false;
+
+                case Keys.Right:
+                    IncrementSelectedFile();
+                    return false;
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
         }
     }
 }

@@ -216,7 +216,7 @@ namespace ImageTools.Tests
                 var field = DistanceField.DistanceAndGradient(bmp);
                 using (var bmp2 = DistanceField.RenderToImage(0.0, field)) { bmp2.SaveBmp("./outputs/df_n_00.bmp"); }
                 using (var bmp2 = DistanceField.RenderToImage(5.0, field)) { bmp2.SaveBmp("./outputs/df_n_50.bmp"); }
-                using (var bmp2 = DistanceField.RenderToImage(-1, field))  { bmp2.SaveBmp("./outputs/df_n-10.bmp"); }
+                using (var bmp2 = DistanceField.RenderToImage(-5.0, field))  { bmp2.SaveBmp("./outputs/df_n-50.bmp"); }
             }
 
             Assert.That(Load.FileExists("./outputs/df_n_00.bmp"));
