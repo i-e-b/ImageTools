@@ -33,6 +33,8 @@
             this.leftBtn = new System.Windows.Forms.Button();
             this.rightBtn = new System.Windows.Forms.Button();
             this.resetZoomBtn = new System.Windows.Forms.Button();
+            this.editButton = new System.Windows.Forms.Button();
+            this.exportButton = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // pickImgBtn
@@ -83,11 +85,37 @@
             this.resetZoomBtn.UseVisualStyleBackColor = true;
             this.resetZoomBtn.Click += new System.EventHandler(this.resetZoomBtn_Click);
             // 
+            // editButton
+            // 
+            this.editButton.Anchor = ((System.Windows.Forms.AnchorStyles) ((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.editButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.editButton.Location = new System.Drawing.Point(42, 303);
+            this.editButton.Name = "editButton";
+            this.editButton.Size = new System.Drawing.Size(36, 32);
+            this.editButton.TabIndex = 4;
+            this.editButton.Text = "Edit";
+            this.editButton.UseVisualStyleBackColor = true;
+            this.editButton.Click += new System.EventHandler(this.editButton_Click);
+            // 
+            // exportButton
+            // 
+            this.exportButton.Anchor = ((System.Windows.Forms.AnchorStyles) ((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.exportButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.exportButton.Location = new System.Drawing.Point(84, 303);
+            this.exportButton.Name = "exportButton";
+            this.exportButton.Size = new System.Drawing.Size(52, 32);
+            this.exportButton.TabIndex = 5;
+            this.exportButton.Text = "Export";
+            this.exportButton.UseVisualStyleBackColor = true;
+            this.exportButton.Click += new System.EventHandler(this.exportButton_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(574, 335);
+            this.Controls.Add(this.exportButton);
+            this.Controls.Add(this.editButton);
             this.Controls.Add(this.resetZoomBtn);
             this.Controls.Add(this.rightBtn);
             this.Controls.Add(this.leftBtn);
@@ -102,6 +130,10 @@
             this.MouseUp += new System.Windows.Forms.MouseEventHandler(this.Form1_MouseUp);
             this.ResumeLayout(false);
         }
+
+        private System.Windows.Forms.Button exportButton;
+
+        private System.Windows.Forms.Button editButton;
 
         private System.Windows.Forms.Button resetZoomBtn;
 

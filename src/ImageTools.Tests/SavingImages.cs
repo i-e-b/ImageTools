@@ -1,4 +1,5 @@
-﻿using ImageTools.Utilities;
+﻿using ImageTools.ImageStorageFileFormats;
+using ImageTools.Utilities;
 using NUnit.Framework;
 
 namespace ImageTools.Tests
@@ -18,5 +19,20 @@ namespace ImageTools.Tests
 			Assert.That(Load.FileExists("./outputs/1.jpg"));
 		}
 
+		[Test]
+		public void can_save_and_read_wavelet_image_format()
+		{
+			using (var bmp = Load.FromFile("./inputs/1.jpg"))
+			{
+				bmp.SaveWaveletImageFormat("./outputs/1.wfi");
+			}
+			Assert.That(Load.FileExists("./outputs/1.wfi"));
+
+			using (var bmp2 = WaveletImageFormat.LoadFile("./outputs/1.wfi"))
+			{
+				bmp2.SaveJpeg("./outputs/1_round_trip.jpg");
+			}
+			Assert.That(Load.FileExists("./outputs/1_round_trip.jpg"));
+		}
 	}
 }

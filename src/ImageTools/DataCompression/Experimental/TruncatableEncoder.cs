@@ -51,7 +51,7 @@ namespace ImageTools.DataCompression.Experimental
         private ulong[,] map; // [from,to]
         private int lastSymbol;
         private bool[] frozen;
-        public const ulong ProbabilityScale = 4; // how agressively we grow the symbol probabilities
+        public const ulong ProbabilityScale = 4; // how aggressively we grow the symbol probabilities
 
         public void DecompressStream(Stream source, Stream destination) {
             if (source == null || source.CanRead == false) throw new Exception("Invalid input stream passed to encoder");

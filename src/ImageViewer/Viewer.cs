@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
+using ImageTools.ImageStorageFileFormats;
 using static System.Drawing.Brushes;
 
 namespace ImageViewer
@@ -217,6 +218,40 @@ namespace ImageViewer
                     return false;
             }
             return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        private void editButton_Click(object sender, EventArgs e)
+        {
+            // TODO: open in Paint.Net
+            MessageBox.Show("Not implemented");
+        }
+
+        private void exportButton_Click(object sender, EventArgs e)
+        {
+            if (_imageCache == null) return;
+            
+            var fileDialog = new SaveFileDialog
+            {
+                Title = "Save file as...",
+                Filter = "*.wfi|WFI files",
+                DefaultExt = ".wfi",
+                FileName = Path.GetFileNameWithoutExtension(_files[_fileIndex] ?? ""),
+                SupportMultiDottedExtensions = true,
+                AddExtension = true,
+                OverwritePrompt = true
+            };
+
+            var result = fileDialog.ShowDialog();
+            switch (result)
+            {
+                case DialogResult.OK:
+                case DialogResult.Yes:
+                    _imageCache?.SaveWaveletImageFormat(fileDialog.FileName!);
+                    RefreshImageSet();
+                    return;
+                default:
+                    return;
+            }
         }
     }
 }

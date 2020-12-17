@@ -50,7 +50,7 @@ namespace ImageTools.ImageDataFormats
             Planes = new byte[planeCount][];
         }
 
-        public void WriteToStream(Stream output)
+        public virtual void WriteToStream(Stream output)
         {
             WriteStreamHeaders(output);
 

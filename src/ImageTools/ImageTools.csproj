@@ -57,6 +57,8 @@
     <Compile Include="ErrorDiffusionScale.cs" />
     <Compile Include="ImageDataFormats\ColorRGB.cs" />
     <Compile Include="ImageDataFormats\ColorYUV.cs" />
+    <Compile Include="ImageStorageFileFormats\VersionedInterleavedFile.cs" />
+    <Compile Include="ImageStorageFileFormats\WaveletImageFormat.cs" />
     <Compile Include="PixelScale.cs" />
     <Compile Include="Rotate.cs" />
     <Compile Include="Utilities\BitmapTools.cs" />

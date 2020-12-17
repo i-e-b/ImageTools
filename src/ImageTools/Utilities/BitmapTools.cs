@@ -800,6 +800,5 @@ namespace ImageTools.Utilities
                 dst.UnlockBits(dstData);
             }
         }
-
     }
 }
