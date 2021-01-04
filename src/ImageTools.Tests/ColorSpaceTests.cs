@@ -4,6 +4,9 @@ using System.Drawing.Imaging;
 using ImageTools.ImageDataFormats;
 using ImageTools.Utilities;
 using NUnit.Framework;
+// ReSharper disable InconsistentNaming
+// ReSharper disable AssignNullToNotNullAttribute
+// ReSharper disable PossibleNullReferenceException
 
 namespace ImageTools.Tests
 {
@@ -17,8 +20,8 @@ namespace ImageTools.Tests
 
             var c_in = ColorSpace.ComponentToCompound(0, R_in, G_in, B_in);
 
-            var ycgcb = ColorSpace.RGB32_To_Ycbcr32(c_in);
-            var c_out = ColorSpace.Ycbcr32_To_RGB32(ycgcb);
+            var YCgCb = ColorSpace.RGB32_To_Ycbcr32(c_in);
+            var c_out = ColorSpace.Ycbcr32_To_RGB32(YCgCb);
 
             ColorSpace.CompoundToComponent(c_out, out _, out var R_out, out var G_out, out var B_out);
 
@@ -35,8 +38,8 @@ namespace ImageTools.Tests
 
             var c_in = ColorSpace.ComponentToCompound(0, R_in, G_in, B_in);
 
-            var ycgcb = ColorSpace.RGB32_To_Ycocg32(c_in);
-            var c_out = ColorSpace.Ycocg32_To_RGB32(ycgcb);
+            var YCgCb = ColorSpace.RGB32_To_Ycocg32(c_in);
+            var c_out = ColorSpace.Ycocg32_To_RGB32(YCgCb);
             // https://en.wikipedia.org/wiki/YCoCg
 
             ColorSpace.CompoundToComponent(c_out, out _, out var R_out, out var G_out, out var B_out);
@@ -140,6 +143,38 @@ namespace ImageTools.Tests
                 }
             }
         }
+        
+        [Test, Description("show the result of just one plane at a time from an image")]
+        public void Oklab__separations()
+        {
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                using (var dst = new Bitmap(bmp))
+                {
+                    BitmapTools.ImageToPlanes(bmp, ColorSpace.sRGB_To_Oklab, out var Lp, out var Ap, out var Bp);
+                    
+                    var maxL = 0.0;
+                    for (int i = 0; i < Lp.Length; i++) { maxL = Math.Max(maxL, Lp[i]); }
+                    Console.WriteLine($"Max value of L = {maxL:0.00}");
+                    
+                    var zeroP = new double[Lp.Length]; // to zero out other planes
+                    var maxP = new double[Lp.Length]; // to zero out other planes
+                    for (int i = 0; i < zeroP.Length; i++) { zeroP[i] = 0.0; maxP[i] = 0.75; }
+
+                    BitmapTools.PlanesToImage(dst, ColorSpace.Oklab_To_sRGB, 0, Lp, zeroP, zeroP);
+                    dst.SaveBmp("./outputs/3_Oklab_L-only.bmp");
+                    
+                    BitmapTools.PlanesToImage(dst, ColorSpace.Oklab_To_sRGB, 0, maxP, Ap, zeroP);
+                    dst.SaveBmp("./outputs/3_Oklab_A-only.bmp");
+                    
+                    BitmapTools.PlanesToImage(dst, ColorSpace.Oklab_To_sRGB, 0, maxP, zeroP, Bp);
+                    dst.SaveBmp("./outputs/3_Oklab_B-only.bmp");
+                    
+                    BitmapTools.PlanesToImage(dst, ColorSpace.Oklab_To_sRGB, 0, Lp, Ap, Bp);
+                    dst.SaveBmp("./outputs/3_Oklab_restored.bmp");
+                }
+            }
+        }
 
         
         [Test, Description("show the result of just one plane at a time from an image")]
@@ -173,24 +208,24 @@ namespace ImageTools.Tests
 
             using (var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb))
             {
-                var qwidth = width >> 2;
+                var q_width = width >> 2;
                 var dy = 255.0f / height;
-                var dx = 255.0f / qwidth;
+                var dx = 255.0f / q_width;
                 for (int y = 0; y < height; y++)
                 {
-                    for (int x = 0; x < qwidth; x++)
+                    for (int x = 0; x < q_width; x++)
                     {
                         var c = Color.FromArgb((int) ColorSpace.Ycocg_To_RGB32(0, (int)(y * dy), (int)(x * dx)));
                         bmp.SetPixel(x, y, c);
                         
                         c = Color.FromArgb((int) ColorSpace.Ycocg_To_RGB32(100, (int)(y * dy), (int)(x * dx)));
-                        bmp.SetPixel(x + qwidth, y, c);
+                        bmp.SetPixel(x + q_width, y, c);
 
                         c = Color.FromArgb((int) ColorSpace.Ycocg_To_RGB32(180, (int)(y * dy), (int)(x * dx)));
-                        bmp.SetPixel(x + (qwidth*2), y, c);
+                        bmp.SetPixel(x + (q_width*2), y, c);
 
                         c = Color.FromArgb((int) ColorSpace.Ycocg_To_RGB32(255, (int)(y * dy), (int)(x * dx)));
-                        bmp.SetPixel(x + (qwidth*3), y, c);
+                        bmp.SetPixel(x + (q_width*3), y, c);
                     }
                 }
 
@@ -207,24 +242,24 @@ namespace ImageTools.Tests
 
             using (var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb))
             {
-                var qwidth = width >> 2;
+                var q_width = width >> 2;
                 var dy = 255.0f / height;
-                var dx = 255.0f / qwidth;
+                var dx = 255.0f / q_width;
                 for (int y = 0; y < height; y++)
                 {
-                    for (int x = 0; x < qwidth; x++)
+                    for (int x = 0; x < q_width; x++)
                     {
                         var c = Color.FromArgb((int) ColorSpace.Yiq_To_RGB32(0, (int)(y * dy), (int)(x * dx)));
                         bmp.SetPixel(x, y, c);
                         
                         c = Color.FromArgb((int) ColorSpace.Yiq_To_RGB32(100, (int)(y * dy), (int)(x * dx)));
-                        bmp.SetPixel(x + qwidth, y, c);
+                        bmp.SetPixel(x + q_width, y, c);
 
                         c = Color.FromArgb((int) ColorSpace.Yiq_To_RGB32(180, (int)(y * dy), (int)(x * dx)));
-                        bmp.SetPixel(x + (qwidth*2), y, c);
+                        bmp.SetPixel(x + (q_width*2), y, c);
 
                         c = Color.FromArgb((int) ColorSpace.Yiq_To_RGB32(255, (int)(y * dy), (int)(x * dx)));
-                        bmp.SetPixel(x + (qwidth*3), y, c);
+                        bmp.SetPixel(x + (q_width*3), y, c);
                     }
                 }
 
@@ -267,24 +302,24 @@ namespace ImageTools.Tests
 
             using (var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb))
             {
-                var qwidth = width >> 2;
+                var q_width = width >> 2;
                 var dy = 255.0f / height;
-                var dx = 255.0f / qwidth;
+                var dx = 255.0f / q_width;
                 for (int y = 0; y < height; y++)
                 {
-                    for (int x = 0; x < qwidth; x++)
+                    for (int x = 0; x < q_width; x++)
                     {
                         var c = Color.FromArgb((int) ColorSpace.Ycbcr_To_RGB32(0, (int)(y * dy), (int)(x * dx)));
                         bmp.SetPixel(x, y, c);
                         
                         c = Color.FromArgb((int) ColorSpace.Ycbcr_To_RGB32(100, (int)(y * dy), (int)(x * dx)));
-                        bmp.SetPixel(x + qwidth, y, c);
+                        bmp.SetPixel(x + q_width, y, c);
 
                         c = Color.FromArgb((int) ColorSpace.Ycbcr_To_RGB32(180, (int)(y * dy), (int)(x * dx)));
-                        bmp.SetPixel(x + (qwidth*2), y, c);
+                        bmp.SetPixel(x + (q_width*2), y, c);
 
                         c = Color.FromArgb((int) ColorSpace.Ycbcr_To_RGB32(255, (int)(y * dy), (int)(x * dx)));
-                        bmp.SetPixel(x + (qwidth*3), y, c);
+                        bmp.SetPixel(x + (q_width*3), y, c);
                     }
                 }
 
@@ -300,24 +335,24 @@ namespace ImageTools.Tests
 
             using (var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb))
             {
-                var qwidth = width >> 2;
+                var q_width = width >> 2;
                 var dy = 255.0f / height;
-                var dx = 255.0f / qwidth;
+                var dx = 255.0f / q_width;
                 for (int y = 0; y < height; y++)
                 {
-                    for (int x = 0; x < qwidth; x++)
+                    for (int x = 0; x < q_width; x++)
                     {
                         var c = Color.FromArgb((int) ColorSpace.HSP_To_RGB32((int)(y * dy), (int)(x * dx), 0));
                         bmp.SetPixel(x, y, c);
                         
                         c = Color.FromArgb((int) ColorSpace.HSP_To_RGB32((int)(y * dy), (int)(x * dx), 100));
-                        bmp.SetPixel(x + qwidth, y, c);
+                        bmp.SetPixel(x + q_width, y, c);
 
                         c = Color.FromArgb((int) ColorSpace.HSP_To_RGB32((int)(y * dy), (int)(x * dx), 180));
-                        bmp.SetPixel(x + (qwidth*2), y, c);
+                        bmp.SetPixel(x + (q_width*2), y, c);
 
                         c = Color.FromArgb((int) ColorSpace.HSP_To_RGB32((int)(y * dy), (int)(x * dx), 255));
-                        bmp.SetPixel(x + (qwidth*3), y, c);
+                        bmp.SetPixel(x + (q_width*3), y, c);
                     }
                 }
 
@@ -332,28 +367,86 @@ namespace ImageTools.Tests
 
             using (var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb))
             {
-                var qwidth = width >> 2;
+                var q_width = width >> 2;
                 var dy = 255.0f / height;
-                var dx = 255.0f / qwidth;
+                var dx = 255.0f / q_width;
                 for (int y = 0; y < height; y++)
                 {
-                    for (int x = 0; x < qwidth; x++)
+                    for (int x = 0; x < q_width; x++)
                     {
                         var c = Color.FromArgb((int) ColorSpace.HCL_To_RGB32((int)(y * dy), (int)(x * dx), 0));
                         bmp.SetPixel(x, y, c);
                         
                         c = Color.FromArgb((int) ColorSpace.HCL_To_RGB32((int)(y * dy), (int)(x * dx), 100));
-                        bmp.SetPixel(x + qwidth, y, c);
+                        bmp.SetPixel(x + q_width, y, c);
 
                         c = Color.FromArgb((int) ColorSpace.HCL_To_RGB32((int)(y * dy), (int)(x * dx), 180));
-                        bmp.SetPixel(x + (qwidth*2), y, c);
+                        bmp.SetPixel(x + (q_width*2), y, c);
 
                         c = Color.FromArgb((int) ColorSpace.HCL_To_RGB32((int)(y * dy), (int)(x * dx), 255));
-                        bmp.SetPixel(x + (qwidth*3), y, c);
+                        bmp.SetPixel(x + (q_width*3), y, c);
                     }
                 }
 
                 bmp.SaveBmp("./outputs/HCL_Swatch.bmp");
+            }
+        }
+        
+        [Test, Description("Outputs a sample image showing the color planes")]
+        public void Oklab_Swatch() {
+            // https://bottosson.github.io/posts/oklab/
+            var width = 512;
+            var height = 128;
+
+            using (var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb))
+            {
+                var q_width = width >> 2;
+                var dy = 2.0f / height;
+                var dx = 2.0f / q_width;
+                for (int y = 0; y < height; y++)
+                {
+                    for (int x = 0; x < q_width; x++)
+                    {
+                        var c = Color.FromArgb((int) ColorSpace.Oklab_To_RGB32(0.25, (y * dy)-1.0, (x * dx)-1.0));
+                        bmp.SetPixel(x, y, c);
+                        
+                        c = Color.FromArgb((int) ColorSpace.Oklab_To_RGB32(0.5, (y * dy)-1.0, (x * dx)-1.0));
+                        bmp.SetPixel(x + q_width, y, c);
+
+                        c = Color.FromArgb((int) ColorSpace.Oklab_To_RGB32(0.75, (y * dy)-1.0, (x * dx)-1.0));
+                        bmp.SetPixel(x + (q_width*2), y, c);
+
+                        c = Color.FromArgb((int) ColorSpace.Oklab_To_RGB32(1.0, (y * dy)-1.0, (x * dx)-1.0));
+                        bmp.SetPixel(x + (q_width*3), y, c);
+                    }
+                }
+
+                bmp.SaveBmp("./outputs/Oklab_Swatch.bmp");
+            }
+        }
+
+        [Test]
+        public void Oklab_ColorSpace()
+        {
+            for (int R_in = 0; R_in < 256; R_in += 64)
+            for (int G_in = 0; G_in < 256; G_in += 64)
+            for (int B_in = 0; B_in < 256; B_in += 64)
+            {
+                Console.Write($"R = {R_in}; G = {G_in}; B = {B_in};    ");
+                ColorSpace.LinearRGB_To_Oklab(R_in/255.0, G_in/255.0, B_in/255.0, out var X, out var Y, out var Z);
+
+                Console.Write($"X = {X:0.00}; Y = {Y:0.00}; Z = {Z:0.00};    ");
+                ColorSpace.Oklab_To_LinearRGB(X, Y, Z, out var R_out, out var G_out, out var B_out);
+
+                R_out*=255.0;
+                G_out*=255.0;
+                B_out*=255.0;
+                Console.WriteLine($"round trip: R = {R_out}; G = {G_out}; B = {B_out};\r\n");
+
+                // range test are weighted to relative visual importance
+                Assert.That(R_out, Is.InRange(R_in - 4, R_in + 4), "Red out of range");
+                Assert.That(G_out, Is.InRange(G_in - 2, G_in + 2), "Green out of range");
+                Assert.That(B_out, Is.InRange(B_in - 6, B_in + 6), "Blue out of range");
             }
         }
 
@@ -393,24 +486,24 @@ namespace ImageTools.Tests
 
             using (var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb))
             {
-                var qwidth = width >> 2;
+                var q_width = width >> 2;
                 var dy = 255.0f / height;
-                var dx = 255.0f / qwidth;
+                var dx = 255.0f / q_width;
                 for (int y = 0; y < height; y++)
                 {
-                    for (int x = 0; x < qwidth; x++)
+                    for (int x = 0; x < q_width; x++)
                     {
                         var c = Color.FromArgb((int) ColorSpace.ExpToRGB32(0, (int)(y * dy), (int)(x * dx)));
                         bmp.SetPixel(x, y, c);
                         
                         c = Color.FromArgb((int) ColorSpace.ExpToRGB32(100, (int)(y * dy), (int)(x * dx)));
-                        bmp.SetPixel(x + qwidth, y, c);
+                        bmp.SetPixel(x + q_width, y, c);
 
                         c = Color.FromArgb((int) ColorSpace.ExpToRGB32(180, (int)(y * dy), (int)(x * dx)));
-                        bmp.SetPixel(x + (qwidth*2), y, c);
+                        bmp.SetPixel(x + (q_width*2), y, c);
 
                         c = Color.FromArgb((int) ColorSpace.ExpToRGB32(255, (int)(y * dy), (int)(x * dx)));
-                        bmp.SetPixel(x + (qwidth*3), y, c);
+                        bmp.SetPixel(x + (q_width*3), y, c);
                     }
                 }
 
@@ -444,7 +537,7 @@ namespace ImageTools.Tests
             }
         }
 
-        [Test, Description("Invert brightess without changing colour")]
+        [Test, Description("Invert brightness without changing colour")]
         public void invert_brightness_but_not_colour__img3 () {
             using (var bmp = Load.FromFile("./inputs/3.png"))
             {
@@ -477,7 +570,7 @@ namespace ImageTools.Tests
             }
         }
         
-        [Test, Description("Invert brightess without changing colour")]
+        [Test, Description("Invert brightness without changing colour")]
         public void invert_brightness_but_not_colour__img4 () {
             using (var bmp = Load.FromFile("./inputs/4.png"))
             {
@@ -508,6 +601,54 @@ namespace ImageTools.Tests
                     dst.SaveBmp("./outputs/4_Invert_Yiq.bmp");
                 }
             }
+        }
+
+        [Test]
+        public void rgb_to_linear_round_trip()
+        {
+            double sR = 0.4, sG = 0.1, sB = 0.9;
+            
+            var linear = ColorSpace.RgbToLinear(sR, sG, sB);
+            Assert.That(linear.R, Is.Not.EqualTo(sR), "Red did not change");
+            Assert.That(linear.G, Is.Not.EqualTo(sG), "Green did not change");
+            Assert.That(linear.B, Is.Not.EqualTo(sB), "Blue did not change");
+            
+            var logarithmic = ColorSpace.LinearToRgb(linear.R, linear.G, linear.B);
+            Assert.That(Math.Round(logarithmic.R, 5), Is.EqualTo(sR), "Red did not survive round trip");
+            Assert.That(Math.Round(logarithmic.G, 5), Is.EqualTo(sG), "Green did not survive round trip");
+            Assert.That(Math.Round(logarithmic.B, 5), Is.EqualTo(sB), "Blue did not survive round trip");
+        }
+        
+        [Test]
+        public void rgb_to_from_linear_zero_point()
+        {
+            double sR = 0.0, sG = 0.0, sB = 0.0;
+            
+            var linear = ColorSpace.RgbToLinear(sR, sG, sB);
+            Assert.That(linear.R, Is.Zero, "Red linear zero");
+            Assert.That(linear.G, Is.Zero, "Green linear zero");
+            Assert.That(linear.B, Is.Zero, "Blue linear zero");
+            
+            var logarithmic = ColorSpace.LinearToRgb(sR, sG, sB);
+            Assert.That(logarithmic.R, Is.Zero, "Red log zero");
+            Assert.That(logarithmic.G, Is.Zero, "Green log zero");
+            Assert.That(logarithmic.B, Is.Zero, "Blue log zero");
+        }
+        
+        [Test]
+        public void rgb_to_from_linear_white_point()
+        {
+            double sR = 1.0, sG = 1.0, sB = 1.0;
+            
+            var linear = ColorSpace.RgbToLinear(sR, sG, sB);
+            Assert.That(linear.R, Is.EqualTo(1.0), "Red linear one");
+            Assert.That(linear.G, Is.EqualTo(1.0), "Green linear one");
+            Assert.That(linear.B, Is.EqualTo(1.0), "Blue linear one");
+            
+            var logarithmic = ColorSpace.LinearToRgb(sR, sG, sB);
+            Assert.That(logarithmic.R, Is.EqualTo(1.0), "Red log one");
+            Assert.That(logarithmic.G, Is.EqualTo(1.0), "Green log one");
+            Assert.That(logarithmic.B, Is.EqualTo(1.0), "Blue log one");
         }
     }
 }

@@ -805,10 +805,61 @@ namespace ImageTools.ImageDataFormats
             B = clip(255 * (bm + m));
         }
         
+        public static uint Oklab_To_RGB32(double l, double m, double s)
+        {
+            Oklab_To_LinearRGB(l, m, s, out var sR, out var sG, out var sB);
+            var (R,G,B) = LinearToRgb(sR, sG, sB);
+            return ComponentToCompound(0, clip(R * 255.0), clip(G * 255.0), clip(B * 255.0));
+        }
+
+        public static void Oklab_To_LinearRGB(double cL, double ca, double cb, out double r, out double g, out double b)
+        {
+            var l_ = cL + 0.3963377774 * ca + 0.2158037573 * cb;
+            var m_ = cL - 0.1055613458 * ca - 0.0638541728 * cb;
+            var s_ = cL - 0.0894841775 * ca - 1.2914855480 * cb;
+
+            var l = l_*l_*l_;
+            var m = m_*m_*m_;
+            var s = s_*s_*s_;
+
+            r = Math.Round(+4.0767245293 * l - 3.3072168827 * m + 0.2307590544 * s, 5);
+            g = Math.Round(-1.2681437731 * l + 2.6093323231 * m - 0.3411344290 * s, 5);
+            b = Math.Round(-0.0041119885 * l - 0.7034763098 * m + 1.7068625689 * s, 5);
+        }
+        
+
+        public static void LinearRGB_To_Oklab(double r, double g, double b, out double cL, out double ca, out double cb)
+        {
+            const double cubeRoot = 1.0 / 3.0;
+            var l = 0.4121656120f * r + 0.5362752080f * g + 0.0514575653f * b;
+            var m = 0.2118591070f * r + 0.6807189584f * g + 0.1074065790f * b;
+            var s = 0.0883097947f * r + 0.2818474174f * g + 0.6302613616f * b;
+
+            var l_ = Math.Pow(l, cubeRoot);
+            var m_ = Math.Pow(m, cubeRoot);
+            var s_ = Math.Pow(s, cubeRoot);
+
+            cL = 0.2104542553f * l_ + 0.7936177850f * m_ - 0.0040720468f * s_;
+            ca = 1.9779984951f * l_ - 2.4285922050f * m_ + 0.4505937099f * s_;
+            cb = 0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_;
+        }
+        
+        public static void sRGB_To_Oklab(double r, double g, double b, out double cL, out double ca, out double cb)
+        {
+            LinearRGB_To_Oklab(SRGBToLinear(r),SRGBToLinear(g) , SRGBToLinear(b), out cL, out ca, out cb);
+        }
+        public static void Oklab_To_sRGB(double cL, double ca, double cb, out double r, out double g, out double b)
+        {
+            Oklab_To_LinearRGB(cL, ca, cb, out var lr, out var lg, out var lb);
+            r = LinearToSRGB(lr);
+            g = LinearToSRGB(lg);
+            b = LinearToSRGB(lb);
+        }
+
         /// <summary>
         /// Converts an sRGB value (0..255) into a linear double (0..1)
         /// </summary>
-        public static double SRGBToLinear(int value)
+        public static double SRGBToLinear(double value)
         {
             var v = value / 255.0;
             return v <= 0.04045
@@ -819,12 +870,46 @@ namespace ImageTools.ImageDataFormats
         /// <summary>
         /// Converts a linear double (0..1) into sRGB (0..255)
         /// </summary>
-        public static int LinearToSRGB(double value)
+        public static double LinearToSRGB(double value)
         {
+            const double inv = 1.0 / 2.4;
+            const double ams = 0.055 - (1 - 0.99999999999999989); // should be 0.055, but this adjusts for floating point error
+            
             var v = Math.Max(0.0, Math.Min(1.0, value));
             return v <= 0.0031308
                 ? (int) (v * 12.92 * 255 + 0.5)
-                : (int) ((1.055 * Math.Pow(v, 1 / 2.4) - 0.055) * 255 + 0.5);
+                : (int) ((1.055 * Math.Pow(v, inv) - ams) * 255);
+        }
+
+        /// <summary>
+        /// Convert an sRGB triplet in range 0..1 to linear values in the range 0..1
+        /// </summary>
+        public static (double R, double G, double B) RgbToLinear(double iR, double iG, double iB)
+        {
+            const double thresh = 0.04045;
+
+            var r = iR >= thresh ? Math.Pow((iR + 0.055) / (1 + 0.055), 2.4) : iR / 12.92;
+            var g = iG >= thresh ? Math.Pow((iG + 0.055) / (1 + 0.055), 2.4) : iG / 12.92;
+            var b = iB >= thresh ? Math.Pow((iB + 0.055) / (1 + 0.055), 2.4) : iB / 12.92;
+            
+            return (r,g,b);
+        }
+
+        /// <summary>
+        /// Convert a linear RGB triplet in range 0..1 to sRGB values in the range 0..1
+        /// </summary>
+        public static (double R, double G, double B) LinearToRgb(double iR, double iG, double iB)
+        {
+            // http://entropymine.com/imageworsener/srgbformula/
+            const double inv = 1.0 / 2.4;
+            const double thresh = 0.0031308;
+            const double ams = 0.055 - (1 - 0.99999999999999989); // should be 0.055, but this adjusts for floating point error
+            
+            var r = iR >= thresh ? 1.055 * Math.Pow(iR, inv) - ams : 12.92 * iR;
+            var g = iG >= thresh ? 1.055 * Math.Pow(iG, inv) - ams : 12.92 * iG;
+            var b = iB >= thresh ? 1.055 * Math.Pow(iB, inv) - ams : 12.92 * iB;
+            
+            return (r,g,b);
         }
     }
 }
