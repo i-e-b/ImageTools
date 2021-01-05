@@ -844,10 +844,33 @@ namespace ImageTools.ImageDataFormats
             cb = 0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_;
         }
         
+        /// <summary>
+        /// Outputs Oklab, in the range 0..255
+        /// </summary>
+        public static void sRGB_To_OklabByte(double r, double g, double b, out double cLb, out double cab, out double cbb)
+        {
+            LinearRGB_To_Oklab(SRGBToLinear(r),SRGBToLinear(g) , SRGBToLinear(b), out var cL, out var ca, out var cb);
+            cLb = clip(cL * 255.0);
+            cab = clip((ca+1) * 127.5);
+            cbb = clip((cb+1) * 127.5);
+        }
+        
+        public static void OklabByte_To_sRGB(double cLb, double cab, double cbb, out double r, out double g, out double b)
+        {
+            Oklab_To_LinearRGB(cLb / 255.0, (cab / 127.5) - 1, (cbb / 127.5) - 1, out var lr, out var lg, out var lb);
+            r = LinearToSRGB(lr);
+            g = LinearToSRGB(lg);
+            b = LinearToSRGB(lb);
+        }
+        
+        /// <summary>
+        /// Outputs Oklab, in the range 0..1
+        /// </summary>
         public static void sRGB_To_Oklab(double r, double g, double b, out double cL, out double ca, out double cb)
         {
             LinearRGB_To_Oklab(SRGBToLinear(r),SRGBToLinear(g) , SRGBToLinear(b), out cL, out ca, out cb);
         }
+        
         public static void Oklab_To_sRGB(double cL, double ca, double cb, out double r, out double g, out double b)
         {
             Oklab_To_LinearRGB(cL, ca, cb, out var lr, out var lg, out var lb);

@@ -159,7 +159,7 @@ namespace ImageTools.Tests
                     
                     var zeroP = new double[Lp.Length]; // to zero out other planes
                     var maxP = new double[Lp.Length]; // to zero out other planes
-                    for (int i = 0; i < zeroP.Length; i++) { zeroP[i] = 0.0; maxP[i] = 0.75; }
+                    for (int i = 0; i < zeroP.Length; i++) { zeroP[i] = 0.0; maxP[i] = 0.5; }
 
                     BitmapTools.PlanesToImage(dst, ColorSpace.Oklab_To_sRGB, 0, Lp, zeroP, zeroP);
                     dst.SaveBmp("./outputs/3_Oklab_L-only.bmp");

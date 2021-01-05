@@ -205,6 +205,14 @@ namespace ImageTools.Tests
             }
 
             Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_3.bmp"));
+            
+            long sum = 0L;
+            var paths = new []{"./outputs/p_2_fib_test_0.mac","./outputs/p_2_fib_test_1.mac","./outputs/p_2_fib_test_2.mac"};
+            foreach (var path in paths)
+            {
+                sum += (new FileInfo(path)).Length;
+            }
+            Console.WriteLine($"Total size on disk = {Bin.Human(sum)}");
         }
         
 

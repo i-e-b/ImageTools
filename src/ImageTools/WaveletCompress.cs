@@ -109,11 +109,17 @@ namespace ImageTools
 
         public static Bitmap Planar2ReduceImage(Bitmap src)
         {
-            BitmapTools.ImageToPlanes_ForcePower2(src, ColorSpace.RGBToExp, out var Y, out var U, out var V, out var width, out var height);
+            // Color spaces:
+            //               ColorSpace.sRGB_To_OklabByte --> (2.7s) 238.17kb (linear space, more affected by color quantising)
+            //               ColorSpace.RGBToExp          --> (2.8s) 254.54kb (slightly lossy color space)
+            //               ColorSpace.RGBToYUV          --> (2.6s) 295.11kb
+            //               ColorSpace.RGBToYiq          --> (3.2s) 302.51kb
+            
+            BitmapTools.ImageToPlanes_ForcePower2(src, ColorSpace.sRGB_To_OklabByte, out var Y, out var U, out var V, out var width, out var height);
             WaveletDecomposePlanar2(Y,U,V, width, height, src.Width, src.Height);
 
             var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
-            BitmapTools.PlanesToImage_Slice(dst, ColorSpace.ExpToRGB, 0, width, Y, U, V);
+            BitmapTools.PlanesToImage_Slice(dst, ColorSpace.OklabByte_To_sRGB, 0, width, Y, U, V);
 
             return dst;
         }
@@ -1137,7 +1143,7 @@ namespace ImageTools
                 // Unquantised: native: 708kb; Ordered:  705kb
                 // Reorder, Quantise and reduce co-efficients
                 var packedLength = ToStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight);
-                //QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Reduce);
+                QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Reduce);
 
                 // Write output
                 WriteToFileFibonacci(buffer, ch, packedLength, "p_2");
@@ -1149,7 +1155,7 @@ namespace ImageTools
                 ReadFromFileFibonacci(buffer, ch, "p_2");
 
                 // Re-expand co-efficients
-                //QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Expand);
+                QuantisePlanar2(buffer, ch, packedLength, QuantiseType.Expand);
                 FromStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight);
 
                 // Restore
