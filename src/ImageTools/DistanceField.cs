@@ -939,7 +939,7 @@ namespace ImageTools
                 rounds++;
                 var p = q.Dequeue();
                 var rad = (int)field[p.X, p.Y].Dist;
-                if (rad < 2) continue; // close to the edge
+                if (rad < 3) continue; // close to the edge
                 if (bmp.GetPixel(p.X, p.Y).R > 127)
                 {
                     bmp.SetPixel(p.X, p.Y, reject);
@@ -952,23 +952,23 @@ namespace ImageTools
                 
                 var next = ScanlineEllipse(p.X, p.Y, rad - 1, rad - 1);
                 
+                // set next steps (just the top, left, bottom, right extremes)
+                var l = p.X - rad;
+                var r = p.X + rad;
+                var t = p.Y - rad;
+                var b = p.Y + rad;
+                if (l > 0 && bmp.GetPixel(l,p.Y).R < 127) { q.Enqueue(new Point(l,p.Y)); }
+                if (r < width && bmp.GetPixel(r,p.Y).R < 127) { q.Enqueue(new Point(r,p.Y)); }
+                if (t > 0 && bmp.GetPixel(p.X,t).R < 127) { q.Enqueue(new Point(p.X,t)); }
+                if (b < height && bmp.GetPixel(p.X,b).R < 127) { q.Enqueue(new Point(p.X,b)); }
+                
                 // using color channels to keep track of things
                 foreach (var scanLine in next)
                 {
                     var y = scanLine.Y;
-                    var l = scanLine.Left;
-                    var r = scanLine.Right;
-                    
                     if (y < 0 || y >= height) continue;
-                    
-                    if (l > 0 && bmp.GetPixel(l,y).R < 127) { 
-                        q.Enqueue(new Point(l,y));
-                    }
-                    if (r + 1 < width && bmp.GetPixel(r,y).R < 127) {
-                        q.Enqueue(new Point(r,y));
-                    }
 
-                    for (int i = scanLine.Left + 1; i < scanLine.Right; i++)
+                    for (int i = scanLine.Left; i < scanLine.Right; i++)
                     {
                         if (i < 0 || i >= width) continue;
                         if (bmp.GetPixel(i, y).R > 127) continue;
