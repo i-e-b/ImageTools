@@ -1,4 +1,6 @@
-﻿using ImageTools.Utilities;
+﻿using System;
+using System.Diagnostics;
+using ImageTools.Utilities;
 using NUnit.Framework;
 
 namespace ImageTools.Tests
@@ -205,6 +207,48 @@ namespace ImageTools.Tests
             }
 
             Assert.That(Load.FileExists("./outputs/df_natural.bmp"));
+        }
+
+        [Test]
+        public void ray_marched_circle_edges()
+        {
+            // An attempt at a reasonably efficient visibility from a point
+            // using the distance field
+            using (var bmp = Load.FromFile("./inputs/glyph.png"))
+            {
+                var field = DistanceField.DistanceAndGradient(bmp);
+                var sw = new Stopwatch();
+                sw.Start();
+                using (var bmp2 = DistanceField.RenderPointVisibility(field, 370, 450))
+                {
+                    sw.Stop();
+                    Console.WriteLine($"Visibility calculation took {sw.ElapsedMilliseconds} ms");
+                    bmp2.SaveBmp("./outputs/df_point_visible.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/df_point_visible.bmp"));
+        }
+        
+        [Test]
+        public void ray_marched_circle_edges_with_limit()
+        {
+            // An attempt at a reasonably efficient visibility from a point
+            // using the distance field
+            using (var bmp = Load.FromFile("./inputs/glyph.png"))
+            {
+                var field = DistanceField.DistanceAndGradient(bmp);
+                var sw = new Stopwatch();
+                sw.Start();
+                using (var bmp2 = DistanceField.RenderPointVisibility(field, 370, 450, 30))
+                {
+                    sw.Stop();
+                    Console.WriteLine($"Visibility calculation took {sw.ElapsedMilliseconds} ms");
+                    bmp2.SaveBmp("./outputs/df_point_visible_limit.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/df_point_visible_limit.bmp"));
         }
 
         [Test]

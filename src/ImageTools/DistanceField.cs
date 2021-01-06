@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using ImageTools.AnalyticalTransforms;
@@ -901,6 +902,133 @@ namespace ImageTools
 
             return final;
         }
+
+        public static Bitmap RenderPointVisibility(Vector1_2[,] field, int px, int py, int limit = 32767)
+        {
+            if (field == null || field.Length < 4) return null;
+
+            var width = field.GetLength(0);
+            var height = field.GetLength(1);
+            var bmp = new Bitmap(width, height);
+
+            // Plan: - Keep a list of points, add the initial one to it.
+            //       - Each round, for each point
+            //           1. add each edge point, if no existing pixel on the bitmap, add point to the list.
+            //              - don't add point if at edge of image, or distance is < 1;
+            //           2. render a circle at its distance into the bitmap (if distance > 0);
+            //              - only write pixels if not already written.
+            
+            var q = new Queue<Point>(); // using a stack does roughly depth-first edge tracing.
+                                        // a queue does breadth-first exploration.
+                                        // stack explores in the least steps, queue looks better when limited.
+            q.Enqueue(new Point(px,py));
+
+            // TODO: Don't use the bitmap as temp data
+            // TODO: Add step-wise distance from origin to data
+            // TODO: increase distance when changing direction?
+            
+            
+            var seen = Color.FromArgb(255,0,0);
+            var hit = Color.FromArgb(255,127,0);
+            var reject = Color.FromArgb(255,0,255);
+            var rounds = 0L;
+            var jump_points = 0L;
+            var max = limit;
+            while (q.Count > 0 && max > 0)
+            {
+                rounds++;
+                var p = q.Dequeue();
+                var rad = (int)field[p.X, p.Y].Dist;
+                if (rad < 2) continue; // close to the edge
+                if (bmp.GetPixel(p.X, p.Y).R > 127)
+                {
+                    bmp.SetPixel(p.X, p.Y, reject);
+                    continue; // already seen
+                }
+
+                max--;
+                bmp.SetPixel(p.X, p.Y, hit); // show we've processed this point
+                jump_points++;
+                
+                var next = ScanlineEllipse(p.X, p.Y, rad - 1, rad - 1);
+                
+                // using color channels to keep track of things
+                foreach (var scanLine in next)
+                {
+                    var y = scanLine.Y;
+                    var l = scanLine.Left;
+                    var r = scanLine.Right;
+                    
+                    if (y < 0 || y >= height) continue;
+                    
+                    if (l > 0 && bmp.GetPixel(l,y).R < 127) { 
+                        q.Enqueue(new Point(l,y));
+                    }
+                    if (r + 1 < width && bmp.GetPixel(r,y).R < 127) {
+                        q.Enqueue(new Point(r,y));
+                    }
+
+                    for (int i = scanLine.Left + 1; i < scanLine.Right; i++)
+                    {
+                        if (i < 0 || i >= width) continue;
+                        if (bmp.GetPixel(i, y).R > 127) continue;
+                        bmp.SetPixel(i, y, seen);
+                    }
+                }
+            }
+            
+            Console.WriteLine($"Made {rounds} point inspections, found {jump_points} jump points");
+
+            // white spot for the initiator:
+            bmp.SetPixel(px, py, Color.White);
+            return bmp;
+        }
+        
+        
+        
+        private static List<ScanLine> ScanlineEllipse(int xc, int yc, int width, int height)
+        {
+            int a2 = width * width;
+            int b2 = height * height;
+            int fa2 = 4 * a2, fb2 = 4 * b2;
+            int x, y, sigma;
+            
+            var outp = new List<ScanLine>();
+            if (width < 1 || height < 1) return outp;
+    
+            // Top and bottom
+            for (x = 0, y = height, sigma = 2 * b2 + a2 * (1 - 2 * height); b2*x <= a2 * y; x++) {
+                if (sigma >= 0) {
+                    sigma += fa2 * (1 - y);
+                    outp.Add(new ScanLine{Y = yc + y, Left = xc - x, Right = xc + x });
+                    outp.Add(new ScanLine{Y = yc - y, Left = xc - x, Right = xc + x });
+                    y--;
+                }
+                sigma += b2 * ((4 * x) + 6);
+            }
+            var ty = y;
+
+            // Left and right
+            outp.Add(new ScanLine{Y = yc, Left = xc - width, Right = xc + width});
+            for (x = width, y = 1, sigma = 2 * a2 + b2 * (1 - 2 * width); a2*y < b2 * x; y++) {
+                if (y > ty) break; // started to overlap 'top-and-bottom'
+                
+                outp.Add(new ScanLine{Y = yc + y, Left = xc - x, Right = xc + x });
+                outp.Add(new ScanLine{Y = yc - y, Left = xc - x, Right = xc + x });
+
+                if (sigma >= 0) {
+                    sigma += fb2 * (1 - x);
+                    x--;
+                }
+                sigma += a2 * ((4 * y) + 6);
+            }
+            return outp;
+        }
+    }
+
+    public struct ScanLine
+    {
+        public int Y, Left, Right;
     }
 
     public struct Vector1_2

@@ -452,7 +452,7 @@ namespace ImageTools
         public static InterleavedFile ReduceImage2D_ToFile(Bitmap src, GeneralDecompose wavelet)
         {
             if (src == null || wavelet == null) return null;
-            BitmapTools.ImageToPlanes_ForcePower2(src, ColorSpace.RGBToExp, out var Y, out var U, out var V, out var planeWidth, out var planeHeight);
+            BitmapTools.ImageToPlanes_ForcePower2(src, ColorSpace.sRGB_To_OklabByte, out var Y, out var U, out var V, out var planeWidth, out var planeHeight);
             int imgWidth = src.Width;
             int imgHeight = src.Height;
 
@@ -632,7 +632,7 @@ namespace ImageTools
             }
 
             var dst = new Bitmap(imgWidth, imgHeight, PixelFormat.Format32bppArgb);
-            BitmapTools.PlanesToImage_Slice(dst, ColorSpace.ExpToRGB, 0, planeWidth, Y, U, V);
+            BitmapTools.PlanesToImage_Slice(dst, ColorSpace.OklabByte_To_sRGB, 0, planeWidth, Y, U, V);
             return dst;
         }
 
