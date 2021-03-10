@@ -21,6 +21,7 @@ namespace ImageTools
             {new byte[] {0x47, 0x49, 0x46, 0x38, 0x39, 0x61}, DecodeGif},
             {new byte[] {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}, DecodePng},
             {new byte[] {0xff, 0xd8}, DecodeJfif},
+            { new byte[] { 0x52, 0x49, 0x46, 0x46 }, DecodeWebP } // works only for 'lossy' format
         };
 
         /// <summary>
@@ -149,6 +150,18 @@ namespace ImageTools
             }
 
             throw new ArgumentException(ErrorMessage);
+        }
+        
+        private static Size2D DecodeWebP(BinaryReader binaryReader)
+        {
+            binaryReader!.ReadUInt32(); // Size
+            binaryReader.ReadBytes(15); // WEBP, VP8 + more
+            binaryReader.ReadBytes(3); // SYNC
+
+            var width = binaryReader.ReadUInt16() & 0b00_11111111111111; // 14 bits width
+            var height = binaryReader.ReadUInt16() & 0b00_11111111111111; // 14 bits height
+
+            return new Size2D(width, height);
         }
     }
 }
