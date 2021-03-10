@@ -17,6 +17,7 @@ namespace ImageTools.Tests
             {
                 Draw.LineOnBitmap(bmp, x1: 25, y1: 50, x2: 500, y2: 460, color: 0xffAA5577);
                 Draw.LineOnBitmap(bmp, x1: 25, y1: 50, x2: 500, y2: 220, color: 0xffEEDDCC);
+                Draw.LineOnBitmap(bmp, x1: 25, y1: 50, x2: 150, y2: 500, color: 0xffFFffFF);
                 bmp.SaveBmp("./outputs/draw-aa-single.bmp");
             }
             Assert.That(Load.FileExists("./outputs/draw-aa-single.bmp"));
