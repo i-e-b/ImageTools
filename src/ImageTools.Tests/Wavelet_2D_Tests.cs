@@ -261,6 +261,26 @@ namespace ImageTools.Tests
 
             Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_6.bmp"));
         }
+        
+        [Test]
+        public void cdf97_planar_2_reduce_non_square_hi_freq_image()
+        {
+            // This shows some issues with the decomposition that I could improve:
+            //  - non-power-two border regions are adding frequency components that could be removed (zero after decompose?)
+            //  - border regions are being set to DC zero rather than AC zero
+            //  - color planes are carrying too much data? (~600b for nothing)
+            
+            // ReSharper disable once StringLiteralTypo
+            using (var bmp = Load.FromFile("./inputs/macscreen.png"))
+            {
+                using (var bmp2 = WaveletCompress.Planar2ReduceImage(bmp))
+                {
+                    bmp2.SaveBmp("./outputs/Cdf97_Planar2_32bpp_ms.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_ms.bmp"));
+        }
 
         [Test]
         public void compressing_non_power_of_two_image () {

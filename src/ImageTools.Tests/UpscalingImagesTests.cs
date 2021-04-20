@@ -35,7 +35,7 @@ namespace ImageTools.Tests
 		}
 		
         [Test]
-        public void FastScale_double_pixelart()
+        public void FastScale_double_pixel_art()
         {
             int targetWidth;
             int targetHeight;
@@ -78,7 +78,7 @@ namespace ImageTools.Tests
 
         
         [Test]
-        public void Error_scale_9x_pixelart()
+        public void Error_scale_9x_pixel_art()
         {
             using (var bmp = Load.FromFile("./inputs/pixart.png"))
             {
@@ -92,7 +92,7 @@ namespace ImageTools.Tests
         }
         
         [Test]
-        public void Error_scale_15p4x_pixelart()
+        public void Error_scale_15p4x_pixel_art()
         {
             using (var bmp = Load.FromFile("./inputs/pixart.png"))
             {
@@ -106,7 +106,7 @@ namespace ImageTools.Tests
         }
 		
         [Test]
-        public void EPX_double_pixelart()
+        public void EPX_double_pixel_art()
         {
             using (var bmp = Load.FromFile("./inputs/pixart.png"))
             {

@@ -1602,7 +1602,7 @@ namespace ImageTools
 
             // pretty good:
             fYs = new double[]{12, 9, 4, 2.3, 1.5 };
-            fCs = new double[]{15, 10, 2 };
+            fCs = new double[]{10, 5, 2, 1 };
 
             // heavily crushed
             //fYs = new double[]{ 180, 150, 100, 40, 8, 5, 3.5, 1.5 };
@@ -1752,7 +1752,7 @@ namespace ImageTools
             {
                 // Custom Markov/AC compression
                 var raw = File.ReadAllBytes(testpath.Replace(".dat", ".mac"));
-                Console.WriteLine($"Reading {Bin.Human(raw.Length)} bytes.");
+                Console.WriteLine($"Reading {Bin.Human(raw.Length)}");
                 using (var instream = new MemoryStream(raw))
                 using (var ms = new MemoryStream())
                 {

@@ -2,6 +2,8 @@
 using System.IO;
 using ImageTools.DataCompression.Encoding;
 using ImageTools.ImageDataFormats;
+// ReSharper disable InconsistentNaming
+// ReSharper disable PossibleNullReferenceException
 
 namespace ImageTools.DataCompression.Experimental
 {
@@ -10,7 +12,7 @@ namespace ImageTools.DataCompression.Experimental
     /// </summary>
     /// <remarks>
     /// This is based on the Arithmetic encoder, with a lot of defaults rolled in, and not using a termination symbol.
-    /// We interleave a blockwise checksum value into the encoded data, and read this back during decode.
+    /// We interleave a block-wise checksum value into the encoded data, and read this back during decode.
     /// If a block fails its checksum during decode, we end the decode early
     /// </remarks>
     public class TruncatableEncoder
@@ -148,7 +150,7 @@ namespace ImageTools.DataCompression.Experimental
 
             while (true) // data loop
             {
-                var c = 0;
+                int c;
 
                 if (blockCount >= CHECKSUM_BLOCK_SIZE) {
                     // encode a check symbol
@@ -251,26 +253,46 @@ namespace ImageTools.DataCompression.Experimental
                 return;
             }
 
+            // TODO: this is currently the bottleneck of encode/decode
+            // might be able to amortise this somehow?
             for (int i = next + 1; i < 257; i++) map[prev, i] += ProbabilityScale;
         }
 
         private SymbolProbability DecodeSymbol(ulong scaledValue, ref int decodedSymbol)
         {
-            for (int i = 0; i < 256; i++)
-                if (scaledValue < map[lastSymbol, i + 1])
-                {
-                    decodedSymbol = i;
-                    var p = new SymbolProbability
-                    {
-                        low = map[lastSymbol, i],
-                        high = map[lastSymbol, i + 1],
-                        count = map[lastSymbol, 256]
-                    };
-                    UpdateModel(lastSymbol, decodedSymbol);
-                    lastSymbol = decodedSymbol;
-                    return p;
-                }
-            throw new Exception("Decoder model found no symbol range for scaled value = " + scaledValue);
+            // Find the symbol with the highest value less-than-or-equal-to the scaled value.
+            
+            // Check range
+            if (scaledValue > map[lastSymbol, 256]) throw new Exception("Decoder model found no symbol range for scaled value = " + scaledValue);
+            
+            // Binary search to find likely symbol
+            var stride = 128;
+            var idx = 128;
+            while (stride > 0)
+            {
+                var cmp = map[lastSymbol, idx];
+                if (scaledValue == cmp) {idx++; break; }
+
+                if (scaledValue > cmp) idx += stride;
+                else idx -= stride;
+                stride >>= 1;
+            }
+            idx--;
+            
+            // double check
+            if (scaledValue >= map[lastSymbol, idx + 1]) idx++;
+            
+            // update model and return symbol
+            decodedSymbol = idx;
+            var p = new SymbolProbability
+            {
+                low = map[lastSymbol, idx],
+                high = map[lastSymbol, idx + 1],
+                count = map[lastSymbol, 256]
+            };
+            UpdateModel(lastSymbol, decodedSymbol);
+            lastSymbol = decodedSymbol;
+            return p;
         }
     }
 }

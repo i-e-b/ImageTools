@@ -826,7 +826,7 @@ namespace ImageTools.ImageDataFormats
             g = Math.Round(-1.2681437731 * l + 2.6093323231 * m - 0.3411344290 * s, 5);
             b = Math.Round(-0.0041119885 * l - 0.7034763098 * m + 1.7068625689 * s, 5);
         }
-        
+
 
         public static void LinearRGB_To_Oklab(double r, double g, double b, out double cL, out double ca, out double cb)
         {
@@ -884,25 +884,51 @@ namespace ImageTools.ImageDataFormats
         /// </summary>
         public static double SRGBToLinear(double value)
         {
-            var v = value / 255.0;
-            return v <= 0.04045
-                ? v / 12.92
-                : Math.Pow((v + 0.055) / 1.055, 2.4);
+            // this calculation is quite slow, so we use a look-up table
+            if (_SRGBToLinear_LUT == null)
+            {
+                _SRGBToLinear_LUT = new double[256];
+                for (int i = 0; i < 256; i++)
+                {
+                    var v = i / 255.0;
+                    _SRGBToLinear_LUT[i] = v <= 0.04045
+                        ? v / 12.92
+                        : Math.Pow((v + 0.055) / 1.055, 2.4);
+                }
+            }
+            
+            return _SRGBToLinear_LUT[(int)value];
         }
+        private static double[] _SRGBToLinear_LUT;
 
         /// <summary>
         /// Converts a linear double (0..1) into sRGB (0..255)
         /// </summary>
         public static double LinearToSRGB(double value)
         {
-            const double inv = 1.0 / 2.4;
-            const double ams = 0.055 - (1 - 0.99999999999999989); // should be 0.055, but this adjusts for floating point error
+            // this calculation is quite slow, so we use a look-up table
+            const int accuracy = 4096;
+            var key = (int) (Math.Max(0.0, Math.Min(1.0, value)) * accuracy);
             
-            var v = Math.Max(0.0, Math.Min(1.0, value));
-            return v <= 0.0031308
-                ? (int) (v * 12.92 * 255 + 0.5)
-                : (int) ((1.055 * Math.Pow(v, inv) - ams) * 255);
+            if (_LinearToSRGB_LUT == null)
+            {
+                _LinearToSRGB_LUT = new double[accuracy+1];
+                for (int i = 0; i < accuracy+1; i++)
+                {
+                    
+                    const double inv = 1.0 / 2.4;
+                    const double ams = 0.055 - (1 - 0.99999999999999989); // should be 0.055, but this adjusts for floating point error
+
+                    var v = i / (double)accuracy;
+                    _LinearToSRGB_LUT[i] = v <= 0.0031308
+                        ? (int) (v * 12.92 * 255 + 0.5)
+                        : (int) ((1.055 * Math.Pow(v, inv) - ams) * 255);
+                }
+            }
+            
+            return _LinearToSRGB_LUT[key];
         }
+        private static double[] _LinearToSRGB_LUT;
 
         /// <summary>
         /// Convert an sRGB triplet in range 0..1 to linear values in the range 0..1

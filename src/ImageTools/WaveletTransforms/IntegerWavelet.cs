@@ -1,17 +1,20 @@
-﻿namespace ImageTools.WaveletTransforms
+﻿// ReSharper disable PossibleNullReferenceException
+// ReSharper disable InconsistentNaming
+namespace ImageTools.WaveletTransforms
 {
     /// <summary>
-    /// Experimental wavelet transform using only addition, subtraction and bitshifts
+    /// Experimental wavelet transform using only addition, subtraction and bit-shifts.
+    /// Specifically requires no multiplies, divides, or float values.
     /// </summary>
     public class IntegerWavelet
     {
         private static readonly int[] x = new int[2048];
 
-        public static void Forward (float[] buf, float[] x_ign_, int n, int offset, int stride) {
-            int i;
+        public static void Forward (float[] buf, float[] _ignored_, int n, int offset, int stride) {
+            int i,j;
 
             // pick out stride data
-            for (i = 0; i < n; i++) { x[i] = (int)buf[i * stride + offset]; }
+            for (i = 0, j=offset; i < n; i++, j+=stride) { x[i] = (int)buf[j]; }
 
             // Predict 1
             for (i = 1; i < n - 2; i += 2)
@@ -30,24 +33,18 @@
             // Pack into buffer (using stride and offset)
             // The raw output is like [DC][AC][DC][AC]...
             // we want it as          [DC][DC]...[AC][AC]
-            var hn = n/2;
-            for (i = 0; i < hn; i++) {
-                buf[i * stride + offset] = x[i*2];
-                buf[(i + hn) * stride + offset] = x[1 + i * 2];
-            }
+            for (i = 0, j = offset; i < n; i += 2, j += stride) { buf[j] = x[i]; }
+            for (i = 1; i < n; i += 2, j += stride) { buf[j] = x[i]; }
         }
 
-        public static void Inverse (float[] buf, float[] x_ign_, int n, int offset, int stride) {
-            int i;
+        public static void Inverse (float[] buf, float[] _ignored_, int n, int offset, int stride) {
+            int i,j;
 
             // Unpack from stride into working buffer
             // The raw input is like [DC][DC]...[AC][AC]
             // we want it as         [DC][AC][DC][AC]...
-            var hn = n/2;
-            for (i = 0; i < hn; i++) {
-                x[i*2] = (int)buf[i * stride + offset];
-                x[1 + i * 2] = (int)buf[(i + hn) * stride + offset];
-            }
+            for (i = 0, j = offset; i < n; i += 2, j += stride) { x[i] = (int)buf[j]; }
+            for (i = 1; i < n; i += 2, j += stride) { x[i] = (int)buf[j]; }
 
             // Undo update 1
             for (i = 2; i < n; i += 2)
@@ -63,9 +60,8 @@
             }
             x[n - 1] += x[n - 2];
             
-
             // write back stride data
-            for (i = 0; i < n; i++) { buf[i * stride + offset] = x[i]; }
+            for (i = 0, j=offset; i < n; i++, j+=stride) { buf[j] = x[i]; }
         }
     }
 }

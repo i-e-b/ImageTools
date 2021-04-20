@@ -1,4 +1,6 @@
-﻿namespace ImageTools.Utilities
+﻿using System;
+
+namespace ImageTools.Utilities
 {
     public static class Bin {
         
@@ -60,6 +62,19 @@
             if (v < lower) return lower;
             if (v >= exclusiveUpper) return exclusiveUpper - 1;
             return v;
+        }
+        
+        /// <summary>
+        /// Approximate Math.Pow using bitwise tricks
+        /// </summary>
+        /// <param name="b">base</param>
+        /// <param name="e">exponent</param>
+        /// <returns>Approximation of b^e</returns>
+        public static double FPow(double b, double e)
+        {
+            var head = BitConverter.DoubleToInt64Bits(b) >> 32;
+            var bitwise = (long)(e * (head - 1072632447) + 1072632447) << 32;
+            return BitConverter.Int64BitsToDouble(bitwise);
         }
     }
 

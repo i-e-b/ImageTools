@@ -55,6 +55,7 @@
     <Compile Include="ColorCellTests.cs" />
     <Compile Include="ColorSpaceTests.cs" />
     <Compile Include="InterleavedFileTests.cs" />
+    <Compile Include="MagicKernelTests.cs" />
     <Compile Include="SpaceFillingCurveTests.cs" />
     <Compile Include="Wavelet_3D_Tests.cs" />
     <Compile Include="SampleDownscales.cs" />
@@ -87,6 +88,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="inputs\glyph.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="inputs\macscreen.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="inputs\Magpie.webp">
