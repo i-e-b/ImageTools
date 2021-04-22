@@ -1,4 +1,6 @@
-﻿namespace ImageTools.WaveletTransforms
+﻿// ReSharper disable InconsistentNaming
+// ReSharper disable PossibleNullReferenceException
+namespace ImageTools.WaveletTransforms
 {
     /// <summary>
     /// https://en.wikipedia.org/wiki/Cohen%E2%80%93Daubechies%E2%80%93Feauveau_wavelet
@@ -21,14 +23,13 @@
         /// </summary>
         public static void Fwt97(float[] buf, float[] x, int n, int offset, int stride)
         {
-            float a;
             int i;
 
             // pick out stride data
             for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
 
             // Predict 1
-            a = -1.586134342f;
+            var a = -1.586134342f;
             for (i = 1; i < n - 2; i += 2)
             {
                 x[i] += a * (x[i - 1] + x[i + 1]);
@@ -87,7 +88,6 @@
         /// </summary>
         public static void Iwt97(float[] buf, float[] x, int n, int offset, int stride)
         {
-            float a;
             int i;
                         
             // Unpack from stride into working buffer
@@ -100,7 +100,7 @@
             }
 
             // Undo scale
-            a = 1.149604398f;
+            var a = 1.149604398f;
             var b = 1.0f / 1.149604398f;
             for (i = 0; i < n; i+=2)
             {
@@ -162,14 +162,13 @@
         ///  See also iwt53.
         /// </summary>
         public static void Fwt53 (float[] buf, float[] x, int n, int offset, int stride) {
-            float a;
             int i;
 
             // pick out stride data
             for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
 
             // Predict 1
-            a = -0.5f;
+            var a = -0.5f;
             for (i = 1; i < n - 2; i += 2)
             {
                 x[i] += a * (x[i - 1] + x[i + 1]);
@@ -202,8 +201,6 @@
         /// See also fwt53.
         /// </summary>
         public static void Iwt53 (float[] buf, float[] x, int n, int offset, int stride) {
-            
-            float a;
             int i;
                         
             // Unpack from stride into working buffer
@@ -216,7 +213,7 @@
             }
 
             // Undo update 1
-            a = -0.25f;
+            var a = -0.25f;
             for (i = 2; i < n; i += 2)
             {
                 x[i] += a * (x[i - 1] + x[i + 1]);

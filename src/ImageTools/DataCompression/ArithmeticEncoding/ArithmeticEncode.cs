@@ -244,6 +244,7 @@ namespace ImageTools.DataCompression.Encoding
     }
 
     public struct SymbolProbability { 
+        public bool terminates;
         public ulong low;
         public ulong high; 
         public ulong count;

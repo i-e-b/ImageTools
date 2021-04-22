@@ -1,6 +1,12 @@
 ﻿using System;
 using System.Linq;
+using ImageTools.Utilities;
+
 // ReSharper disable InconsistentNaming
+// ReSharper disable IdentifierTypo
+// ReSharper disable AssignNullToNotNullAttribute
+// ReSharper disable PossibleNullReferenceException
+// ReSharper disable CommentTypo
 
 namespace ImageTools.ImageDataFormats
 {
@@ -263,27 +269,21 @@ namespace ImageTools.ImageDataFormats
         /// Force a double into the integral range [0..255]
         /// </summary>
         public static int clip(double v) {
-            if (v > 255) return 255;
-            if (v < 0) return 0;
-            return (int)v;
+            return Math.Min(255, Math.Max(0, (int)v));
         }
         
         /// <summary>
         /// Force a double into the integral range [0..255]
         /// </summary>
         public static int clip(float v) {
-            if (v > 255) return 255;
-            if (v < 0) return 0;
-            return (int)v;
+            return Math.Min(255, Math.Max(0, (int)v));
         }
         
         /// <summary>
         /// Force a integer into the range [0..255]
         /// </summary>
         public static int clip(long v) {
-            if (v > 255) return 255;
-            if (v < 0) return 0;
-            return (int)v;
+            return Math.Min(255, Math.Max(0, (int)v));
         }
 
         /// <summary>
@@ -838,6 +838,11 @@ namespace ImageTools.ImageDataFormats
             var l_ = Math.Pow(l, cubeRoot);
             var m_ = Math.Pow(m, cubeRoot);
             var s_ = Math.Pow(s, cubeRoot);
+            
+            // This is a fair bit faster, but introduces colour artifacts
+            /*var l_ = Bin.FPow(l, cubeRoot);
+            var m_ = Bin.FPow(m, cubeRoot);
+            var s_ = Bin.FPow(s, cubeRoot);*/
 
             cL = 0.2104542553f * l_ + 0.7936177850f * m_ - 0.0040720468f * s_;
             ca = 1.9779984951f * l_ - 2.4285922050f * m_ + 0.4505937099f * s_;

@@ -72,10 +72,15 @@ namespace ImageTools.Utilities
         /// <returns>Approximation of b^e</returns>
         public static double FPow(double b, double e)
         {
-            var head = BitConverter.DoubleToInt64Bits(b) >> 32;
-            var bitwise = (long)(e * (head - 1072632447) + 1072632447) << 32;
+            var head = BitConverter.DoubleToInt64Bits(b);
+            var bitwise = (long)(e * (head - 4606921280493453312L)) + 4606921280493453312L;
             return BitConverter.Int64BitsToDouble(bitwise);
         }
+        /*public static double pow(final double a, final double b) {
+            final long tmp = Double.doubleToLongBits(a);
+            final long tmp2 = (long)(b * (tmp - 4606921280493453312L)) + 4606921280493453312L;
+            return Double.longBitsToDouble(tmp2);
+        }*/
     }
 
 }

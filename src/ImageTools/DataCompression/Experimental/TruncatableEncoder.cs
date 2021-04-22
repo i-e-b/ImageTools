@@ -48,6 +48,10 @@ namespace ImageTools.DataCompression.Experimental
 
         // Checksum block values
         private const int CHECKSUM_BLOCK_SIZE = 256; // insert a checksum symbol after this many symbols
+        
+        private const int MAP_SIZE = 258; // Size of 'map' array
+        private const int COUNT_ENTRY = 257; // Entry index for max count
+        private const int END_SYMBOL = 256; // Symbol for end-of-data
 
         // 2nd order probability model:
         private ulong[,] map; // [from,to]
@@ -55,7 +59,10 @@ namespace ImageTools.DataCompression.Experimental
         private bool[] frozen;
         public const ulong ProbabilityScale = 4; // how aggressively we grow the symbol probabilities
 
-        public void DecompressStream(Stream source, Stream destination) {
+        /// <summary>
+        /// Decode a stream to a target. Returns true if the end symbol was found, false if the stream was truncated
+        /// </summary>
+        public bool DecompressStream(Stream source, Stream destination) {
             if (source == null || source.CanRead == false) throw new Exception("Invalid input stream passed to encoder");
             if (destination == null || destination.CanWrite == false) throw new Exception("Invalid output stream passed to encoder");
             ResetModel();
@@ -80,10 +87,11 @@ namespace ImageTools.DataCompression.Experimental
 
                 // Decode probability to symbol
                 var range = high - low + 1;
-                var scale = map[lastSymbol, 256];
+                var scale = map[lastSymbol, COUNT_ENTRY];
                 var scaled_value = ((value - low + 1) * scale - 1) / range;
                 int symbol = 0;
                 var p = DecodeSymbol(scaled_value, ref symbol);
+                if (p.terminates) break;
 
                 // Do check-block work
                 blockCount++;
@@ -92,7 +100,7 @@ namespace ImageTools.DataCompression.Experimental
                     if (symbol == expected) { // checksum is OK. Write buffer out
                         destination.Write(buffer, 0, ready);
                     } else { // truncation (we shouldn't write buffer)
-                        return;
+                        return false;
                     }
 
                     // reset counts
@@ -131,6 +139,10 @@ namespace ImageTools.DataCompression.Experimental
 
                 } // end of symbol decoding loop
             } // end of data loop
+            
+            destination.Write(buffer, 0, ready); // this didn't get check-summed, but we hit the end-symbol ok.
+            destination.Flush();
+            return true;
         }
 
 
@@ -147,26 +159,37 @@ namespace ImageTools.DataCompression.Experimental
             int pending_bits = 0;
             var blockCount = 0;
             var checksum = 0;
+            var moreData = true;
 
-            while (true) // data loop
+            while (moreData) // data loop
             {
                 int c;
 
+                SymbolProbability p;
                 if (blockCount >= CHECKSUM_BLOCK_SIZE) {
                     // encode a check symbol
                     blockCount = 0;
                     c = checksum & 0xff;
                     checksum = 0;
+                    p = EncodeSymbol(c);
                 } else {
                     // encode an input symbol
                     c = source.ReadByte();
-                    if (c < 0) break; // end of data
-                    checksum += c;
-                    blockCount++;
+                    if (c < 0) // end of data, write termination
+                    {
+                        moreData = false;
+                        p = EncodeTerminationSymbol();
+                    }
+                    else // normal data
+                    {
+                        p = EncodeSymbol(c);
+                        checksum += c;
+                        blockCount++;
+                    }
                 }
 
                 // convert symbol to probability
-                var p = EncodeSymbol(c);
+                //var p = EncodeSymbol(c);
                 var range = high - low + 1;
                 high = low + (range * p.high / p.count) - 1;
                 low = low + (range * p.low / p.count);
@@ -218,16 +241,28 @@ namespace ImageTools.DataCompression.Experimental
         private void ResetModel()
         {
             lastSymbol = 0;
-            map = new ulong[257,257];
-            frozen = new bool[257];
-            for (int i = 0; i < 257; i++)
+            map = new ulong[MAP_SIZE,MAP_SIZE];
+            frozen = new bool[MAP_SIZE];
+            for (int i = 0; i < MAP_SIZE; i++)
             {
                 frozen[i] = false;
-                for (uint j = 0; j < 257; j++)
+                for (uint j = 0; j < MAP_SIZE; j++)
                 {
                     map[i,j] = j;
                 }
             }
+        }
+        
+        private SymbolProbability EncodeTerminationSymbol()
+        {
+            var p = new SymbolProbability
+            {
+                low = map[lastSymbol,END_SYMBOL],
+                high = map[lastSymbol,END_SYMBOL+1],
+                count = map[lastSymbol, COUNT_ENTRY]
+            };
+            lastSymbol = END_SYMBOL;
+            return p;
         }
         
         private SymbolProbability EncodeSymbol(int symbol)
@@ -236,7 +271,7 @@ namespace ImageTools.DataCompression.Experimental
             {
                 low = map[lastSymbol,symbol],
                 high = map[lastSymbol,symbol + 1],
-                count = map[lastSymbol, 256]
+                count = map[lastSymbol, COUNT_ENTRY]
             };
             UpdateModel(lastSymbol,symbol);
             lastSymbol = symbol;
@@ -248,14 +283,14 @@ namespace ImageTools.DataCompression.Experimental
             if (frozen[prev]) return;
 
             const ulong max = ArithmeticEncode.MAX_FREQ / 3;
-            if (map[prev, 256] > max) {
+            if (map[prev, COUNT_ENTRY] > max) {
                 frozen[prev] = true;
                 return;
             }
 
             // TODO: this is currently the bottleneck of encode/decode
-            // might be able to amortise this somehow?
-            for (int i = next + 1; i < 257; i++) map[prev, i] += ProbabilityScale;
+            // replace this with a sum-tree
+            for (int i = next + 1; i < MAP_SIZE; i++) map[prev, i] += ProbabilityScale;
         }
 
         private SymbolProbability DecodeSymbol(ulong scaledValue, ref int decodedSymbol)
@@ -263,7 +298,7 @@ namespace ImageTools.DataCompression.Experimental
             // Find the symbol with the highest value less-than-or-equal-to the scaled value.
             
             // Check range
-            if (scaledValue > map[lastSymbol, 256]) throw new Exception("Decoder model found no symbol range for scaled value = " + scaledValue);
+            if (scaledValue > map[lastSymbol, COUNT_ENTRY]) return new SymbolProbability { terminates = true };
             
             // Binary search to find likely symbol
             var stride = 128;
@@ -284,11 +319,12 @@ namespace ImageTools.DataCompression.Experimental
             
             // update model and return symbol
             decodedSymbol = idx;
+            if (idx == END_SYMBOL)  return new SymbolProbability { terminates = true }; 
             var p = new SymbolProbability
             {
                 low = map[lastSymbol, idx],
                 high = map[lastSymbol, idx + 1],
-                count = map[lastSymbol, 256]
+                count = map[lastSymbol, COUNT_ENTRY]
             };
             UpdateModel(lastSymbol, decodedSymbol);
             lastSymbol = decodedSymbol;

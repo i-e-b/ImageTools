@@ -3,12 +3,15 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.IO.Compression;
-using ImageTools.DataCompression.Encoding;
 using ImageTools.DataCompression.Experimental;
 using ImageTools.ImageDataFormats;
 using ImageTools.SpaceFillingCurves;
 using ImageTools.Utilities;
 using ImageTools.WaveletTransforms;
+// ReSharper disable InconsistentNaming
+// ReSharper disable IdentifierTypo
+// ReSharper disable PossibleNullReferenceException
+// ReSharper disable AssignNullToNotNullAttribute
 
 // ReSharper disable UnusedMember.Local
 
@@ -116,7 +119,7 @@ namespace ImageTools
             //               ColorSpace.RGBToYiq          --> (3.2s) 302.51kb
             
             BitmapTools.ImageToPlanes_ForcePower2(src, ColorSpace.sRGB_To_OklabByte, out var Y, out var U, out var V, out var width, out var height);
-            WaveletDecomposePlanar2(Y,U,V, width, height, src.Width, src.Height);
+            WaveletDecomposePlanar2(CDF.Fwt53, CDF.Iwt53, Y,U,V, width, height, src.Width, src.Height);
 
             var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
             BitmapTools.PlanesToImage_Slice(dst, ColorSpace.OklabByte_To_sRGB, 0, width, Y, U, V);
@@ -293,8 +296,6 @@ namespace ImageTools
                 // Read, De-quantise, reorder
                 if (USE_CUSTOM_COMPRESSION) {
                     var tmp = new MemoryStream();
-                    //var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D(0));
-                    //encoder.Decode(storedData, tmp);
                     
                     var coder = new TruncatableEncoder();
                     coder.DecompressStream(storedData,tmp);
@@ -1096,14 +1097,16 @@ namespace ImageTools
         /// <summary>
         /// This version is between Morton (1 set of Coeffs per round) and Planar3 (3 sets of Coeffs per round)
         /// </summary>
-        /// <param name="Y">Luminence plane</param>
+        /// <param name="restore">Wavelet for decompression</param>
+        /// <param name="Y">Luminance plane</param>
         /// <param name="U">color plane</param>
         /// <param name="V">color plane</param>
         /// <param name="planeWidth">Width of the YUV planes, in samples. This must be a power-of-two</param>
         /// <param name="planeHeight">Height of the YUV planes, in samples. This must be a power-of-two</param>
         /// <param name="imgWidth">Width of the image region of interest. This must be less-or-equal to the plane width. Does not need to be a power of two</param>
         /// <param name="imgHeight">Height of the image region of interest. This must be less-or-equal to the plane height. Does not need to be a power of two</param>
-        public static void WaveletDecomposePlanar2(float[] Y, float[] U, float[] V, int planeWidth, int planeHeight, int imgWidth, int imgHeight)
+        /// <param name="decompose">Wavelet for compression</param>
+        public static void WaveletDecomposePlanar2(GeneralDecompose decompose, GeneralRestore restore, float[] Y, float[] U, float[] V, int planeWidth, int planeHeight, int imgWidth, int imgHeight)
         {
             // Current best: 265kb (using input 3.png)
 
@@ -1130,13 +1133,13 @@ namespace ImageTools
                     // Wavelet decompose vertical
                     for (int x = 0; x < width; x++) // each column
                     {
-                        CDF.Fwt97(buffer, hx, height, x, planeWidth);
+                        decompose(buffer, hx, height, x, planeWidth);
                     }
                     
                     // Wavelet decompose HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
                     {
-                        CDF.Fwt97(buffer, wx, width, y * planeWidth, 1);
+                        decompose(buffer, wx, width, y * planeWidth, 1);
                     }
                 }
 
@@ -1167,13 +1170,13 @@ namespace ImageTools
                     // Wavelet restore HALF horizontal
                     for (int y = 0; y < height / 2; y++) // each row
                     {
-                        CDF.Iwt97(buffer, wx, width,  y * planeWidth, 1);
+                        restore(buffer, wx, width,  y * planeWidth, 1);
                     }
 
                     // Wavelet restore vertical
                     for (int x = 0; x < width; x++) // each column
                     {
-                        CDF.Iwt97(buffer, hx, height, x, planeWidth);
+                        restore(buffer, hx, height, x, planeWidth);
                     }
                 }
 
@@ -1759,8 +1762,6 @@ namespace ImageTools
                     var coder = new TruncatableEncoder();
                     coder.DecompressStream(instream, ms);
 
-                    //var encoder = new ArithmeticEncode(new ProbabilityModels.LearningMarkov_2D());
-                    //encoder.Decode(instream, ms);
                     ms.Seek(0, SeekOrigin.Begin);
                     DataEncoding.FibonacciDecode(ms, buffer);
                 }

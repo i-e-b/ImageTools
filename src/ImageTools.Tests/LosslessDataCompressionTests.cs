@@ -10,6 +10,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using ImageTools.DataCompression;
 using ImageTools.DataCompression.Encoding;
+using ImageTools.DataCompression.Experimental;
 using ImageTools.Utilities;
 using ImageTools.WaveletTransforms;
 using NUnit.Framework;
@@ -18,6 +19,30 @@ namespace ImageTools.Tests
 {
     [TestFixture]
     public class LosslessDataCompressionTests {
+
+        [Test]
+        public void truncatable_encoder_round_trip()
+        {
+            var subject = new TruncatableEncoder();
+            
+            var expected = Moby;
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
+            
+            subject.CompressStream(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            var ok = subject.DecompressStream(encoded, dst);
+            
+            dst.Seek(0, SeekOrigin.Begin);
+            var actual = Encoding.UTF8.GetString(dst.ToArray());
+            
+            Console.WriteLine($"Original: {src.Length}; Compressed: {encoded.Length}; Expanded: {dst.Length}");
+            
+            Assert.That(ok, "Stream was truncated, but should not have been");
+            Assert.That(actual, Is.EqualTo(expected));
+        }
+
         [Test]
         public void arithmetic_encoder_constant_values () {
             Console.WriteLine($"Actual values: Bit Size = {ArithmeticEncode.BIT_SIZE}, Precision = {ArithmeticEncode.PRECISION},\r\n" +
