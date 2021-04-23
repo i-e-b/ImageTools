@@ -189,7 +189,6 @@ namespace ImageTools.DataCompression.Experimental
                 }
 
                 // convert symbol to probability
-                //var p = EncodeSymbol(c);
                 var range = high - low + 1;
                 high = low + (range * p.high / p.count) - 1;
                 low = low + (range * p.low / p.count);
@@ -231,7 +230,7 @@ namespace ImageTools.DataCompression.Experimental
             target.Flush();
         }
 
-        void output_bit_plus_pending(BitwiseStreamWrapper target, int bit, ref int pending_bits)
+        private static void output_bit_plus_pending(BitwiseStreamWrapper target, int bit, ref int pending_bits)
         {
             target.WriteBit( bit == 1 );
             while ( pending_bits-- > 0 ) target.WriteBit( bit == 0 );

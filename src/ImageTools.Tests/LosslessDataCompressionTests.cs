@@ -44,6 +44,66 @@ namespace ImageTools.Tests
         }
 
         [Test]
+        public void Decoding_a_truncated_stream()
+        {
+            var subject = new TruncatableEncoder();
+            
+            var expected = Moby;
+            var encoded = new MemoryStream();
+            var truncated = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
+            
+            subject.CompressStream(src, encoded);
+            
+            var encodedRaw = encoded.ToArray();
+            truncated.Write(encodedRaw, 0, encodedRaw.Length / 2);
+            truncated.Seek(0, SeekOrigin.Begin);
+            var ok = subject.DecompressStream(truncated, dst);
+            
+            dst.Seek(0, SeekOrigin.Begin);
+            var actual = Encoding.UTF8.GetString(dst.ToArray());
+            
+            Console.WriteLine($"Original: {src.Length}; Compressed: {encoded.Length}; Truncated to: {truncated.Length}; Expanded: {dst.Length}");
+            
+            Assert.That(ok, Is.False, "Stream was not truncated, but should have been");
+            Assert.That(actual, Is.EqualTo(expected.Substring(0, actual.Length)), "Truncation was not clean"); // we should get no 'junk' at the end of the decode
+        }
+
+        [Test]
+        public void fenwick_tree_tests()
+        {
+            // Just some basic coverage:
+            var subject = new FenwickTree(256);
+            
+            subject.IncrementSymbol(1, 1);
+            Assert.That(subject.FindSymbol(0), Is.EqualTo(0), "Bad index 0");
+            Assert.That(subject.FindSymbol(1), Is.EqualTo(1), "Bad index 1");
+            Assert.That(subject.FindSymbol(2), Is.EqualTo(1), "Bad index 2");
+            
+            var f1 = subject.FindSymbol(128);
+            Assert.That(f1, Is.EqualTo(127), "Bad index middle");
+            
+            subject.IncrementSymbol(30, 5);
+            subject.SetSymbolCount(50, 10);
+            
+            Assert.That(subject.GetSymbolCount(30), Is.EqualTo(6), "Add failed");
+            Assert.That(subject.GetSymbolCount(50), Is.EqualTo(10), "Set failed");
+            
+            var f2 = subject.FindSymbol(128);
+            Assert.That(f2, Is.EqualTo(113), "Bad index after edit");
+            
+            Assert.That(subject.PrefixSum(51), Is.EqualTo(66), "Bad prefix");
+            Assert.That(subject.RangeSum(1, 51), Is.EqualTo(65), "Bad range");
+            
+            var hist = subject.Histogram();
+            Assert.That(hist![0], Is.EqualTo(1), "hist 0");
+            Assert.That(hist[1], Is.EqualTo(2), "hist 1");
+            Assert.That(hist[30], Is.EqualTo(6), "hist 30");
+            Assert.That(hist[50], Is.EqualTo(10), "hist 50");
+        }
+
+        [Test]
         public void arithmetic_encoder_constant_values () {
             Console.WriteLine($"Actual values: Bit Size = {ArithmeticEncode.BIT_SIZE}, Precision = {ArithmeticEncode.PRECISION},\r\n" +
                               $"Symbol bits = {ArithmeticEncode.CODE_VALUE_BITS}, Frequency bits = {ArithmeticEncode.FREQUENCY_BITS},\r\n" +

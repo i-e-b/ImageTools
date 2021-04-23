@@ -47,6 +47,7 @@
     <Compile Include="CubicScale.cs" />
     <Compile Include="DataCompression\ArithmeticEncoding\ArithmeticEncode.cs" />
     <Compile Include="DataCompression\ArithmeticEncoding\ProbabilityModels.cs" />
+    <Compile Include="DataCompression\Experimental\FenwickTree.cs" />
     <Compile Include="DataCompression\Experimental\NybbleEncoder.cs" />
     <Compile Include="DataCompression\Experimental\TruncatableEncoder.cs" />
     <Compile Include="DataCompression\LzType\LZMWPack.cs" />
