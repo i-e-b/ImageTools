@@ -15,7 +15,7 @@ namespace ImageTools.DataCompression.Experimental
     /// </remarks>
     public class FenwickTree
     {
-        private readonly int[] _data;
+        private readonly ulong[] _data;
         private readonly int _size;
 
         /// <summary>
@@ -27,7 +27,7 @@ namespace ImageTools.DataCompression.Experimental
         {
             if (size < 2 || size > 32767) throw new Exception("Invalid tree size");
             _size = size;
-            _data = new int[size];
+            _data = new ulong[size];
             for (int i = 0; i < size; i++) { _data[i] = 1; }
             Init();
         }
@@ -37,19 +37,19 @@ namespace ImageTools.DataCompression.Experimental
             Debug.Assert(p, "Assertion failed");
         }
 
-        private static int LeastBit(int i) => (i) & (-i);  // Return the least-significant set bit in i
-                                                        // The following identities allow additional optimization,
-                                                        // but are omitted from this example code for clarity:
-                                                        // i - LSBIT(i)   == i & (i - 1)
-                                                        // i + LSBIT(i+1) == i | (i + 1)
+        private static int LeastBit(int i) => (i) & (-i);   // Return the least-significant set bit in i
+                                                            // The following identities allow additional optimization,
+                                                            // but are omitted from this example code for clarity:
+                                                            // i - LeastBit(i)   == i & (i - 1)
+                                                            // i + LeastBit(i+1) == i | (i + 1)
 
         /// <summary>
         /// Returns the sum of the first i elements (indices 0 to i-1)
         /// Equivalent to range_sum(0, i)
         /// </summary>
-        public int PrefixSum(int i)
+        public ulong PrefixSum(int i)
         {
-            var sum = 0;
+            ulong sum = 0;
             Assert(0 <= i && i <= _size);
             for (; i > 0; i -= LeastBit(i))
                 sum += _data![i - 1];
@@ -59,7 +59,7 @@ namespace ImageTools.DataCompression.Experimental
         /// <summary>
         /// Add delta to element with index i (zero-based)
         /// </summary>
-        public void IncrementSymbol(int i, int delta)
+        public void IncrementSymbol(int i, ulong delta)
         {
             Assert(0 <= i && i < _size);
             for (; i < _size; i += LeastBit(i + 1))
@@ -70,9 +70,9 @@ namespace ImageTools.DataCompression.Experimental
         /// Returns the sum of elements from i to j-1
         /// Equivalent to prefix_sum(j) - prefix_sum(i), but faster
         /// </summary>
-        public int RangeSum(int i, int j)
+        public ulong RangeSum(int i, int j)
         {
-            int sum = 0;
+            ulong sum = 0;
             Assert(0 <= i && i <= j && j <= _size);
             for (; j > i; j -= LeastBit(j))
                 sum += _data![j - 1];
@@ -98,9 +98,9 @@ namespace ImageTools.DataCompression.Experimental
         /// <summary>
         /// Convert back to array of per-element counts
         /// </summary>
-        public int[] Histogram()
+        public ulong[] Histogram()
         {
-            var outp = new int[_size];
+            var outp = new ulong[_size];
             for (var i = 0; i < _size; i++) { outp[i] = _data![i]; }
             for (var i = _size; i-- > 0;)
             {
@@ -113,7 +113,7 @@ namespace ImageTools.DataCompression.Experimental
         /// <summary>
         /// Return a single element's individual probability
         /// </summary>
-        public int GetSymbolCount(int i)
+        public ulong GetSymbolCount(int i)
         {
             return RangeSum(i, i + 1);
         }
@@ -121,7 +121,7 @@ namespace ImageTools.DataCompression.Experimental
         /// <summary>
         /// Set (as opposed to adjust) a single element's individual probability
         /// </summary>
-        public void SetSymbolCount(int i, int value)
+        public void SetSymbolCount(int i, ulong value)
         {
             IncrementSymbol(i, value - GetSymbolCount(i));
         }
@@ -132,7 +132,7 @@ namespace ImageTools.DataCompression.Experimental
         /// </summary>
         /// <param name="value">Decoded probability for the symbol we want to find</param>
         /// <returns>Index of matching entry</returns>
-        public int FindSymbol(int value)
+        public int FindSymbol(ulong value)
         {
             int i = 0, j = _size;
 
@@ -148,6 +148,13 @@ namespace ImageTools.DataCompression.Experimental
             }
 
             return i;
+        }
+
+        public ulong TotalCount()
+        {
+            ulong sum = 0;
+            for (var i = _size; i > 0; i -= LeastBit(i)) sum += _data![i - 1];
+            return sum;
         }
     }
 }

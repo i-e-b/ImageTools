@@ -39,8 +39,8 @@ namespace ImageTools.Tests
             
             Console.WriteLine($"Original: {src.Length}; Compressed: {encoded.Length}; Expanded: {dst.Length}");
             
-            Assert.That(ok, "Stream was truncated, but should not have been");
             Assert.That(actual, Is.EqualTo(expected));
+            Assert.That(ok, "Stream was truncated, but should not have been");
         }
 
         [Test]
