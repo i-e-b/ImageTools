@@ -71,6 +71,16 @@ namespace ImageTools.Tests
         }
 
         [Test]
+        public void sum_tree_tests()
+        {
+            ISumTree subject = new SumTree(16);
+            ISumTree comparison = new DumbTree(16, 0);
+            
+            Assert.That(subject.Total(), Is.EqualTo(comparison.Total()), "Totals did not match");
+            Assert.That(subject.Total(), Is.EqualTo(16), "Wrong total");
+        }
+
+        [Test]
         public void fenwick_tree_tests()
         {
             // Just some basic coverage:

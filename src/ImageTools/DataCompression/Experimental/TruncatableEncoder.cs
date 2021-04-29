@@ -54,7 +54,7 @@ namespace ImageTools.DataCompression.Experimental
         private const int END_SYMBOL = 256; // Symbol for end-of-data
 
         // 2nd order probability model:
-        private ulong[,] map; // [from,to]
+        private ISumTree[] map;
         private int lastSymbol;
         private bool[] frozen;
         public const ulong ProbabilityScale = 4; // how aggressively we grow the symbol probabilities
@@ -87,11 +87,11 @@ namespace ImageTools.DataCompression.Experimental
 
                 // Decode probability to symbol
                 var range = high - low + 1;
-                var scale = map[lastSymbol, COUNT_ENTRY];
+                var scale = map[lastSymbol].Total();//, COUNT_ENTRY];
                 var scaled_value = ((value - low + 1) * scale - 1) / range;
-                int symbol = 0;
-                var p = DecodeSymbol(scaled_value, ref symbol);
+                var p = DecodeSymbol(scaled_value);
                 if (p.terminates) break;
+                var symbol = p.symbol;
 
                 // Do check-block work
                 blockCount++;
@@ -178,7 +178,7 @@ namespace ImageTools.DataCompression.Experimental
                     if (c < 0) // end of data, write termination
                     {
                         moreData = false;
-                        p = EncodeTerminationSymbol();
+                        p = EncodeSymbol(END_SYMBOL);
                     }
                     else // normal data
                     {
@@ -240,94 +240,49 @@ namespace ImageTools.DataCompression.Experimental
         private void ResetModel()
         {
             lastSymbol = 0;
-            map = new ulong[MAP_SIZE,MAP_SIZE];
+            map = new ISumTree[MAP_SIZE];
             frozen = new bool[MAP_SIZE];
             for (int i = 0; i < MAP_SIZE; i++)
             {
                 frozen[i] = false;
-                for (uint j = 0; j < MAP_SIZE; j++)
-                {
-                    map[i,j] = j;
-                }
+                map[i] = new DumbTree(COUNT_ENTRY, END_SYMBOL);
             }
-        }
-        
-        private SymbolProbability EncodeTerminationSymbol()
-        {
-            var p = new SymbolProbability
-            {
-                low = map[lastSymbol,END_SYMBOL],
-                high = map[lastSymbol,END_SYMBOL+1],
-                count = map[lastSymbol, COUNT_ENTRY]
-            };
-            lastSymbol = END_SYMBOL;
-            return p;
         }
         
         private SymbolProbability EncodeSymbol(int symbol)
         {
-            var p = new SymbolProbability
-            {
-                low = map[lastSymbol,symbol],
-                high = map[lastSymbol,symbol + 1],
-                count = map[lastSymbol, COUNT_ENTRY]
-            };
+            var point = map[lastSymbol];
+            
+            var prob = point.EncodeSymbol(symbol);
             UpdateModel(lastSymbol,symbol);
             lastSymbol = symbol;
-            return p;
+            return prob;
         }
 
         private void UpdateModel(int prev, int next)
         {
             if (frozen[prev]) return;
 
+            var prob = map[prev];
             const ulong max = ArithmeticEncode.MAX_FREQ / 3;
-            if (map[prev, COUNT_ENTRY] > max) {
+            if (prob.Total() > max) {
                 frozen[prev] = true;
                 return;
             }
-
-            // TODO: this is currently the bottleneck of encode/decode
-            // replace this with a sum-tree
-            for (int i = next + 1; i < MAP_SIZE; i++) map[prev, i] += ProbabilityScale;
+            
+            prob.IncrementSymbol(next, ProbabilityScale);
         }
 
-        private SymbolProbability DecodeSymbol(ulong scaledValue, ref int decodedSymbol)
+        private SymbolProbability DecodeSymbol(ulong scaledValue)
         {
-            // Find the symbol with the highest value less-than-or-equal-to the scaled value.
+            var prob = map[lastSymbol];
             
-            // Check range
-            if (scaledValue > map[lastSymbol, COUNT_ENTRY]) return new SymbolProbability { terminates = true };
+            if (scaledValue > prob.Total()) return new SymbolProbability { terminates = true };
             
-            // Binary search to find likely symbol
-            var stride = 128;
-            var idx = 128;
-            while (stride > 0)
-            {
-                var cmp = map[lastSymbol, idx];
-                if (scaledValue == cmp) {idx++; break; }
-
-                if (scaledValue > cmp) idx += stride;
-                else idx -= stride;
-                stride >>= 1;
-            }
-            idx--;
-            
-            // double check
-            if (scaledValue >= map[lastSymbol, idx + 1]) idx++;
-            
-            // update model and return symbol
-            decodedSymbol = idx;
-            if (idx == END_SYMBOL)  return new SymbolProbability { terminates = true }; 
-            var p = new SymbolProbability
-            {
-                low = map[lastSymbol, idx],
-                high = map[lastSymbol, idx + 1],
-                count = map[lastSymbol, COUNT_ENTRY]
-            };
-            UpdateModel(lastSymbol, decodedSymbol);
-            lastSymbol = decodedSymbol;
-            return p;
+            var sym = prob.FindSymbol(scaledValue);
+            UpdateModel(lastSymbol, sym.symbol);
+            lastSymbol = sym.symbol;
+            return sym;
         }
     }
 }
