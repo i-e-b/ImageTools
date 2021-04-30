@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using ImageTools.DataCompression.Encoding;
 
 namespace ImageTools.DataCompression.Experimental
@@ -19,6 +18,8 @@ namespace ImageTools.DataCompression.Experimental
         private readonly ulong[] _data;
         private readonly int _size;
         private readonly int _endSymbol;
+        
+        private ulong _sum; // a cache of the total sum, as it's used very often
 
         /// <summary>
         /// Construct a new cumulative probability set, where each symbol
@@ -33,12 +34,8 @@ namespace ImageTools.DataCompression.Experimental
             _endSymbol = endSymbol;
             _data = new ulong[size];
             for (int i = 0; i < size; i++) { _data[i] = 1; }
+            _sum = (ulong)size;
             Init();
-        }
-
-        private static void Assert(bool p, string msg="")
-        {
-            if (!p) throw new Exception("Assertion failed "+msg);
         }
 
         private static int LeastBit(int i) => (i) & (-i);   // Return the least-significant set bit in i
@@ -54,7 +51,6 @@ namespace ImageTools.DataCompression.Experimental
         public ulong PrefixSum(int i)
         {
             ulong sum = 0;
-            Assert(0 <= i && i <= _size, "Index out of range for Prefix Sum");
             for (; i > 0; i -= LeastBit(i))
                 sum += _data![i - 1];
             return sum;
@@ -65,7 +61,7 @@ namespace ImageTools.DataCompression.Experimental
         /// </summary>
         public void IncrementSymbol(int i, ulong delta)
         {
-            Assert(0 <= i && i < _size, "Index out of range for increment");
+            _sum += delta;
             for (; i < _size; i += LeastBit(i + 1))
                 _data![i] += delta;
         }
@@ -80,13 +76,13 @@ namespace ImageTools.DataCompression.Experimental
                 terminates = idx == _endSymbol,
                 low = PrefixSum(idx),
                 high = PrefixSum(idx+1),
-                count = PrefixSum(_size)
+                count = _sum
             };
         }
         
         public ulong Total()
         {
-            return PrefixSum(_size);
+            return _sum;
         }
 
         public SymbolProbability EncodeSymbol(int symbol)
@@ -108,7 +104,6 @@ namespace ImageTools.DataCompression.Experimental
         public ulong RangeSum(int i, int j)
         {
             ulong sum = 0;
-            Assert(0 <= i && i <= j && j <= _size, "Index out of range for Range Sum");
             for (; j > i; j -= LeastBit(j))
                 sum += _data![j - 1];
             for (; i > j; i -= LeastBit(i))
