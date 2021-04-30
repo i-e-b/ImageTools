@@ -306,6 +306,7 @@ namespace ImageTools.ImageDataFormats
         /// <param name="output">Writable stream for output</param>
         public static void FibonacciEncode(float[] buffer, int length, Stream output)
         {
+            // TODO: this could do with speeding up.
             var bf = new byte[8]; // if each bit is set. Value is 0xFF or 0x00
             var v = new byte[]{ 1<<7, 1<<6, 1<<5, 1<<4, 1<<3, 1<<2, 1<<1, 1 }; // values of the flag
             var bytePos = 0;
