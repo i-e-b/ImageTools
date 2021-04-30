@@ -84,14 +84,14 @@ namespace ImageTools.Tests
         public void fenwick_tree_tests()
         {
             // Just some basic coverage:
-            var subject = new FenwickTree(256);
+            var subject = new FenwickTree(256, -1);
             
             subject.IncrementSymbol(1, 1);
-            Assert.That(subject.FindSymbol(0), Is.EqualTo(0), "Bad index 0");
-            Assert.That(subject.FindSymbol(1), Is.EqualTo(1), "Bad index 1");
-            Assert.That(subject.FindSymbol(2), Is.EqualTo(1), "Bad index 2");
+            Assert.That(subject.Find(0), Is.EqualTo(0), "Bad index 0");
+            Assert.That(subject.Find(1), Is.EqualTo(1), "Bad index 1");
+            Assert.That(subject.Find(2), Is.EqualTo(1), "Bad index 2");
             
-            var f1 = subject.FindSymbol(128);
+            var f1 = subject.Find(128);
             Assert.That(f1, Is.EqualTo(127), "Bad index middle");
             
             subject.IncrementSymbol(30, 5);
@@ -100,7 +100,7 @@ namespace ImageTools.Tests
             Assert.That(subject.GetSymbolCount(30), Is.EqualTo(6), "Add failed");
             Assert.That(subject.GetSymbolCount(50), Is.EqualTo(10), "Set failed");
             
-            var f2 = subject.FindSymbol(128);
+            var f2 = subject.Find(128);
             Assert.That(f2, Is.EqualTo(113), "Bad index after edit");
             
             Assert.That(subject.PrefixSum(51), Is.EqualTo(66), "Bad prefix");

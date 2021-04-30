@@ -26,26 +26,43 @@ namespace ImageTools.DataCompression.Experimental
             _count = symbolCount;
             _tree = new ulong[(2 * symbolCount) - 1];
 
-
-            // TODO: build initial tree here with all symbols = 1
-            var start = _tree.Length - _count;
+            var length = _count;
             var end = _tree.Length;
+            var start = end - length;
             var v = 1UL;
-            while (end - start > 0)
+            while (length > 0)
             {
-                for (int i = start - 1; i < end; i++)
+                for (int i = start; i < end; i++)
                 {
                     _tree[i] = v;
                 }
 
                 v <<= 1;
-                end = start - 1;
-                start >>= 1;
+                length >>= 1;
+                end = start;
+                start = end - length;
             }
         }
 
         public SymbolProbability FindSymbol(ulong scaledValue)
         {
+            // Any time we go 'left', we subtract the node value
+            // Any time we go right, we do nothing.
+            
+            var start = _tree[0];
+            if (scaledValue > start) return new SymbolProbability {terminates = true};
+            
+            // Look at the node. If:
+            //   equal: return the 'max' index under this point
+            //   less: go 'right' -> take current value, 
+            //   greater: go 'left'
+            
+            // the target has a sum less than or equal to the total
+            // look at each 'left' branch. If it would give us a value:
+            //  equal: return the 'max' index at that point
+            //  less: follow right
+            //  greater: 
+            
             // TODO: calculate the lower & upper range, and the count -- which is actually the sum of all values + 1
             return new SymbolProbability
             {

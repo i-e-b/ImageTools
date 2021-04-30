@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using ImageTools.DataCompression.Encoding;
 
 namespace ImageTools.DataCompression.Experimental
 {
@@ -13,28 +14,31 @@ namespace ImageTools.DataCompression.Experimental
     ///     https://cs.stackexchange.com/a/10541
     ///     https://www.topcoder.com/thrive/articles/Binary%20Indexed%20Trees
     /// </remarks>
-    public class FenwickTree
+    public class FenwickTree: ISumTree
     {
         private readonly ulong[] _data;
         private readonly int _size;
+        private readonly int _endSymbol;
 
         /// <summary>
         /// Construct a new cumulative probability set, where each symbol
         /// start with the same non-zero probability.
         /// </summary>
         /// <param name="size">Number of symbols in the set</param>
-        public FenwickTree(int size)
+        /// <param name="endSymbol">Symbol which indicates end-of-data</param>
+        public FenwickTree(int size, int endSymbol)
         {
             if (size < 2 || size > 32767) throw new Exception("Invalid tree size");
             _size = size;
+            _endSymbol = endSymbol;
             _data = new ulong[size];
             for (int i = 0; i < size; i++) { _data[i] = 1; }
             Init();
         }
 
-        private static void Assert(bool p)
+        private static void Assert(bool p, string msg="")
         {
-            Debug.Assert(p, "Assertion failed");
+            if (!p) throw new Exception("Assertion failed "+msg);
         }
 
         private static int LeastBit(int i) => (i) & (-i);   // Return the least-significant set bit in i
@@ -50,7 +54,7 @@ namespace ImageTools.DataCompression.Experimental
         public ulong PrefixSum(int i)
         {
             ulong sum = 0;
-            Assert(0 <= i && i <= _size);
+            Assert(0 <= i && i <= _size, "Index out of range for Prefix Sum");
             for (; i > 0; i -= LeastBit(i))
                 sum += _data![i - 1];
             return sum;
@@ -61,9 +65,40 @@ namespace ImageTools.DataCompression.Experimental
         /// </summary>
         public void IncrementSymbol(int i, ulong delta)
         {
-            Assert(0 <= i && i < _size);
+            Assert(0 <= i && i < _size, "Index out of range for increment");
             for (; i < _size; i += LeastBit(i + 1))
                 _data![i] += delta;
+        }
+
+
+        public SymbolProbability FindSymbol(ulong scaledValue)
+        {
+            var idx = Find(scaledValue);
+            return new SymbolProbability
+            {
+                symbol = idx,
+                terminates = idx == _endSymbol,
+                low = PrefixSum(idx),
+                high = PrefixSum(idx+1),
+                count = PrefixSum(_size)
+            };
+        }
+        
+        public ulong Total()
+        {
+            return PrefixSum(_size);
+        }
+
+        public SymbolProbability EncodeSymbol(int symbol)
+        {
+            return new SymbolProbability
+            {
+                symbol = symbol,
+                terminates = symbol == _endSymbol,
+                low = PrefixSum(symbol),
+                high = PrefixSum(symbol+1),
+                count = PrefixSum(_size)
+            };
         }
 
         /// <summary>
@@ -73,7 +108,7 @@ namespace ImageTools.DataCompression.Experimental
         public ulong RangeSum(int i, int j)
         {
             ulong sum = 0;
-            Assert(0 <= i && i <= j && j <= _size);
+            Assert(0 <= i && i <= j && j <= _size, "Index out of range for Range Sum");
             for (; j > i; j -= LeastBit(j))
                 sum += _data![j - 1];
             for (; i > j; i -= LeastBit(i))
@@ -132,7 +167,7 @@ namespace ImageTools.DataCompression.Experimental
         /// </summary>
         /// <param name="value">Decoded probability for the symbol we want to find</param>
         /// <returns>Index of matching entry</returns>
-        public int FindSymbol(ulong value)
+        public int Find(ulong value)
         {
             int i = 0, j = _size;
 
@@ -148,13 +183,6 @@ namespace ImageTools.DataCompression.Experimental
             }
 
             return i;
-        }
-
-        public ulong TotalCount()
-        {
-            ulong sum = 0;
-            for (var i = _size; i > 0; i -= LeastBit(i)) sum += _data![i - 1];
-            return sum;
         }
     }
 }

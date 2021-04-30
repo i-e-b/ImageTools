@@ -87,7 +87,7 @@ namespace ImageTools.DataCompression.Experimental
 
                 // Decode probability to symbol
                 var range = high - low + 1;
-                var scale = map[lastSymbol].Total();//, COUNT_ENTRY];
+                var scale = map[lastSymbol].Total();
                 var scaled_value = ((value - low + 1) * scale - 1) / range;
                 var p = DecodeSymbol(scaled_value);
                 if (p.terminates) break;
@@ -245,7 +245,8 @@ namespace ImageTools.DataCompression.Experimental
             for (int i = 0; i < MAP_SIZE; i++)
             {
                 frozen[i] = false;
-                map[i] = new DumbTree(COUNT_ENTRY, END_SYMBOL);
+                //map[i] = new DumbTree(COUNT_ENTRY, END_SYMBOL);
+                map[i] = new FenwickTree(COUNT_ENTRY, END_SYMBOL);
             }
         }
         
