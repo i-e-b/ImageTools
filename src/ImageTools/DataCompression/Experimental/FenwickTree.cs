@@ -51,8 +51,7 @@ namespace ImageTools.DataCompression.Experimental
         public ulong PrefixSum(int i)
         {
             ulong sum = 0;
-            for (; i > 0; i -= LeastBit(i))
-                sum += _data![i - 1];
+            for (; i > 0; i -= LeastBit(i)) sum += _data![i - 1];
             return sum;
         }
 
@@ -70,31 +69,48 @@ namespace ImageTools.DataCompression.Experimental
         public SymbolProbability FindSymbol(ulong scaledValue)
         {
             var idx = Find(scaledValue);
+            RangeBounds(idx, out var lower, out var upper);
             return new SymbolProbability
             {
                 symbol = idx,
                 terminates = idx == _endSymbol,
-                low = PrefixSum(idx),
-                high = PrefixSum(idx+1),
+                low = lower,
+                high = upper,
                 count = _sum
             };
         }
         
-        public ulong Total()
-        {
-            return _sum;
-        }
+        public ulong Total() => _sum;
 
         public SymbolProbability EncodeSymbol(int symbol)
         {
+            RangeBounds(symbol, out var lower, out var upper);
+            
             return new SymbolProbability
             {
                 symbol = symbol,
                 terminates = symbol == _endSymbol,
-                low = PrefixSum(symbol),
-                high = PrefixSum(symbol+1),
-                count = PrefixSum(_size)
+                low = lower,
+                high = upper,
+                count = _sum,
             };
+        }
+        
+        /// <summary>
+        /// Returns the sum of elements from i and to i+1
+        /// Equivalent to prefix_sum(i), prefix_sum(i+1), but faster
+        /// </summary>
+        public void RangeBounds(int i, out ulong lower, out ulong upper)
+        {
+            var j = i + 1;
+            var k = i;
+            
+            lower = 0;
+            for (; k > 0; k -= LeastBit(k)) lower += _data![k - 1];
+            
+            upper = lower;
+            for (; j > i; j -= LeastBit(j)) upper += _data![j - 1];
+            for (; i > j; i -= LeastBit(i)) upper -= _data![i - 1];
         }
 
         /// <summary>
