@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using ImageTools.ImageDataFormats;
-using ImageTools.Utilities;
 using NUnit.Framework;
+using NUnit.Framework.Constraints;
+
 // ReSharper disable PossibleNullReferenceException
 
 namespace ImageTools.Tests
@@ -263,5 +264,41 @@ namespace ImageTools.Tests
             }
         }
 
+        [Test]
+        public void tiny_float_tests()
+        {
+            var r = new Random();
+            var i = 0.0;
+            var x = (r.NextDouble() - 0.5) * 2;
+            var y = (r.NextDouble() - 0.5) * 20;
+            var z = (r.NextDouble() - 0.5) * 200;
+            var w = (r.NextDouble() - 0.5) * 2000;
+            
+            var bI = TinyFloat.Encode(i);
+            var dI = TinyFloat.Decode(bI);
+            Console.WriteLine($"i: {i} -> {dI}; {bI.Length} bits");
+            
+            var bX = TinyFloat.Encode(x);
+            var dX = TinyFloat.Decode(bX);
+            Console.WriteLine($"x: {x} -> {dX}; {bX.Length} bits");
+            
+            var bY = TinyFloat.Encode(y);
+            var dY = TinyFloat.Decode(bY);
+            Console.WriteLine($"y: {y} -> {dY}; {bY.Length} bits");
+            
+            var bZ = TinyFloat.Encode(z);
+            var dZ = TinyFloat.Decode(bZ);
+            Console.WriteLine($"z: {z} -> {dZ}; {bZ.Length} bits");
+            
+            var bW = TinyFloat.Encode(w);
+            var dW = TinyFloat.Decode(bW);
+            Console.WriteLine($"w: {w} -> {dW}; {bW.Length} bits");
+            
+            Assert.That(dI, Is.EqualTo(i), "Out of bounds: i");
+            Assert.That(dX, Is.EqualTo(x).Within(0.05), "Out of bounds: x"); // 2.5% of each scale
+            Assert.That(dY, Is.EqualTo(y).Within(0.5), "Out of bounds: y");
+            Assert.That(dZ, Is.EqualTo(z).Within(5), "Out of bounds: z");
+            Assert.That(dW, Is.EqualTo(w).Within(50), "Out of bounds: w");
+        }
     }
 }

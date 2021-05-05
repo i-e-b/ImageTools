@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace ImageTools.ImageDataFormats
 {
@@ -402,6 +403,30 @@ namespace ImageTools.ImageDataFormats
                 output.WriteBit(res.Pop());
             }
         }
+        
+        public static List<byte> FibonacciEncodeOne(uint value) {
+            var n = value + 1;
+
+            var res = new Stack<byte>(20);
+            res.Push(1);
+
+            // find the smallest fibonacci number greater than `n`
+            uint f = 1, k = 1;
+            while (f <= n) {f = fibonacci(++k);}
+
+            // decompose back through the sequence
+            while(--k > 1) {
+                f = fibonacci(k);
+                if (f <= n) {
+                    res.Push(1);
+                    n -= f;
+                } else {
+                    res.Push(0);
+                }
+            }
+
+            return res.ToList();
+        }
 
         /// <summary>
         /// Decode a single value from an open bitstream
@@ -413,6 +438,29 @@ namespace ImageTools.ImageDataFormats
 
             while (!input.IsEmpty()) {
                 if (!input.TryReadBit(out var f)) break;
+                if (f > 0) {
+                    if (lastWas1) break;
+                    lastWas1 = true;
+                } else lastWas1 = false;
+
+                accum += (uint)f * fibonacci(pos + 2);
+                pos++;
+            }
+
+            return accum - 1;
+        }
+        
+        /// <summary>
+        /// Decode a single value from an open bitstream
+        /// </summary>
+        public static uint FibonacciDecodeOne(Queue<byte> input) {
+            bool lastWas1 = false;
+            uint accum = 0;
+            uint pos = 0;
+
+            while (input.Count > 0) {
+                //if (!input.TryReadBit(out var f)) break;
+                var f = input.Dequeue();
                 if (f > 0) {
                     if (lastWas1) break;
                     lastWas1 = true;
@@ -542,6 +590,16 @@ namespace ImageTools.ImageDataFormats
             if (value > 255) return 255;
             return (int)value;
         }
+        
+        /// <summary>
+        /// Lossless convert to positive numbers only
+        /// </summary>
+        public static uint SignedToUnsigned(int n)
+        {
+            if (n >= 0) return (uint)(n * 2); // positive becomes even
+            // ReSharper disable once IntVariableOverflowInUncheckedContext
+            return ((uint)(-n) * 2u) - 1u; // negative becomes odd
+        }
 
         /// <summary>
         /// Lossless convert to positive numbers only
@@ -567,6 +625,12 @@ namespace ImageTools.ImageDataFormats
                 else outp[i] = (int) (((input[i] + 1) >> 1) * -1);
             }
             return outp;
+        }
+        
+        public static int UnsignedToSigned(uint input)
+        {
+            if ((input & 1) == 0) return (int) (input >> 1);
+            return (int) (((input + 1) >> 1) * -1);
         }
         
         public static float[] UnsignedToSignedFloat(int[] input)
@@ -601,6 +665,37 @@ namespace ImageTools.ImageDataFormats
                 }
             }
             return false;
+        }
+
+        public static List<byte> EliasOmegaEncodeOne(uint src)
+        {
+            var outp = new List<byte>();
+
+            src++; // so we can encode zero
+            ulong stack = 0;
+            var scount = 0;
+            while (src > 1)
+            {
+                uint len = 0;
+                for (uint tmp = src; tmp > 0; tmp >>= 1) len++; // 1 + floor(log₂(data))
+
+                for (int i = 0; i < len; i++)
+                {
+                    stack |= ((src >> i) & 1) << scount;
+                    scount++;
+                }
+
+                src = len - 1;
+            }
+
+            scount--;
+            while (scount >= 0)
+            {
+                outp.Add((byte)((stack >> (scount)) & 1));
+                scount--;
+            }
+            outp.Add(0);
+            return outp;
         }
 
         public static void EliasOmegaEncodeOne(uint src, BitwiseStreamWrapper dest)
