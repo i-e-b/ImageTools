@@ -309,9 +309,7 @@ namespace ImageTools.ImageDataFormats
         {
             // TODO: this could do with speeding up.
             // TODO: this is the current optimisation target
-            var bf = new byte[8]; // if each bit is set. Value is 0xFF or 0x00
-            var v = new byte[]{ 1<<7, 1<<6, 1<<5, 1<<4, 1<<3, 1<<2, 1<<1, 1 }; // values of the flag
-            
+            byte runningValue = 0;
             var bytePos = 0;
 
             if (length <= 0) length = buffer.Length;
@@ -320,49 +318,60 @@ namespace ImageTools.ImageDataFormats
             // any time we exceed a byte we write it out and reset
             // Negative numbers are handled by the same process as `SignedToUnsigned`
             // this streams out numbers MSB-first (?)
-
+            
             for (var idx = 0; idx < length; idx++)
             {
-                var inValue = buffer[idx];
-
                 // Signed to unsigned
-                int n = (int)inValue;
+                int n = (int)buffer[idx];
                 n = (n >= 0) ? (n * 2) + 1: (n * -2); // value to be encoded
 
-                if (n > 514229) throw new Exception($"Value out of bounds: {inValue} at index {idx}");
+                //if (n > 514229) throw new Exception($"Value out of bounds: {n} at index {idx}");
 
                 // Fibonacci encode
-                ulong res = 0UL;
-                var maxidx = -1;
-
-                // find starting position
-                var i = 2;
-                while (fseq[i] < n) { i++; }
-
-                // scan backwards marking value bits
-                while (n > 0)
+                ulong resultPattern = 0UL;
+                var highestBitWritten = -1;
+                
+                if (n <= 1) // fast case for 'zero' (actually encoding '1')
                 {
-                    if (fseq[i] <= n)
-                    {
-                        res |= 1UL << (i - 2);
-                        n -= (int)fseq[i];
-                        if (maxidx < i) maxidx = i;
-                    }
-                    i--;
+                    highestBitWritten = 2;
+                    resultPattern = 0xFF;
                 }
-                res |= 1UL << (maxidx - 1);
+                else // non-zero case
+                {
+                    // find starting position
+                    var i = 3; // should be idx 2, but we have a special case above
+                    while (fseq[i] < n)
+                    {
+                        i++;
+                    } // TODO: do a bin-search?
+
+                    // scan backwards marking value bits
+                    while (n > 0)
+                    {
+                        if (fseq[i] <= n)
+                        {
+                            resultPattern |= 1UL << (i - 2);
+                            n -= (int) fseq[i];
+                            if (highestBitWritten < i) highestBitWritten = i;
+                        }
+
+                        i--;
+                    }
+
+                    resultPattern |= 1UL << (highestBitWritten - 1);
+                }
 
                 // output to stream
-                for (int boc = 0; boc < maxidx; boc++)
+                for (int bitToRead = 0; bitToRead < highestBitWritten; bitToRead++)
                 {
-                    bf[bytePos] = (byte)(0xFF * ((res >> (boc)) & 1));
+                    var set = ((resultPattern >> bitToRead) & 1) << 7;
+                    runningValue |= (byte)(set >> bytePos);
                     bytePos++;
 
                     if (bytePos > 7)
                     { // completed a byte (same as above)
-                        int bv = (bf[0] & v[0]) | (bf[1] & v[1]) | (bf[2] & v[2]) | (bf[3] & v[3]) | (bf[4] & v[4]) | (bf[5] & v[5]) | (bf[6] & v[6]) | (bf[7] & v[7]);
-                        output.WriteByte((byte)bv);
-                        bf[0] = bf[1] = bf[2] = bf[3] = bf[4] = bf[5] = bf[6] = bf[7] = 0;
+                        output.WriteByte(runningValue);
+                        runningValue = 0;
                         bytePos = 0;
                     }
                 }
@@ -370,8 +379,7 @@ namespace ImageTools.ImageDataFormats
 
             // If we didn't land on a byte boundary, push the last one out here
             if (bytePos != 0) { // completed a byte (slightly different to the others above)
-                int bv = (bf[0] & v[0]) | (bf[1] & v[1]) | (bf[2] & v[2]) | (bf[3] & v[3]) | (bf[4] & v[4]) | (bf[5] & v[5]) | (bf[6] & v[6]) | (bf[7] & v[7]);
-                output.WriteByte((byte)bv);
+                output.WriteByte(runningValue);
             }
         }
 
