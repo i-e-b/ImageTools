@@ -276,29 +276,36 @@ namespace ImageTools.Tests
             
             var bI = TinyFloat.Encode(i);
             var dI = TinyFloat.Decode(bI);
-            Console.WriteLine($"i: {i} -> {dI}; {bI.Length} bits");
+            Console.WriteLine($"i: {i} -> {dI}; {bI.Length} bits (± {ErrorPc(i, dI):0.00}%)");
             
             var bX = TinyFloat.Encode(x);
             var dX = TinyFloat.Decode(bX);
-            Console.WriteLine($"x: {x} -> {dX}; {bX.Length} bits");
+            Console.WriteLine($"x: {x} -> {dX}; {bX.Length} bits (± {ErrorPc(x, dX):0.00}%)");
             
             var bY = TinyFloat.Encode(y);
             var dY = TinyFloat.Decode(bY);
-            Console.WriteLine($"y: {y} -> {dY}; {bY.Length} bits");
+            Console.WriteLine($"y: {y} -> {dY}; {bY.Length} bits (± {ErrorPc(y, dY):0.00}%)");
             
             var bZ = TinyFloat.Encode(z);
             var dZ = TinyFloat.Decode(bZ);
-            Console.WriteLine($"z: {z} -> {dZ}; {bZ.Length} bits");
+            Console.WriteLine($"z: {z} -> {dZ}; {bZ.Length} bits (± {ErrorPc(z, dZ):0.00}%)");
             
             var bW = TinyFloat.Encode(w);
             var dW = TinyFloat.Decode(bW);
-            Console.WriteLine($"w: {w} -> {dW}; {bW.Length} bits");
+            Console.WriteLine($"w: {w} -> {dW}; {bW.Length} bits (± {ErrorPc(w, dW):0.00}%)");
             
             Assert.That(dI, Is.EqualTo(i), "Out of bounds: i");
             Assert.That(dX, Is.EqualTo(x).Within(0.05), "Out of bounds: x"); // 2.5% of each scale
             Assert.That(dY, Is.EqualTo(y).Within(0.5), "Out of bounds: y");
             Assert.That(dZ, Is.EqualTo(z).Within(5), "Out of bounds: z");
             Assert.That(dW, Is.EqualTo(w).Within(50), "Out of bounds: w");
+        }
+
+        private double ErrorPc(double o, double c)
+        {
+            var d = Math.Abs(o-c);
+            if (d == 0) return 0.0;
+            return Math.Abs(d / o) * 100;
         }
     }
 }

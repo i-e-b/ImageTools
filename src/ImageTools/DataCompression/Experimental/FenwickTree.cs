@@ -17,6 +17,7 @@ namespace ImageTools.DataCompression.Experimental
     {
         private readonly ulong[] _data;
         private readonly int _size;
+        private readonly int _indexHead;
         private readonly int _endSymbol;
         
         private ulong _sum; // a cache of the total sum, as it's used very often
@@ -31,6 +32,11 @@ namespace ImageTools.DataCompression.Experimental
         {
             if (size < 2 || size > 32767) throw new Exception("Invalid tree size");
             _size = size;
+            
+            var ih = size;
+            while (ih != LeastBit(ih)) ih -= LeastBit(ih);
+            _indexHead = ih; // _indexHead is now the highest power of 2 <= size
+            
             _endSymbol = endSymbol;
             _data = new ulong[size];
             for (int i = 0; i < size; i++) { _data[i] = 1; }
@@ -68,8 +74,7 @@ namespace ImageTools.DataCompression.Experimental
 
         public SymbolProbability FindSymbol(ulong scaledValue)
         {
-            var idx = Find(scaledValue);
-            RangeBounds(idx, out var lower, out var upper);
+            FindBoundaries(scaledValue, out var idx, out var lower, out var upper);
             return new SymbolProbability
             {
                 symbol = idx,
@@ -95,7 +100,37 @@ namespace ImageTools.DataCompression.Experimental
                 count = _sum,
             };
         }
-        
+
+        /// <summary>
+        /// This is Find, then RangeBounds.
+        /// Contains very compacted code, so see the other methods for definitions
+        /// </summary>
+        /// <param name="scaledInput">Symbol value from AE decoder</param>
+        /// <param name="index">decoded symbol index</param>
+        /// <param name="lowerBound">lower bound for that symbol</param>
+        /// <param name="upperBound">upper bound for that symbol</param>
+        private void FindBoundaries(ulong scaledInput, out int index, out ulong lowerBound, out ulong upperBound)
+        {
+            int i = 0, j = _indexHead;
+
+            for (; j > 0; j >>= 1)
+            {
+                if (i + j > _size || _data![i + j - 1] > scaledInput) continue;
+                scaledInput -= _data[i + j - 1];
+                i += j;
+            }
+            index = i;
+            
+            j = i + 1;
+            var k = i;
+            lowerBound = 0;
+            for (; k > 0; k = k & (k - 1)) lowerBound += _data![k - 1];
+            
+            upperBound = lowerBound;
+            for (; j > i; j = j & (j - 1)) upperBound += _data![j - 1];
+            for (; i > j; i = i & (i - 1)) upperBound -= _data![i - 1];
+        }
+
         /// <summary>
         /// Returns the sum of elements from i and to i+1
         /// Equivalent to prefix_sum(i), prefix_sum(i+1), but faster
@@ -106,11 +141,11 @@ namespace ImageTools.DataCompression.Experimental
             var k = i;
             
             lower = 0;
-            for (; k > 0; k -= LeastBit(k)) lower += _data![k - 1];
+            for (; k > 0; k = k & (k - 1)) lower += _data![k - 1];
             
             upper = lower;
-            for (; j > i; j -= LeastBit(j)) upper += _data![j - 1];
-            for (; i > j; i -= LeastBit(i)) upper -= _data![i - 1];
+            for (; j > i; j = j & (j - 1)) upper += _data![j - 1];
+            for (; i > j; i = i & (i - 1)) upper -= _data![i - 1];
         }
 
         /// <summary>
@@ -180,12 +215,8 @@ namespace ImageTools.DataCompression.Experimental
         /// <returns>Index of matching entry</returns>
         public int Find(ulong value)
         {
-            int i = 0, j = _size;
+            int i = 0, j = _indexHead;
 
-            // The following could be precomputed, or use find first set
-            while (j != LeastBit(j)) j -= LeastBit(j);
-            
-            // j is now the highest power of 2 <= SIZE
             for (; j > 0; j >>= 1)
             {
                 if (i + j > _size || _data![i + j - 1] > value) continue;

@@ -20,7 +20,7 @@ namespace ImageTools.DataCompression
 
             while (true)
             {
-                var value = DataEncoding.FibonacciDecodeOne(inp); // LZW is *all* backreferences
+                var value = (uint)DataEncoding.FibonacciDecodeOne(inp); // LZW is *all* back-references
 
                 string prevKey = GetKeyByIndex(dict, prevValue) ?? "";
                 string key = GetKeyByIndex(dict, value) ?? prevKey;

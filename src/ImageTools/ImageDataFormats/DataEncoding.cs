@@ -308,8 +308,10 @@ namespace ImageTools.ImageDataFormats
         public static void FibonacciEncode(float[] buffer, int length, Stream output)
         {
             // TODO: this could do with speeding up.
+            // TODO: this is the current optimisation target
             var bf = new byte[8]; // if each bit is set. Value is 0xFF or 0x00
             var v = new byte[]{ 1<<7, 1<<6, 1<<5, 1<<4, 1<<3, 1<<2, 1<<1, 1 }; // values of the flag
+            
             var bytePos = 0;
 
             if (length <= 0) length = buffer.Length;
@@ -325,8 +327,7 @@ namespace ImageTools.ImageDataFormats
 
                 // Signed to unsigned
                 int n = (int)inValue;
-                n = (n >= 0) ? (n * 2) : (n * -2) - 1; // value to be encoded
-                n += 1; // always greater than zero
+                n = (n >= 0) ? (n * 2) + 1: (n * -2); // value to be encoded
 
                 if (n > 514229) throw new Exception($"Value out of bounds: {inValue} at index {idx}");
 
@@ -404,19 +405,19 @@ namespace ImageTools.ImageDataFormats
             }
         }
         
-        public static List<byte> FibonacciEncodeOne(uint value) {
+        public static List<byte> FibonacciEncodeOne(ulong value) {
             var n = value + 1;
 
             var res = new Stack<byte>(20);
             res.Push(1);
 
             // find the smallest fibonacci number greater than `n`
-            uint f = 1, k = 1;
-            while (f <= n) {f = fibonacci(++k);}
+            ulong f = 1, k = 1;
+            while (f <= n) {f = fibonacciSeq64[++k];}
 
             // decompose back through the sequence
             while(--k > 1) {
-                f = fibonacci(k);
+                f = fibonacciSeq64[k];
                 if (f <= n) {
                     res.Push(1);
                     n -= f;
@@ -431,9 +432,9 @@ namespace ImageTools.ImageDataFormats
         /// <summary>
         /// Decode a single value from an open bitstream
         /// </summary>
-        public static uint FibonacciDecodeOne(BitwiseStreamWrapper input) {
+        public static ulong FibonacciDecodeOne(BitwiseStreamWrapper input) {
             bool lastWas1 = false;
-            uint accum = 0;
+            ulong accum = 0;
             uint pos = 0;
 
             while (!input.IsEmpty()) {
@@ -443,30 +444,29 @@ namespace ImageTools.ImageDataFormats
                     lastWas1 = true;
                 } else lastWas1 = false;
 
-                accum += (uint)f * fibonacci(pos + 2);
+                accum += (uint)f * fibonacciSeq64[pos + 2];
                 pos++;
             }
 
-            return accum - 1;
+            return accum - 1ul;
         }
         
         /// <summary>
         /// Decode a single value from an open bitstream
         /// </summary>
-        public static uint FibonacciDecodeOne(Queue<byte> input) {
+        public static ulong FibonacciDecodeOne(Queue<byte> input) {
             bool lastWas1 = false;
-            uint accum = 0;
+            ulong accum = 0;
             uint pos = 0;
 
             while (input.Count > 0) {
-                //if (!input.TryReadBit(out var f)) break;
                 var f = input.Dequeue();
                 if (f > 0) {
                     if (lastWas1) break;
                     lastWas1 = true;
                 } else lastWas1 = false;
 
-                accum += (uint)f * fibonacci(pos + 2);
+                accum += f * fibonacciSeq64[pos + 2];
                 pos++;
             }
 
@@ -577,7 +577,24 @@ namespace ImageTools.ImageDataFormats
         }
 
         // Cache of fib sequence
-        private static readonly uint[] fibonacciSeq = {0,1,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,1597,2584,4181,6765,10946,17711,28657,46368,75025,121393,196418 };
+        private static readonly uint[] fibonacciSeq = {
+            0,1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765, 10946, 17711, 28657, 46368,
+            75025, 121393, 196418, 317811, 514229, 832040, 1346269, 2178309, 3524578, 5702887, 9227465, 14930352, 24157817,
+            39088169, 63245986, 102334155, 165580141, 267914296, 433494437, 701408733, 1134903170, 1836311903, 2971215073
+        };
+        
+        private static readonly ulong[] fibonacciSeq64 = {
+            0,1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181, 6765, 10946, 17711, 28657, 46368,
+            75025, 121393, 196418, 317811, 514229, 832040, 1346269, 2178309, 3524578, 5702887, 9227465, 14930352, 24157817,
+            39088169, 63245986, 102334155, 165580141, 267914296, 433494437, 701408733, 1134903170, 1836311903, 2971215073,
+            4807526976, 7778742049, 12586269025, 20365011074, 32951280099, 53316291173, 86267571272, 139583862445, 225851433717,
+            365435296162, 591286729879, 956722026041, 1548008755920, 2504730781961, 4052739537881, 6557470319842, 10610209857723,
+            17167680177565, 27777890035288, 44945570212853, 72723460248141, 117669030460994, 190392490709135, 308061521170129,
+            498454011879264, 806515533049393, 1304969544928657, 2111485077978050, 3416454622906707, 5527939700884757, 8944394323791464,
+            14472334024676220, 23416728348467684, 37889062373143900, 61305790721611580, 99194853094755490, 160500643816367070,
+            259695496911122560, 420196140727489660, 679891637638612200, 1100087778366101900, 1779979416004714000,
+            2880067194370816000, 4660046610375530000, 7540113804746346000, 12200160415121877000
+        };
 
         private static uint fibonacci (uint n) {
             if (fibonacciSeq.Length > n) { return fibonacciSeq[n]; }
