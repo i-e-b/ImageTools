@@ -23,10 +23,132 @@ namespace ImageTools
     /// </remarks>
     public class ColorCellEncoding
     {
+
         /// <summary>
         /// Encode an image as a byte array.
         /// The output is always in blocks of 48 bits (6 bytes).
         /// Has a fixed compression ratio of 3bpp output.
+        /// <para></para>
+        /// This version uses integer calculations internally
+        /// </summary>
+        public static byte[] EncodeImage2D_int(Bitmap src)
+        {
+            if (src == null) return null;
+            BitmapTools.ArgbImageToYUVPlanes_int(src, out var Y, out var U, out var V);
+            int width = src.Width;
+            int height = src.Height;
+
+            var block_Y = new int[16];
+            var block_U = new int[16];
+            var block_V = new int[16];
+
+            // Plan - 24 bit color for high and low - 888 YUV
+            //        There is only one color per 4x4 block, U is encoded with high Y, V with low Y
+            //        16 bit 4x4 bitmap between high and low
+            //        This results in 6 bytes per 16 pixel block (3bpp)
+
+            var outp = new MemoryStream();
+            var w = new BinaryWriter(outp);
+
+            // write width & height
+            w.Write((ushort)width);
+            w.Write((ushort)height);
+
+            var blockH = height - (height % 4);
+            var blockW = width - (width % 4);
+
+            for (int by = 0; by < blockH; by += 4) // block y axis
+            {
+                for (int bx = 0; bx < blockW; bx += 4) // block x axis
+                {
+                    // pick 4x4 block into an array
+                    PickBlock16(by, width, bx, block_Y, block_U, block_V, Y, U, V);
+                    // calculate the upper and lower colors, and the bit pattern
+                    AveBlock16(block_Y, block_U, block_V, out var upperY, out var lowerY, out var aveU, out var aveV, out var bits);
+
+                    // encode colors
+                    // we share the color across the two (better color repo, less spatial)
+                    var encUpper = YUV_to_YC88(upperY, aveU);
+                    var encLower = YUV_to_YC88(lowerY, aveV);
+
+                    // write data
+                    w.Write(encUpper);
+                    w.Write(encLower);
+                    w.Write(bits);
+                }
+            }
+
+            outp.Seek(0, SeekOrigin.Begin);
+            return outp.ToArray();
+        }
+
+        /// <summary>
+        /// Restore a bitmap from a byte array created by `EncodeImage2D`
+        /// <para></para>
+        /// This version uses integer calculations internally
+        /// </summary>
+        public static Bitmap DecodeImage2D_int(byte[] encoded)
+        {
+            var ms = new MemoryStream(encoded);
+            var r = new BinaryReader(ms);
+
+            var width = r.ReadUInt16();
+            var height = r.ReadUInt16();
+            var sampleCount = width * height;
+
+            var Y = new int[sampleCount];
+            var U = new int[sampleCount];
+            var V = new int[sampleCount];
+
+            var blockH = height - (height % 4);
+            var blockW = width - (width % 4);
+
+            for (int by = 0; by < blockH; by += 4) // block y axis
+            {
+                for (int bx = 0; bx < blockW; bx += 4) // block x axis
+                {
+                    var encUpper = r.ReadUInt16();
+                    var encLower = r.ReadUInt16();
+                    var bits = r.ReadUInt16();
+
+                    YC88_to_YC_int(encUpper, out var upper, out var aveU);
+                    YC88_to_YC_int(encLower, out var lower, out var aveV);
+
+                    // write pixel colors
+                    for (int y = 0; y < 4; y++)
+                    {
+                        var yo = (by + y) * width;
+                        for (int x = 0; x < 4; x++)
+                        {
+                            var xo = x + bx;
+
+                            if ((bits & 1) > 0) {
+                                Y[yo + xo] = upper;
+                                U[yo + xo] = aveU;
+                                V[yo + xo] = aveV;
+                            } else {
+                                Y[yo + xo] = lower;
+                                U[yo + xo] = aveU;
+                                V[yo + xo] = aveV;
+                            }
+                            bits >>= 1;
+                        }
+                    }
+                }
+            }
+
+            var dst = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            BitmapTools.YUVPlanes_To_ArgbImage_int(dst, 0,Y,U,V);
+            return dst;
+        }
+
+
+        /// <summary>
+        /// Encode an image as a byte array.
+        /// The output is always in blocks of 48 bits (6 bytes).
+        /// Has a fixed compression ratio of 3bpp output.
+        /// <para></para>
+        /// This version uses floating-point calculations internally
         /// </summary>
         public static byte[] EncodeImage2D(Bitmap src)
         {
@@ -257,11 +379,22 @@ namespace ImageTools
             C = encoded & 0xff;
         }
 
+        private static void YC88_to_YC_int(ushort encoded, out int Y, out int C)
+        {
+            Y = encoded >> 8;
+            C = encoded & 0xff;
+        }
+
         private static int YUV_to_YC88(float Y, float C)
         {
             var y = (ColorSpace.clip(Y) << 8) & 0xff00;
             var c =  ColorSpace.clip(C)       & 0x00ff;
             return y | c;
+        }
+        
+        private static ushort YUV_to_YC88(int Y, int C)
+        {
+            return (ushort)(((Y & 0xff) << 8) | (C & 0xff));
         }
 
         private static int YUV_to_YC664(float Y, float U, float V)
@@ -314,6 +447,53 @@ namespace ImageTools
                 } else {
                     countLower++;
                     lowerY += sample.Y;
+                }
+            }
+
+            if (countLower > 0) {
+                lowerY /= countLower;
+            }
+
+            if (countUpper > 0) {
+                upperY /= countUpper;
+            }
+        }
+
+        
+        private static void AveBlock16(int[] block_Y,int[] block_U,int[] block_V, out int upperY, out int lowerY, out int U, out int V, out ushort bits)
+        {
+            // set outputs to starting condition
+            upperY = 0;
+            lowerY = 0;
+            bits = 0;
+            U = 0;
+            V = 0;
+
+            // calculate average brightness
+            var aveY = 0;
+            for (int i = 0; i < 16; i++) { 
+                aveY += block_Y[i];
+                U += block_U[i];
+                V += block_V[i];
+            }
+            aveY >>= 4;
+            U >>= 4;
+            V >>= 4;
+
+            int countUpper = 0;
+            int countLower = 0;
+
+            // Separate colors either side of the average
+            for (int i = 0; i < 16; i++)
+            {
+                var sample = block_Y[i];
+                if (sample >= aveY) {
+                    countUpper++;
+                    upperY += sample;
+                    bits |= (ushort)(1u << i);
+                } else {
+                    countLower++;
+                    lowerY += sample;
                 }
             }
 
@@ -393,6 +573,21 @@ namespace ImageTools
                     var xo = x + bx;
 
                     block[x + (y * 4)] = new TripleFloat {Y = Y[yo + xo], U = U[yo + xo], V = V[yo + xo]};
+                }
+            }
+        }
+        
+        private static void PickBlock16(int by, int width, int bx, int[] block_Y, int[] block_U, int[] block_V, int[] Y, int[] U, int[] V)
+        {
+            for (int y = 0; y < 4; y++)
+            {
+                var yo = (by + y) * width;
+                for (int x = 0; x < 4; x++)
+                {
+                    var xo = x + bx;
+                    block_Y[x + (y * 4)] = Y[yo + xo];
+                    block_U[x + (y * 4)] = U[yo + xo];
+                    block_V[x + (y * 4)] = V[yo + xo];
                 }
             }
         }

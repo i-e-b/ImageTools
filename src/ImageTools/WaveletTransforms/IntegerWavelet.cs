@@ -8,7 +8,7 @@ namespace ImageTools.WaveletTransforms
     /// </summary>
     public class IntegerWavelet
     {
-        private static int[] x = new int[2048];
+        private static int[] x = new int[10240];
 
         public static void Forward (float[] buf, float[] _ignored_, int n, int offset, int stride) {
             int i,j;

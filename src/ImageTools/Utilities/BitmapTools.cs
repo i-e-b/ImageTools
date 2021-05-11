@@ -425,6 +425,53 @@ namespace ImageTools.Utilities
             }
         }
         
+        
+        public static unsafe void YUVPlanes_To_ArgbImage_int(Bitmap dst, int offset, int[] Y, int[] U, int[] V)
+        {
+            var ri = new Rectangle(Point.Empty, dst.Size);
+            var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            var len = dstData.Height * dstData.Width;
+            if (len > Y.Length) len = Y.Length;
+            try
+            {
+                var s = (uint*)dstData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    ColorSpace.YUV888_To_RGB32(Y[offset+i], U[offset+i], V[offset+i], out var c);
+                    s[i] = c;
+                }
+            }
+            finally
+            {
+                dst.UnlockBits(dstData);
+            }
+        }
+        
+        public static unsafe void ArgbImageToYUVPlanes_int(Bitmap src, out int[] Y, out int[] U, out int[] V)
+        {
+            var ri = new Rectangle(Point.Empty, src.Size);
+            var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            var len = srcData.Height * srcData.Width;
+            Y = new int[len];
+            U = new int[len];
+            V = new int[len];
+            try
+            {
+                var s = (uint*)srcData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    ColorSpace.RGB32_To_YUV888(s[i], out var y, out var u, out var v);
+                    Y[i] = y;
+                    U[i] = u;
+                    V[i] = v;
+                }
+            }
+            finally
+            {
+                src.UnlockBits(srcData);
+            }
+        }
+        
         public static unsafe void ArgbImageToYUVPlanes_f(Bitmap src, out float[] Y, out float[] U, out float[] V)
         {
             var ri = new Rectangle(Point.Empty, src.Size);

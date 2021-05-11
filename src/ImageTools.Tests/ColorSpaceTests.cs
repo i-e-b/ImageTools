@@ -48,6 +48,24 @@ namespace ImageTools.Tests
             Assert.That(G_out, Is.InRange(G_in - 2, G_in + 2));
             Assert.That(B_out, Is.InRange(B_in - 2, B_in + 2));
         }
+        
+        [Test]
+        public void YUV_integer__Round_trip() {
+            var R_in = 127;
+            var G_in = 20;
+            var B_in = 30;
+
+            var c_in = ColorSpace.ComponentToCompound(0, R_in, G_in, B_in);
+
+            ColorSpace.RGB32_To_YUV888(c_in, out var Y, out var U, out var V);
+            ColorSpace.YUV888_To_RGB32(Y,U,V, out var c_out);
+
+            ColorSpace.CompoundToComponent(c_out, out _, out var R_out, out var G_out, out var B_out);
+            
+            Assert.That(R_out, Is.InRange(R_in - 2, R_in + 2));
+            Assert.That(G_out, Is.InRange(G_in - 2, G_in + 2));
+            Assert.That(B_out, Is.InRange(B_in - 2, B_in + 2));
+        }
 
         [Test, Description("show the result of just one plane at a time from an image")]
         public void Y_Cb_Cr__separations()

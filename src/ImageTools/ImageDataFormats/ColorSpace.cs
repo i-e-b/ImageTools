@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using ImageTools.Utilities;
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable IdentifierTypo
@@ -412,6 +411,44 @@ namespace ImageTools.ImageDataFormats
             Y = 16 + (0.257 * R + 0.504 * G + 0.098 * B);
             U = 128 + (-0.148 * R + -0.291 * G + 0.439 * B);
             V = 128 + (0.439 * R + -0.368 * G + -0.071 * B);
+        }
+        
+        /// <summary>
+        /// Integer conversion to YUV.
+        /// You should use the matching integer conversion back
+        /// </summary>
+        public static void RGB32_To_YUV888(uint c, out int Y, out int U, out int V)
+        {
+            var R = (int) ((c >> 16) & 0xff);
+            var G = (int) ((c >>  8) & 0xff);
+            var B = (int) ( c        & 0xff);
+            Y =  66 * R + 129 * G +  25 * B + 128;
+            U = -38 * R + -74 * G + 112 * B + 128;
+            V = 112 * R + -94 * G + -18 * B + 128;
+            Y =  16 + (Y>>8);
+            U = 128 + (U>>8);
+            V = 128 + (V>>8);
+        }
+        
+        /// <summary>
+        /// Integer conversion from YUV.
+        /// You should use the matching integer conversion back
+        /// </summary>
+        public static void YUV888_To_RGB32(int Y, int U, int V, out uint c)
+        {
+            var y = Y - 16;
+            var u = U - 128;
+            var v = V - 128;
+            
+            var R = (298 * y           + 409 * v + 128) >> 8;
+            var G = (298 * y - 100 * u - 208 * v + 128) >> 8;
+            var B = (298 * y + 516 * u           + 128) >> 8;
+            
+            R = (R > 0xff) ? 0xff0000 : (R < 0) ? 0 : R << 16;
+            G = (G > 0xff) ? 0x00ff00 : (G < 0) ? 0 : G <<  8;
+            B = (B > 0xff) ? 0x0000ff : (B < 0) ? 0 : B;
+            
+            c = (uint)(R | G | B);
         }
 
         /// <summary>

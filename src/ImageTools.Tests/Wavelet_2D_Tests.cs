@@ -289,6 +289,20 @@ namespace ImageTools.Tests
         }
         
         [Test]
+        public void compressing_non_power_of_two_image__urban () {
+
+            using (var bmp = Load.FromFile("./inputs/7.jpg"))
+            {
+                using (var bmp2 = WaveletCompress.Planar2ReduceImage(bmp))
+                {
+                    bmp2.SaveBmp("./outputs/Cdf97_Planar2_32bpp_7.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_7.bmp"));
+        }
+        
+        [Test]
         public void compressing_non_power_of_two_image_large () {
 
             using (var bmp = Load.FromFile("./inputs/moire_sample.PNG"))

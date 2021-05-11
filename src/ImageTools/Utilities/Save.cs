@@ -51,5 +51,18 @@ namespace ImageTools.Utilities
 			src.Save(outputStream, encoder, parameters);
 			outputStream.Flush();
 		}
+
+		public static void SaveToPath(this byte[] bytes, string filePath)
+		{
+			filePath = ToPath(filePath);
+
+			var p = Path.GetDirectoryName(filePath);
+			if (!string.IsNullOrEmpty(p))
+			{
+				Directory.CreateDirectory(p);
+			}
+			if (File.Exists(filePath)) File.Delete(filePath);
+			File.WriteAllBytes(filePath, bytes);
+		}
 	}
 }

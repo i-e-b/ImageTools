@@ -1126,7 +1126,8 @@ namespace ImageTools
         {
             // Current best: 265kb (using input 3.png)
 
-            int rounds = (int)Math.Log(planeWidth, 2);
+            var minDim = Math.Min(planeWidth, planeHeight);
+            int rounds = (int)Math.Round(Math.Log(minDim, 2) - 0.5);
             Console.WriteLine($"Decomposing with {rounds} rounds");
 
             var p2Height = (int)Bin.NextPow2((uint) planeHeight);

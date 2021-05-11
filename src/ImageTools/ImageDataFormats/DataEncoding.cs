@@ -307,8 +307,7 @@ namespace ImageTools.ImageDataFormats
         /// <param name="output">Writable stream for output</param>
         public static void FibonacciEncode(float[] buffer, int length, Stream output)
         {
-            // TODO: this could do with speeding up.
-            // TODO: this is the current optimisation target
+            if (buffer == null || output == null || fseq == null) throw new Exception();
             byte runningValue = 0;
             var bytePos = 0;
 
@@ -325,7 +324,7 @@ namespace ImageTools.ImageDataFormats
                 int n = (int)buffer[idx];
                 n = (n >= 0) ? (n * 2) + 1: (n * -2); // value to be encoded
 
-                //if (n > 514229) throw new Exception($"Value out of bounds: {n} at index {idx}");
+                if (n > 514229) n = 1; // bad value. Pass a zero. Throw here if you're debugging.
 
                 // Fibonacci encode
                 ulong resultPattern = 0UL;
@@ -339,11 +338,9 @@ namespace ImageTools.ImageDataFormats
                 else // non-zero case
                 {
                     // find starting position
-                    var i = 3; // should be idx 2, but we have a special case above
-                    while (fseq[i] < n)
-                    {
-                        i++;
-                    } // TODO: do a bin-search?
+                    //var i = 3; // should be idx 2, but we have a special case above
+                    var i = (int)(2.078087f * (float) Math.Log(n) + 1.672276f); // guess the index, erring on the low side
+                    while (fseq[i] < n) { i++; }
 
                     // scan backwards marking value bits
                     while (n > 0)
@@ -358,7 +355,7 @@ namespace ImageTools.ImageDataFormats
                         i--;
                     }
 
-                    resultPattern |= 1UL << (highestBitWritten - 1);
+                    resultPattern |= 1UL << (highestBitWritten - 1); // set terminator bit
                 }
 
                 // output to stream
