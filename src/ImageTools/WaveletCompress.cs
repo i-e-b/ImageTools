@@ -121,22 +121,22 @@ namespace ImageTools
             //               ColorSpace.RGBToYiq          --> (3.2s) 302.51kb
             
             sw.Start();
-            BitmapTools.ImageToPlanes_ForcePower2(src, ColorSpace.sRGB_To_OklabByte, out var Y, out var U, out var V, out var width, out var height);
+            BitmapTools.ImageToPlanes_ForcePower2(src, ColorSpace.RGBToYUV, out var Y, out var U, out var V, out var width, out var height);
             sw.Stop();
             Console.WriteLine($"Convert colorspace: {sw.Elapsed}");
             
             
             sw.Restart();
-            //WaveletDecomposePlanar2(CDF.Fwt97, CDF.Iwt97, Y,U,V, width, height, src.Width, src.Height);
+            WaveletDecomposePlanar2(CDF.Fwt97, CDF.Iwt97, Y,U,V, width, height, src.Width, src.Height);
             //WaveletDecomposePlanar2(CDF.Fwt53, CDF.Iwt53, Y,U,V, width, height, src.Width, src.Height);
-            WaveletDecomposePlanar2(IntegerWavelet.Forward, IntegerWavelet.Inverse , Y,U,V, width, height, src.Width, src.Height);
+            //WaveletDecomposePlanar2(IntegerWavelet.Forward, IntegerWavelet.Inverse , Y,U,V, width, height, src.Width, src.Height);
             sw.Stop();
             Console.WriteLine($"Compress and expand image: {sw.Elapsed}");
 
             
             sw.Restart();
             var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
-            BitmapTools.PlanesToImage_Slice(dst, ColorSpace.OklabByte_To_sRGB, 0, width, Y, U, V);
+            BitmapTools.PlanesToImage_Slice(dst, ColorSpace.YUVToRGB, 0, width, Y, U, V);
             sw.Stop();
             Console.WriteLine($"Convert colorspace: {sw.Elapsed}");
 
@@ -1127,7 +1127,7 @@ namespace ImageTools
             // Current best: 265kb (using input 3.png)
 
             var minDim = Math.Min(planeWidth, planeHeight);
-            int rounds = (int)Math.Round(Math.Log(minDim, 2) - 0.5);
+            int rounds = (int)Math.Log(minDim, 2);
             Console.WriteLine($"Decomposing with {rounds} rounds");
 
             var p2Height = (int)Bin.NextPow2((uint) planeHeight);

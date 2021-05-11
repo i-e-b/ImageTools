@@ -450,6 +450,26 @@ namespace ImageTools.ImageDataFormats
             
             c = (uint)(R | G | B);
         }
+        /// <summary>
+        /// Integer conversion from YUV.
+        /// You should use the matching integer conversion back
+        /// </summary>
+        public static uint YUV888_To_RGB32(int Y, int U, int V)
+        {
+            var y = Y - 16;
+            var u = U - 128;
+            var v = V - 128;
+            
+            var R = (298 * y           + 409 * v + 128) >> 8;
+            var G = (298 * y - 100 * u - 208 * v + 128) >> 8;
+            var B = (298 * y + 516 * u           + 128) >> 8;
+            
+            R = (R > 0xff) ? 0xff0000 : (R < 0) ? 0 : R << 16;
+            G = (G > 0xff) ? 0x00ff00 : (G < 0) ? 0 : G <<  8;
+            B = (B > 0xff) ? 0x0000ff : (B < 0) ? 0 : B;
+            
+            return (uint)(R | G | B);
+        }
 
         /// <summary>
         /// Lossless conversion from Ycbcr 
@@ -1001,6 +1021,32 @@ namespace ImageTools.ImageDataFormats
             var b = iB >= thresh ? 1.055 * Math.Pow(iB, inv) - ams : 12.92 * iB;
             
             return (r,g,b);
+        }
+
+        public static void RGB_To_KLA(double R, double G, double B, out double c1, out double c2, out double c3)
+        {
+            var X = 0.54933 * R + 0.60238 * G + 0.57912 * B + 64;
+            var Y = 0.80429 * R - 0.19322 * G - 0.56194 * B + 128;
+            var Z = 0.22661 * R - 0.77447 * G - 0.59063 * B + 128;
+
+            c1 = /*clip*/(X);
+            c2 = /*clip*/(Y);
+            c3 = /*clip*/(Z);
+        }
+
+        public static void KLA_To_RGB(double c1, double c2, double c3, out double R, out double G, out double B)
+        {
+            var x = c1 - 64;
+            var y = c2 - 128;
+            var z = c3 - 128;
+            
+            R =  1.06209 * x + 0.30672 * y + 0.74957 * z;
+            G = -1.15012 * x + 1.50733 * y - 2.56183 * z;
+            B =  1.91561 * x - 1.85882 * y + 1.95371 * z;
+
+            R = clip(R);
+            G = clip(G);
+            B = clip(B);
         }
     }
 }

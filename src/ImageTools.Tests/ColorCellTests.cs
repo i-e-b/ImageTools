@@ -322,5 +322,64 @@ namespace ImageTools.Tests
                 Console.WriteLine($"Decoding took {sw.Elapsed}");
             }
         }
+        
+        [Test]
+        public void compress_and_restore_from_file__integer__very_wide()
+        {
+            var sw = new Stopwatch();
+            int size;
+            using (var bmp = Load.FromFile("./inputs/super_wide.jpg"))
+            {
+                sw.Start();
+                var bytes = ColorCellEncoding.EncodeImage2D_int(bmp);
+                sw.Stop();
+                
+                size = bytes.Length;
+                bytes.SaveToPath("./outputs/colorCell.dat");
+                Console.WriteLine($"Encoding took {sw.Elapsed}");
+            }
+
+            var fileBytes = File.ReadAllBytes(Save.ToPath("./outputs/colorCell.dat"));
+            sw.Restart();
+            using (var bmp2 = ColorCellEncoding.DecodeImage2D_int(fileBytes))
+            {
+                sw.Stop();
+                bmp2.SaveBmp("./outputs/CC_32bpp_super_wide_int.bmp");
+                var bpp = (size * 8.0) / (bmp2.Width * bmp2.Height);
+
+                Console.WriteLine($"Encoded to {Bin.Human(size)} at {bpp} bpp");
+                Console.WriteLine($"Decoding took {sw.Elapsed}");
+            }
+        }
+
+        [Test]
+        public void compress_and_restore_from_file__integer__high_frequency()
+        {
+            var sw = new Stopwatch();
+            int size;
+            // ReSharper disable once StringLiteralTypo
+            using (var bmp = Load.FromFile("./inputs/macscreen.png"))
+            {
+                sw.Start();
+                var bytes = ColorCellEncoding.EncodeImage2D_int(bmp);
+                sw.Stop();
+                
+                size = bytes.Length;
+                bytes.SaveToPath("./outputs/colorCell.dat");
+                Console.WriteLine($"Encoding took {sw.Elapsed}");
+            }
+
+            var fileBytes = File.ReadAllBytes(Save.ToPath("./outputs/colorCell.dat"));
+            sw.Restart();
+            using (var bmp2 = ColorCellEncoding.DecodeImage2D_int(fileBytes))
+            {
+                sw.Stop();
+                bmp2.SaveBmp("./outputs/CC_32bpp_ms_int.bmp");
+                var bpp = (size * 8.0) / (bmp2.Width * bmp2.Height);
+
+                Console.WriteLine($"Encoded to {Bin.Human(size)} at {bpp} bpp");
+                Console.WriteLine($"Decoding took {sw.Elapsed}");
+            }
+        }
     }
 }

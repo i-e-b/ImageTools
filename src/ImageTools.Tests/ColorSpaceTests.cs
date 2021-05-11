@@ -193,6 +193,39 @@ namespace ImageTools.Tests
                 }
             }
         }
+        
+        
+        [Test, Description("show the result of just one plane at a time from an image")]
+        public void KLA__separations()
+        {
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                using (var dst = new Bitmap(bmp))
+                {
+                    BitmapTools.ImageToPlanes(bmp, ColorSpace.RGB_To_KLA, out var Lp, out var Ap, out var Bp);
+                    
+                    var maxL = 0.0;
+                    for (int i = 0; i < Lp.Length; i++) { maxL = Math.Max(maxL, Lp[i]); }
+                    Console.WriteLine($"Max value of L = {maxL:0.00}");
+                    
+                    var zeroP = new double[Lp.Length]; // to zero out other planes
+                    var maxP = new double[Lp.Length]; // to zero out other planes
+                    for (int i = 0; i < zeroP.Length; i++) { zeroP[i] = 0.0; maxP[i] = 0.5; }
+
+                    BitmapTools.PlanesToImage(dst, ColorSpace.KLA_To_RGB, 0, Lp, zeroP, zeroP); // TODO: inverse transform
+                    dst.SaveBmp("./outputs/3_KLA_1-only.bmp");
+                    
+                    BitmapTools.PlanesToImage(dst, ColorSpace.KLA_To_RGB, 0, maxP, Ap, zeroP);
+                    dst.SaveBmp("./outputs/3_KLA_2-only.bmp");
+                    
+                    BitmapTools.PlanesToImage(dst, ColorSpace.KLA_To_RGB, 0, maxP, zeroP, Bp);
+                    dst.SaveBmp("./outputs/3_KLA_3-only.bmp");
+                    
+                    BitmapTools.PlanesToImage(dst, ColorSpace.KLA_To_RGB, 0, Lp, Ap, Bp);
+                    dst.SaveBmp("./outputs/3_KLA_restored.bmp");
+                }
+            }
+        }
 
         
         [Test, Description("show the result of just one plane at a time from an image")]
@@ -218,6 +251,7 @@ namespace ImageTools.Tests
                 }
             }
         }
+        
         [Test, Description("Outputs a sample image showing the color planes")]
         public void YCoCg_Swatch()
         {
@@ -250,7 +284,6 @@ namespace ImageTools.Tests
                 bmp.SaveBmp("./outputs/YCoCg_Swatch.bmp");
             }
         }
-
         
         [Test, Description("Outputs a sample image showing the color planes")]
         public void Yiq_Swatch()
@@ -311,6 +344,40 @@ namespace ImageTools.Tests
                 bmp.SaveBmp("./outputs/YUV_Swatch.bmp");
             }
         }
+        
+        [Test, Description("Outputs a sample image showing the color planes")]
+        public void YUV_integer_Swatch()
+        {
+            var width = 512;
+            var height = 128;
+
+            using (var bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb))
+            {
+                var q_width = width >> 2;
+                var dy = 255.0f / height;
+                var dx = 255.0f / q_width;
+                for (int y = 0; y < height; y++)
+                {
+                    for (int x = 0; x < q_width; x++)
+                    {
+                        var c = Color.FromArgb((int) ColorSpace.YUV888_To_RGB32(0, (int)(y * dy), (int)(x * dx)));
+                        bmp.SetPixel(x, y, c);
+                        
+                        c = Color.FromArgb((int) ColorSpace.YUV888_To_RGB32(100, (int)(y * dy), (int)(x * dx)));
+                        bmp.SetPixel(x + q_width, y, c);
+
+                        c = Color.FromArgb((int) ColorSpace.YUV888_To_RGB32(180, (int)(y * dy), (int)(x * dx)));
+                        bmp.SetPixel(x + (q_width*2), y, c);
+
+                        c = Color.FromArgb((int) ColorSpace.YUV888_To_RGB32(255, (int)(y * dy), (int)(x * dx)));
+                        bmp.SetPixel(x + (q_width*3), y, c);
+                    }
+                }
+
+                bmp.SaveBmp("./outputs/YUV_int_Swatch.bmp");
+            }
+        }
+
         
         [Test, Description("Outputs a sample image showing the color planes")]
         public void Ycrcb_Swatch()
