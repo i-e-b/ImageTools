@@ -162,7 +162,8 @@ namespace ImageViewer
         {
             if (e.Clicks > 1)
             {
-                _scale = _scale > 1.0f ? 1.0f : 4.0f;
+                var newScale = _scale > 1.0f ? 1.0f : 4.0f;
+                UpdateScaleAdjusted(e.X, e.Y, newScale);
                 Invalidate();
                 return;
             }
@@ -179,7 +180,34 @@ namespace ImageViewer
             _x += (e.X - _mx) / _scale;
             _y += (e.Y - _my) / _scale;
             _mx = e.X; _my = e.Y;
+            PinScrollToScreen();
             Invalidate();
+        }
+
+        private void UpdateScaleAdjusted(float mouseX, float mouseY, float newScale)
+        {
+            var oldScale = _scale;
+            
+            // compensate for centre point
+            // Should zoom over relative mouse point if possible
+            
+            // the _x,_y offset is scaled, so we want to find out
+            // where the mouse is in relation to it before the scale
+            // and then update _x,_y so that point is still under the
+            // mouse after the scale
+            
+            // page xy at old scale
+            var px = -_x + (mouseX / oldScale);
+            var py = -_y + (mouseY / oldScale);
+            
+            // where would we be on the page at the new scale?
+            var ax = -_x + (mouseX / newScale);
+            var ay = -_y + (mouseY / newScale);
+
+            _x += ax - px;
+            _y += ay - py;
+            _scale = newScale;
+            PinScrollToScreen();
         }
 
         private void ChangeZoom(object sender, MouseEventArgs e)
@@ -187,15 +215,29 @@ namespace ImageViewer
             if (e.Delta == 0) return;
             
             var speed = (ModifierKeys & Keys.Control) != 0 ? 0.1f : 0.01f;
-            _scale += Math.Sign(e.Delta) * speed;
+            var newScale = _scale + Math.Sign(e.Delta) * speed;
                 
-            if (_scale < 0.01f) _scale = 0.01f;
-            if (_scale > 10.0f) _scale = 10.0f;
-                
-            // TODO: compensate for centre point
+            if (newScale < 0.01f) newScale = 0.01f;
+            if (newScale > 10.0f) newScale = 10.0f;
+            
+            UpdateScaleAdjusted(e.X, e.Y, newScale);
             
             Text = (_scale * 100).ToString("0.0");
             Invalidate();
+        }
+        
+        private void PinScrollToScreen()
+        {
+            if (_imageCache == null) return;
+            
+            
+            var imgWidth = _imageCache.Width;
+            var halfScreenWidth = (Width / 2.0f) / _scale;
+            var imgHeight = _imageCache.Height;
+            var halfScreenHeight = (Height / 2.0f) / _scale;
+            
+            _x = Math.Min(halfScreenWidth,Math.Max(-imgWidth + halfScreenWidth,_x));
+            _y = Math.Min(halfScreenHeight,Math.Max(-imgHeight + halfScreenHeight,_y));
         }
 
         private void resetZoomBtn_Click(object sender, EventArgs e)
