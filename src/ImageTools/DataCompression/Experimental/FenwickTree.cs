@@ -113,6 +113,7 @@ namespace ImageTools.DataCompression.Experimental
         {
             int i = 0, j = _indexHead;
 
+            // TODO: this is a major performance impact
             for (; j > 0; j >>= 1)
             {
                 if (i + j > _size || _data![i + j - 1] > scaledInput) continue;

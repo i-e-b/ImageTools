@@ -24,9 +24,13 @@ namespace ImageTools.WaveletTransforms
         public static void Fwt97(float[] buf, float[] x, int n, int offset, int stride)
         {
             int i;
+            
+            // TODO: Picking out the data to temp, and putting it back is a costly process.
+            //       See if it can be done in-place?
 
             // pick out stride data
-            for (i = 0; i < n; i++) { x[i] = buf[i * stride + offset]; }
+            var p = offset;
+            for (i = 0; i < n; i++) { x[i] = buf[p]; p+=stride; }
 
             // Predict 1
             var a = -1.586134342f;
@@ -73,9 +77,12 @@ namespace ImageTools.WaveletTransforms
             // The raw output is like [DC][AC][DC][AC]...
             // we want it as          [DC][DC]...[AC][AC]
             var hn = n/2;
+            var p1 = offset; var p0 = hn * stride; var px = 0;
             for (i = 0; i < hn; i++) {
-                buf[i * stride + offset] = x[i*2];
-                buf[(i + hn) * stride + offset] = x[1 + i * 2];
+                buf[p1] = x[px++];
+                buf[p1+p0] = x[px++];
+                
+                p1 += stride;
             }
         }
 
@@ -94,9 +101,12 @@ namespace ImageTools.WaveletTransforms
             // The raw input is like [DC][DC]...[AC][AC]
             // we want it as         [DC][AC][DC][AC]...
             var hn = n/2;
+            var p1 = offset; var p0 = hn * stride; var px = 0;
             for (i = 0; i < hn; i++) {
-                x[i*2] = buf[i * stride + offset];
-                x[1 + i * 2] = buf[(i + hn) * stride + offset];
+                x[px++] = buf[p1];
+                x[px++] = buf[p1+p0];
+                
+                p1 += stride;
             }
 
             // Undo scale
@@ -142,7 +152,8 @@ namespace ImageTools.WaveletTransforms
             
 
             // write back stride data
-            for (i = 0; i < n; i++) { buf[i * stride + offset] = x[i]; }
+            var p = offset;
+            for (i = 0; i < n; i++) { buf[p] = x[i]; p+=stride; }
         }
 
 
