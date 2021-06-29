@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using ImageTools.DistanceFields;
 using ImageTools.Utilities;
 using NUnit.Framework;
 

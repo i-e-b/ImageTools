@@ -44,6 +44,7 @@
     <Compile Include="AnalyticalTransforms\CubicInterpolate.cs" />
     <Compile Include="AnalyticalTransforms\FilterButterworth.cs" />
     <Compile Include="BiCubicBoxScale.cs" />
+    <Compile Include="ByteImage.cs" />
     <Compile Include="CubicScale.cs" />
     <Compile Include="DataCompression\ArithmeticEncoding\ArithmeticEncode.cs" />
     <Compile Include="DataCompression\ArithmeticEncoding\ProbabilityModels.cs" />
@@ -55,7 +56,11 @@
     <Compile Include="DataCompression\LzType\LZMWPack.cs" />
     <Compile Include="DataCompression\LzType\LZSSPack.cs" />
     <Compile Include="DataCompression\LzType\LZWPack.cs" />
-    <Compile Include="DistanceField.cs" />
+    <Compile Include="DistanceFields\DistanceField.cs" />
+    <Compile Include="DistanceFields\ScanlineDraw.cs" />
+    <Compile Include="DistanceFields\SdfDraw.cs" />
+    <Compile Include="DistanceFields\Matrix2.cs" />
+    <Compile Include="DistanceFields\Vector2.cs" />
     <Compile Include="GeneralTypes\Size2D.cs" />
     <Compile Include="ImageDataFormats\BitwiseStreamWrapper.cs" />
     <Compile Include="ErrorDiffusionScale.cs" />
