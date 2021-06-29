@@ -48,7 +48,7 @@
     <Compile Include="DistanceFieldTests.cs" />
     <Compile Include="ImageHeaderTests.cs" />
     <Compile Include="ImageRotationTests.cs" />
-    <Compile Include="LineRenderingTests.cs" />
+    <Compile Include="GeometryRenderingTests.cs" />
     <Compile Include="LosslessDataCompressionTests.cs" />
     <Compile Include="BlurringImages.cs" />
     <Compile Include="ByteEncodingTests.cs" />

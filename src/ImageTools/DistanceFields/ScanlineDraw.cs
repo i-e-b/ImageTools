@@ -8,6 +8,7 @@ namespace ImageTools.DistanceFields
     /// </summary>
     public static class ScanlineDraw
     {
+#region Tables
         private static readonly byte[] _gammaAdjust = new byte[256];
         /// <summary>
         /// Set up tables
@@ -30,12 +31,13 @@ namespace ImageTools.DistanceFields
             }
             Console.WriteLine($"Max = {m}, n = {n}");
         }
+#endregion
 
         /// <summary>
         /// Coverage based anti-aliased line fixed to 1-pixel total.
         /// This gives a very rough effect, but is quite fast.
         /// </summary>
-        public static void LineOnBitmap(ByteImage img, int x1, int y1, int x2, int y2, uint color)
+        public static void DrawLine(ByteImage img, int x1, int y1, int x2, int y2, uint color)
         {
             if (img == null) return;
 
