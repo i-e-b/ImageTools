@@ -54,7 +54,6 @@ namespace ImageTools.DistanceFields
                 _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
             };
             
-            int i=0;
             // Scan through the bounds, skipping where possible
             // filling area based on distance to edge (internal in negative)
             for (int y = minY; y < maxY; y++)
@@ -63,11 +62,8 @@ namespace ImageTools.DistanceFields
                 var rowOffset = y * img.RowBytes;
                 for (int x = minX; x < maxX; x++)
                 {
-                    i++;
                     var s = new Vector2(x,y);
                     var d = distanceFunc(s, vectors);
-                    
-                    //img.PixelBytes[rowOffset + x*4] = 255; // testing: show jumps
                     
                     if (d > 1) // outside the polygon
                     {
@@ -111,8 +107,6 @@ namespace ImageTools.DistanceFields
                     img.PixelBytes[pixelOffset + 2] = (byte) (img.PixelBytes[pixelOffset + 2] * d + r * f);
                 }
             }
-            
-            Console.WriteLine($"{i} point calculations");
         }
         
         /// <summary>
@@ -132,8 +126,6 @@ namespace ImageTools.DistanceFields
             var a = new Vector2(x1, y1);
             var b = new Vector2(x2, y2);
             
-            int i = 0;
-
             var minX = (int) (Math.Min(x1, x2) - thickness);
             var minY = (int) (Math.Min(y1, y2) - thickness);
             var maxX = (int) (Math.Max(x1, x2) + thickness);
@@ -150,7 +142,6 @@ namespace ImageTools.DistanceFields
                 var rowOffset = y * img.RowBytes;
                 for (int x = minX; x < maxX; x++)
                 {
-                    i++;
                     var s = new Vector2(x,y);
                     var d = OrientedBox(s, a, b, thickness);
                     
@@ -178,8 +169,6 @@ namespace ImageTools.DistanceFields
                     img.PixelBytes[pixelOffset + 2] = (byte) (img.PixelBytes[pixelOffset + 2] * d + cr * f);
                 }
             }
-            
-            Console.WriteLine($"{i} point calculations");
         }
         
         // square ends

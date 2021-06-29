@@ -20,6 +20,7 @@ namespace ImageTools.Tests
             using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
             {
                 var byteImage = ByteImage.FromBitmap(bmp);
+                ScanlineDraw.SetGamma(2.2);
                 
                 sw.Start();
                 ScanlineDraw.DrawLine(byteImage, x1: 25, y1: 50, x2: 500, y2: 460, color: 0xffAA5577);

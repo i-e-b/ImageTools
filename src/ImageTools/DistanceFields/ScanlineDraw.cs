@@ -29,7 +29,6 @@ namespace ImageTools.DistanceFields
                 if (x > 255) x = 255;
                 _gammaAdjust![i] = (byte)x;
             }
-            Console.WriteLine($"Max = {m}, n = {n}");
         }
 #endregion
 
