@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using ImageTools.Utilities;
@@ -12,7 +13,6 @@ namespace ImageTools.Tests
         [Test]
         public void rendering_single_anti_aliased_line()
         {
-            // TODO: also do this in a linear & planar color space
             using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
             {
                 Draw.LineOnBitmap(bmp, x1: 25, y1: 50, x2: 500, y2: 460, color: 0xffAA5577);
@@ -24,19 +24,45 @@ namespace ImageTools.Tests
         }
 
         [Test]
-        [TestCase(0.5)]
-        [TestCase(1.0)]
-        [TestCase(1.5)]
-        [TestCase(3.0)]
-        [TestCase(10.0)]
-        public void render_a_single_anti_aliased_line_with_thickness(double thickness)
+        public void render_a_single_anti_aliased_line_with_thickness()
         {
-            Assert.Fail("Not yet implemented");
+            using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
+            {
+                Draw.LineOnBitmap(bmp, thickness:0.1, x1: 25, y1: 50, x2: 500, y2: 220, color: 0xffEEDDCC);
+                Draw.LineOnBitmap(bmp, thickness:1.0, x1: 25, y1: 50, x2: 500, y2: 460, color: 0xffAA5577);
+                Draw.LineOnBitmap(bmp, thickness:3.0, x1: 25, y1: 50, x2: 150, y2: 500, color: 0xffFFffFF);
+                bmp.SaveBmp("./outputs/draw-aa-thick.bmp");
+            }
+            Assert.That(Load.FileExists("./outputs/draw-aa-thick.bmp"));
         }
     }
 
     public static class Draw
     {
+        public static void LineOnBitmap(Bitmap bmp, double thickness, double x1, double y1, double x2, double y2, uint color)
+        {
+            if (bmp == null) return;
+            var rect = RectOf(bmp);
+            var data = bmp.LockBits(rect, ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+            try
+            {
+                var bytes = new byte[data.Stride*data.Height];
+                Marshal.Copy(data.Scan0, bytes, 0, bytes.Length);
+                
+                byte r = (byte) ((color>>16) & 0xff);
+                byte g = (byte) ((color>>8) & 0xff);
+                byte b = (byte) ((color) & 0xff);
+                DistanceLine(bytes, data.Stride, thickness, x1,y1,x2,y2, r,g,b, rect);
+                
+                Marshal.Copy(bytes, 0, data.Scan0, bytes.Length);
+            }
+            finally
+            {
+                bmp.UnlockBits(data);
+            }
+        }
+
+
         public static void LineOnBitmap(Bitmap bmp, int x1, int y1, int x2, int y2, uint color)
         {
             if (bmp == null) return;
@@ -61,6 +87,84 @@ namespace ImageTools.Tests
 
         private static Rectangle RectOf(Image bmp) => new Rectangle(0,0, bmp?.Width ?? 0, bmp?.Height ?? 0);
 
+        /// <summary>
+        /// Distance based anti-aliased line with thickness
+        /// </summary>
+        private static void DistanceLine(byte[] data, int rowBytes,
+            double thickness, // line thickness
+            double x1, double y1, double x2, double y2, // endpoints
+            byte cr, byte cg, byte cb, // color
+            Rectangle rectangle) // bounds of image
+        {
+            if (data == null || rowBytes < 1) return;
+            
+            // For each pixel 'near' the line, we compute a signed distance to the line edge (negative is interior)
+            // We start in a box slightly larger than our bounds, and a ray-marching algorithm to (slightly)
+            // reduce the number of calculations.
+            
+            var a = new Vector2(x1, y1);
+            var b = new Vector2(x2, y2);
+            
+            int i = 0;
+
+            var minX = (int) (Math.Min(x1, x2) - thickness);
+            var minY = (int) (Math.Min(y1, y2) - thickness);
+            var maxX = (int) (Math.Max(x1, x2) + thickness);
+            var maxY = (int) (Math.Max(y1, y2) + thickness);
+            
+            minX = Math.Max(rectangle.Left, minX);
+            maxX = Math.Min(rectangle.Right, maxX);
+            minY = Math.Max(rectangle.Top, minY);
+            maxY = Math.Min(rectangle.Bottom, maxY);
+            
+            for (int y = minY; y < maxY; y++)
+            {
+                var minD = 1000.0;
+                var rowOffset = y * rowBytes;
+                for (int x = minX; x < maxX; x++)
+                {
+                    i++;
+                    var s = new Vector2(x,y);
+                    var d = OrientedBox(s, a, b, thickness);
+                    
+                    // jump if distance is big enough, to save calculations
+                    if (d >= 2)
+                    {
+                        x += (int) (d - 1);
+                        continue;
+                    }
+
+                    minD = Math.Min(minD, d);
+                    if (d <= 0) d = 0; // we could optimise very thick lines here by filling a span size of -d
+                    else if (d > 1)
+                    {
+                        if (d > minD) break; // we're moving further from the line, move to next scan
+                        d = 1;
+                    }
+
+                    var f = 1 - d;
+                    
+                    var pixelOffset = rowOffset + x*4; // target pixel as byte offset from base
+                    
+                    data[pixelOffset + 0] = (byte) (data[pixelOffset + 0] * d + cb * f);
+                    data[pixelOffset + 1] = (byte) (data[pixelOffset + 1] * d + cg * f);
+                    data[pixelOffset + 2] = (byte) (data[pixelOffset + 2] * d + cr * f);
+                }
+            }
+            
+            Console.WriteLine($"{i} point calculations");
+        }
+        
+        // square ends
+        private static double OrientedBox(Vector2 samplePoint, Vector2 a, Vector2 b, double thickness)
+        {
+            var l = (b - a).Length();
+            var d = (b - a) / l;
+            var q = (samplePoint - (a + b) * 0.5);
+            q = new Matrix2(d.Dx, -d.Dy, d.Dy, d.Dx) * q;
+            q = q.Abs() - (new Vector2(l, thickness)) * 0.5;
+            return q.Max(0.0).Length() + Math.Min(Math.Max(q.Dx, q.Dy), 0.0);    
+        }
 
         /// <summary>
         /// Single pixel, scanline based anti-aliased line
