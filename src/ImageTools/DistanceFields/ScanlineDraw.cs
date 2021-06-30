@@ -1,4 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Linq;
 
 namespace ImageTools.DistanceFields
 {
@@ -45,6 +49,119 @@ namespace ImageTools.DistanceFields
             byte b = (byte) ((color) & 0xff);
             CoverageLine(img, x1, y1, x2, y2, r, g, b);
         }
+
+        /// <summary>
+        /// Fill a polygon using a specific winding rule
+        /// </summary>
+        public static void FillPolygon(ByteImage img, PointF[] points, uint color, FillMode mode)
+        {
+            if (img == null) return;
+            Action<IEnumerable<Segment>, ICollection<PixelSpan>, int> rule = mode switch
+            {
+                FillMode.Alternate => OddEvenSpans,
+                FillMode.Winding => NonZeroWindingSpans,
+                _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
+            };
+
+            var spans = GetPolygonSpans(points, rule);
+            if (spans == null) return;
+            
+            byte r = (byte) ((color >> 16) & 0xff);
+            byte g = (byte) ((color >> 8) & 0xff);
+            byte b = (byte) ((color) & 0xff);
+
+            // TODO: add antialiasing
+            foreach (var span in spans)
+            {
+                img.SetSpan(span, r, g, b);
+            }
+        }
+        
+        private static IEnumerable<PixelSpan> GetPolygonSpans(PointF[] points, Action<IEnumerable<Segment>, ICollection<PixelSpan>, int> fillRule)
+        {
+            var segments = ToLineSegments(points);
+            var spans = new List<PixelSpan>();
+            if (segments!.Count < 2) return spans;
+            
+            var top = (int)segments.Min(s=>s.Top);
+            var bottom = (int)segments.Max(s=>s.Bottom);
+
+            for (var y = top; y < bottom; y++) // each scan line
+            {
+                // find segments that affect this line
+                var rowSegments = segments.Where(s => s.Bottom >= y && s.Top <= y).Select(s => s.PositionedAtY(y) ).OrderBy(s=>s.Pos).ToArray(); // TODO: optimise this
+                if (rowSegments.Length < 1) continue; // nothing on this line
+                
+                fillRule!(rowSegments, spans, y);
+            }
+            return spans;
+        }
+
+        private static void OddEvenSpans(IEnumerable<Segment> rowSegments, ICollection<PixelSpan> spans, int y)
+        {
+            var windingCount = 0;
+            double left = 0;
+            foreach (var span in rowSegments!) // run across the scan line, find left and right edges of drawn area
+            {
+                if (windingCount == 0) left = span.Pos;
+                else spans!.Add(new PixelSpan {
+                    Y = y,
+                    
+                    Left = (int) left,
+                    LeftFraction = _gammaAdjust![LeftFractional(left)],
+                    
+                    Right = (int) span.Pos,
+                    RightFraction = _gammaAdjust![RightFractional(span.Pos)]
+                });
+
+                windingCount = 1 - windingCount;
+            }
+        }
+        
+        private static void NonZeroWindingSpans(IEnumerable<Segment> rowSegments, ICollection<PixelSpan> spans, int y)
+        {
+            var windingCount = 0;
+            double left = 0;
+            foreach (var span in rowSegments!) // run across the scan line, find left and right edges of drawn area
+            {
+                if (windingCount == 0) left = span.Pos;
+                if (span.Clockwise) windingCount--;
+                else windingCount++;
+
+                if (windingCount == 0)
+                {
+                    spans!.Add(new PixelSpan {
+                        Y = y,
+                    
+                        Left = (int) left,
+                        LeftFraction = _gammaAdjust![LeftFractional(left)],
+                    
+                        Right = (int) span.Pos,
+                        RightFraction = _gammaAdjust![RightFractional(span.Pos)]
+                    });
+                    //spans!.Add(new PixelSpan{Y = y, Left = (int)left, Right = (int)span.Pos});
+                }
+            }
+        }
+
+        private static byte LeftFractional(double real) => (byte)((1.0 - (real - Math.Truncate(real))) * 255);
+        private static byte RightFractional(double real) => (byte)((real - Math.Truncate(real)) * 255);
+        
+        private static List<Segment> ToLineSegments(PointF[] points)
+        {
+            var outp = new List<Segment>();
+            if (points == null || points.Length < 2) return outp;
+            for (int i = 0; i < points.Length; i++)
+            {
+                var j = (i + 1) % points.Length;
+                
+                if (Horizontal(points[i], points[j])) continue; // doesn't contribute to scan lines
+                outp.Add(new Segment(points[i], points[j]));
+            }
+            return outp;
+        }
+        
+        private static bool Horizontal(PointF a, PointF b) => Math.Abs(a.Y - b.Y) < 0.00001;
 
         /// <summary>
         /// Single pixel, scanline based anti-aliased line
@@ -128,6 +245,49 @@ namespace ImageTools.DistanceFields
                     err += dx;
                     y0 += sy;
                 }
+            }
+        }
+
+        internal struct Segment
+        {
+            public readonly double Top;
+            public readonly double Bottom;
+            public readonly double TopX;
+            public readonly double BottomX;
+            public readonly double Dy;
+            public readonly double Dx;
+        
+            public double Pos;
+
+            public Segment(PointF a, PointF b)
+            {
+                if (Math.Abs(a.Y - b.Y) < 0.0001) Clockwise = a.X < b.X;
+                else Clockwise = a.Y > b.Y;
+
+                if (a.Y < b.Y)
+                {
+                    Top  = a.Y; Bottom  = b.Y;
+                    TopX = a.X; BottomX = b.X;
+                }
+                else
+                {
+                    Top  = b.Y; Bottom  = a.Y;
+                    TopX = b.X; BottomX = a.X;
+                }
+                Dy = Bottom-Top;
+                Dx = (BottomX - TopX) / Dy;
+            
+                Pos = int.MinValue;
+            }
+
+            public bool Clockwise { get; set; }
+
+            public Segment PositionedAtY(double y)
+            {
+                var n = (Segment)MemberwiseClone();
+                var dy = y - Top;
+                n.Pos = (dy * Dx) + TopX;
+                return n;
             }
         }
     }

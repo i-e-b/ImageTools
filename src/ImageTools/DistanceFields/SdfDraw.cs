@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace ImageTools.DistanceFields
 {
@@ -20,6 +21,9 @@ namespace ImageTools.DistanceFields
             DistanceLine(img, thickness, x1, y1, x2, y2, r, g, b);
         }
 
+        /// <summary>
+        /// Distance based fill of polygon
+        /// </summary>
         public static void FillPolygon(ByteImage img, PointF[] points, uint color, FillMode mode)
         {
             // Basic setup
@@ -54,43 +58,46 @@ namespace ImageTools.DistanceFields
                 _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
             };
             
+            // Do a general rendering of the function
+            RenderDistanceFunction(img, minY, maxY, minX, maxX, distanceFunc, vectors, b, g, r);
+        }
+
+        private static void RenderDistanceFunction(ByteImage img, int minY, int maxY, int minX, int maxX, Func<Vector2, Vector2[], double> distanceFunc, Vector2[] vectors, byte b, byte g, byte r)
+        {
             // Scan through the bounds, skipping where possible
             // filling area based on distance to edge (internal in negative)
             for (int y = minY; y < maxY; y++)
             {
-                var minD = 1000.0;
-                var rowOffset = y * img.RowBytes;
+                var rowOffset = y * img!.RowBytes;
                 for (int x = minX; x < maxX; x++)
                 {
-                    var s = new Vector2(x,y);
-                    var d = distanceFunc(s, vectors);
-                    
-                    if (d > 1) // outside the polygon
+                    var s = new Vector2(x, y);
+                    var d = distanceFunc!(s, vectors);
+
+                    if (d >= 1) // outside the iso-surface
                     {
-                        if (d >= 2) // jump if distance is big enough, to save calculations
-                        {
-                            x += (int) (d - 1);
-                        }
+                        x += (int) (d - 1);// jump if distance is big enough, to save calculations
                         continue;
                     }
 
-                    var pixelOffset = rowOffset + x*4; // target pixel as byte offset from base
-                    
-                    // Inside the polygon
-                    if (d <= 0)
+                    var pixelOffset = rowOffset + x * 4; // target pixel as byte offset from base
+
+                    if (d < 0) // Inside the iso-surface
                     {
-                        var id = (int)-d;
+                        var id = (int) -d;
 
                         if (id >= 2) // if we're deep inside the polygon, draw big spans of pixels without shading
                         {
+                            id = Math.Min(maxX - x, id);
                             for (int j = 0; j < id; j++)
                             {
-                                pixelOffset = rowOffset + x*4; // target pixel as byte offset from base
-                                img.PixelBytes[pixelOffset] = b;
-                                img.PixelBytes[pixelOffset+1] = g;
-                                img.PixelBytes[pixelOffset+2] = r;
+                                img.PixelBytes![pixelOffset++] = b;
+                                img.PixelBytes [pixelOffset++] = g;
+                                img.PixelBytes [pixelOffset++] = r;
+                                pixelOffset++; // skip alpha
                                 x++;
                             }
+
                             x--;
                             continue;
                         }
@@ -98,17 +105,18 @@ namespace ImageTools.DistanceFields
                         d = 0;
                     }
 
-                    // We're within 1 pixel of the edge
-                    var f = 1 - d;
+                    // Not outside or inside -- we're within 1 pixel of the edge
+                    // so draw a single pixel with blending and advance a single pixel
                     
-                    // near an edge, so draw a single pixel and advance a single pixel
-                    img.PixelBytes[pixelOffset + 0] = (byte) (img.PixelBytes[pixelOffset + 0] * d + b * f);
-                    img.PixelBytes[pixelOffset + 1] = (byte) (img.PixelBytes[pixelOffset + 1] * d + g * f);
-                    img.PixelBytes[pixelOffset + 2] = (byte) (img.PixelBytes[pixelOffset + 2] * d + r * f);
+                    var f = 1 - d; // inverse of the distance (how much fill color to blend in)
+
+                    img.PixelBytes![pixelOffset + 0] = (byte) (img.PixelBytes[pixelOffset + 0] * d + b * f);
+                    img.PixelBytes [pixelOffset + 1] = (byte) (img.PixelBytes[pixelOffset + 1] * d + g * f);
+                    img.PixelBytes [pixelOffset + 2] = (byte) (img.PixelBytes[pixelOffset + 2] * d + r * f);
                 }
             }
         }
-        
+
         /// <summary>
         /// Distance based anti-aliased line with thickness
         /// </summary>
@@ -213,6 +221,7 @@ namespace ImageTools.DistanceFields
             var e = new Vector2[length];
             var v = new Vector2[length];
             var pq = new Vector2[length];
+            
             // data
             for (int i = 0; i < length; i++)
             {
@@ -242,10 +251,11 @@ namespace ImageTools.DistanceFields
                 wn -= !cond1 && !cond2 && val3 < 0.0 ? 1 : 0; // have  a valid down intersect
             }
 
-            var s = wn == 0 ? 1.0 : -1.0;
+            var s = wn == 0 ? 1.0 : -1.0; // flip distance if we're inside
             return Math.Sqrt(d) * s;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static double Clamp(double v, double min, double max)
         {
             if (v < min) return min;

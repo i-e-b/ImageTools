@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 namespace ImageTools
 {
     /// <summary>
-    /// Represents a 24bit 888 RGB image
+    /// Represents a 32bit 8888 ABGR image
     /// </summary>
     public class ByteImage
     {
@@ -51,5 +51,58 @@ namespace ImageTools
         }
 
         private bool Different(Rectangle a, Rectangle b) => a.Height != b.Height || a.Width != b.Width;
+
+        /// <summary>
+        /// Set a range of pixels on the image
+        /// </summary>
+        public void SetSpan(PixelSpan span, byte r, byte g, byte b)
+        {
+            if (span == null || PixelBytes == null) return;
+            if (span.Y < 0 || span.Y >= Bounds.Height) return;
+            
+            var maxRight = Bounds.Width-1;
+            var right = Math.Min(span.Right, maxRight);
+            var left = Math.Max(span.Left, 0);
+            var rowOffset = span.Y * RowBytes;
+            var pixelOffset = rowOffset + left * 4; // target pixel as byte offset from base
+            
+            // blend left pixel
+            if (span.LeftFraction != 255)
+            {
+                var antiFraction = 255 - span.LeftFraction;
+                PixelBytes[pixelOffset + 0] = (byte) (((PixelBytes[pixelOffset + 0] * antiFraction) >> 8) + ((b * span.LeftFraction) >> 8));
+                PixelBytes[pixelOffset + 1] = (byte) (((PixelBytes[pixelOffset + 1] * antiFraction) >> 8) + ((g * span.LeftFraction) >> 8));
+                PixelBytes[pixelOffset + 2] = (byte) (((PixelBytes[pixelOffset + 2] * antiFraction) >> 8) + ((r * span.LeftFraction) >> 8));
+                pixelOffset+=4;
+                left++; // don't over-write
+            }
+
+            // Fill main span
+            for (int j = left; j <= right; j++)
+            {
+                PixelBytes[pixelOffset++] = b;
+                PixelBytes[pixelOffset++] = g;
+                PixelBytes[pixelOffset++] = r;
+                pixelOffset++; // skip alpha
+            }
+
+            // Blend right pixel (over-runs the integral position)
+            if (span.RightFraction != 255 && right < maxRight)
+            {
+                var antiFraction = 255 - span.RightFraction;
+                PixelBytes[pixelOffset + 0] = (byte) (((PixelBytes[pixelOffset + 0] * antiFraction) >> 8) + ((b * span.RightFraction) >> 8));
+                PixelBytes[pixelOffset + 1] = (byte) (((PixelBytes[pixelOffset + 1] * antiFraction) >> 8) + ((g * span.RightFraction) >> 8));
+                PixelBytes[pixelOffset + 2] = (byte) (((PixelBytes[pixelOffset + 2] * antiFraction) >> 8) + ((r * span.RightFraction) >> 8));
+            }
+        }
+    }
+    
+    public class PixelSpan
+    {
+        public int Right;
+        public int Left;
+        public int Y;
+        
+        public byte LeftFraction, RightFraction; // optional blending of the left-most and right-most pixels
     }
 }

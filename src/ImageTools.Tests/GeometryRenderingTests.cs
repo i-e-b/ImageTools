@@ -55,13 +55,38 @@ namespace ImageTools.Tests
             Assert.That(Load.FileExists("./outputs/draw-line-sdf.bmp"));
             Console.WriteLine($"Core draw took {sw.ElapsedMilliseconds}ms ({sw.ElapsedTicks} ticks)");
         }
+        
+        [Test]
+        public void fill_polygon_with_scanline()
+        {
+            var polygon1 = Points(45.6f,  10,  10,/**/3,0,  5,6,  0,2,  6,2,  1,6);
+            var polygon2 = Points(45.6f, 200, 200,/**/3,0,  5,6,  0,2,  6,2,  1,6);
+            var polygon3 = Points(22.5f, 400, 200,/**/3,0,  5,6,  0,2,  6,2,  1,6); // this one run off the edge to check clipping
+            
+            var sw = new Stopwatch();
+            using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
+            {
+                var byteImage = ByteImage.FromBitmap(bmp);
+
+                sw.Start();
+                ScanlineDraw.FillPolygon(byteImage, polygon1, color: 0xffEEDDCC, FillMode.Alternate);
+                ScanlineDraw.FillPolygon(byteImage, polygon2, color: 0xffAA5577, FillMode.Winding);
+                ScanlineDraw.FillPolygon(byteImage, polygon3, color: 0xff55AAFF, FillMode.Winding);
+                sw.Stop();
+                
+                byteImage!.RenderOnBitmap(bmp);
+                bmp.SaveBmp("./outputs/draw-poly-scan.bmp");
+            }
+            Assert.That(Load.FileExists("./outputs/draw-poly-scan.bmp"));
+            Console.WriteLine($"Core draw took {sw.ElapsedMilliseconds}ms ({sw.ElapsedTicks} ticks)");
+        }
 
         [Test]
         public void fill_anti_aliased_polygon_with_sdf()
         {
-            var polygon1 = Points(53.2f,  10,  10,/**/0,0,  3,2,  2,3,  2,0,  0,2);
-            var polygon2 = Points(55.8f, 200, 200,/**/0,0,  3,2,  2,3,  2,0,  0,2);
-            
+            var polygon1 = Points(45.6f,  10,  10,/**/3,0,  5,6,  0,2,  6,2,  1,6);
+            var polygon2 = Points(45.6f, 200, 200,/**/3,0,  5,6,  0,2,  6,2,  1,6);
+            var polygon3 = Points(22.5f, 400, 200,/**/3,0,  5,6,  0,2,  6,2,  1,6); // this one run off the edge to check clipping
             
             var sw = new Stopwatch();
             using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
@@ -71,6 +96,7 @@ namespace ImageTools.Tests
                 sw.Start();
                 SdfDraw.FillPolygon(byteImage, polygon1, color: 0xffEEDDCC, FillMode.Alternate);
                 SdfDraw.FillPolygon(byteImage, polygon2, color: 0xffAA5577, FillMode.Winding);
+                SdfDraw.FillPolygon(byteImage, polygon3, color: 0xff55AAFF, FillMode.Winding);
                 sw.Stop();
                 
                 byteImage!.RenderOnBitmap(bmp);
