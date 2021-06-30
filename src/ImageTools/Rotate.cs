@@ -142,19 +142,9 @@ namespace ImageTools
             var dest = new Bitmap(bounds_width, bounds_height, PixelFormat.Format32bppArgb);
             BitmapTools.ArgbImageToYUVPlanes_f(source, out var sY, out var sU, out var sV);
             BitmapTools.ArgbImageToYUVPlanes_f(dest, out var dY, out var dU, out var dV);
-
-            // TEMP: show the sample points:
-            // This is the WRONG way to do it.
-            /*for (int sy = 0; sy < height; sy++)
-            {
-                for (int sx = 0; sx < width; sx++)
-                {
-                    var dp = new Vector2(sx - halfWidth, sy - halfHeight) * rot;
-                    Set(bounds_width, 255, dY, dp.Dx - lx, dp.Dy - ty);
-                }
-            }*/
             
-            // This is the right way -- invert the matrix, and look up a source location for each output pixel
+            // Invert the matrix, and look up a source location for each output pixel
+            // This prevents any 'drop out' positions
             var half_bound_height = bounds_height / 2;
             var half_bound_width = bounds_width / 2;
             var invmat = rot.Inverse();
@@ -165,12 +155,9 @@ namespace ImageTools
                     var sp = new Vector2(dx, dy) * invmat;
                     var sx = sp.Dx + halfWidth;
                     var sy = sp.Dy + halfHeight;
-                    if (sx < 0 || sx >= width
-                     || sy < 0 || sy >= height) continue; // out of original image bounds
                     
-                    // TODO: sample multiple points blended by sx/sy fractions
-                    var v = Get((int)width, sY, sx, sy);
-                    Set(bounds_width, v, dY, dx - lx, dy - ty);
+                    // sample multiple points blended by sx/sy fractions
+                    CopySubsampled(/*from*/ (int)width,(int)height, sx, sy,   /* to */ bounds_width, dx - lx, dy - ty,  /* buffers */ sY,sU,sV,  dY,dU,dV );
                 }
             }
 
@@ -180,23 +167,43 @@ namespace ImageTools
             return dest;
         }
 
-        private static float Get(int w, float[] v, double x, double y)
+        private static double Fractional(double real) => real - Math.Floor(real);
+        
+        /// <summary>
+        /// sample 4 input points, and write to a single output point
+        /// </summary>
+        private static void CopySubsampled(int sw, int sh, double sx, double sy, int dw, double dx, double dy, float[] sY, float[] sU, float[] sV, float[] dY, float[] dU, float[] dV)
         {
-            var m = w*(int)y + (int)x;
-            if (m < 0 || m >= v!.Length) return 0f;
-            return v[m];
-        }
+            // bounds check
+            if (sy < 0 || sy > sw) return;
+            if (sx < 0 || sx > sh) return;
+            
+            // work out the sample weights
+            var fx2 = Fractional(sx);
+            var fx1 = 1.0 - fx2;
+            var fy2 = Fractional(sy);
+            var fy1 = 1.0 - fy2;
+            
+            var f0 = fx1 * fy1;
+            var f1 = fx2 * fy1;
+            var f2 = fx1 * fy2;
+            var f3 = fx2 * fy2;
+            
+            var ox = sx < (sw-1) ? 1 : 0;
+            var oy = sy < (sh-1) ? sw : 0;
+            
+            var sm0 = sw*(int)sy + (int)sx;
+            if (sm0 < 0) sm0 = 0;
+            var sm1 = sm0 + ox;
+            var sm2 = sm0 + oy;
+            var sm3 = sm2 + ox;
+            
+            var dm = dw*(int)dy + (int)dx;
+            if (dm < 0 || dm >= dY!.Length) return;
 
-        private static int Clamp(double v, int lower, int upper)
-        {
-            if (v < lower) return lower;
-            if (v > upper) return upper;
-            return (int)v;
-        }
-
-        private static void Set(int w, float c, float[] v, double x, double y)
-        {
-            v![w*(int)y + (int)x] = c;
+            dY[dm] = (float) (sY[sm0] * f0 + sY[sm1] * f1 + sY[sm2] * f2 + sY[sm3] * f3);
+            dU[dm] = (float) (sU[sm0] * f0 + sU[sm1] * f1 + sU[sm2] * f2 + sU[sm3] * f3);
+            dV[dm] = (float) (sV[sm0] * f0 + sV[sm1] * f1 + sV[sm2] * f2 + sV[sm3] * f3);
         }
     }
 }
