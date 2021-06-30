@@ -26,5 +26,14 @@
                 Dy = a.m[1] * b.Dx + a.m[3] * b.Dy
             };
         }
+
+        public Matrix2 Inverse()
+        {
+            var det = 1 / (m[0]*m[3] - m[1]*m[2]);
+            return new Matrix2(
+                 m[3] * det, -m[1] * det,
+                -m[2] * det,  m[0] * det
+            );
+        }
     }
 }

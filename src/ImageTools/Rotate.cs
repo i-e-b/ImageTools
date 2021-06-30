@@ -145,12 +145,32 @@ namespace ImageTools
 
             // TEMP: show the sample points:
             // This is the WRONG way to do it.
-            for (int sy = 0; sy < height; sy++)
+            /*for (int sy = 0; sy < height; sy++)
             {
                 for (int sx = 0; sx < width; sx++)
                 {
-                    var dp = new Vector2(sx-halfWidth, sy-halfHeight) * rot;
+                    var dp = new Vector2(sx - halfWidth, sy - halfHeight) * rot;
                     Set(bounds_width, 255, dY, dp.Dx - lx, dp.Dy - ty);
+                }
+            }*/
+            
+            // This is the right way -- invert the matrix, and look up a source location for each output pixel
+            var half_bound_height = bounds_height / 2;
+            var half_bound_width = bounds_width / 2;
+            var invmat = rot.Inverse();
+            for (var dy = -half_bound_height; dy < half_bound_height; dy++)
+            {
+                for (var dx = -half_bound_width; dx < half_bound_width; dx++)
+                {
+                    var sp = new Vector2(dx, dy) * invmat;
+                    var sx = sp.Dx + halfWidth;
+                    var sy = sp.Dy + halfHeight;
+                    if (sx < 0 || sx >= width
+                     || sy < 0 || sy >= height) continue; // out of original image bounds
+                    
+                    // TODO: sample multiple points blended by sx/sy fractions
+                    var v = Get((int)width, sY, sx, sy);
+                    Set(bounds_width, v, dY, dx - lx, dy - ty);
                 }
             }
 
@@ -158,6 +178,20 @@ namespace ImageTools
             BitmapTools.YUVPlanes_To_ArgbImage(dest, 0, dY, dU, dV);
 
             return dest;
+        }
+
+        private static float Get(int w, float[] v, double x, double y)
+        {
+            var m = w*(int)y + (int)x;
+            if (m < 0 || m >= v!.Length) return 0f;
+            return v[m];
+        }
+
+        private static int Clamp(double v, int lower, int upper)
+        {
+            if (v < lower) return lower;
+            if (v > upper) return upper;
+            return (int)v;
         }
 
         private static void Set(int w, float c, float[] v, double x, double y)
