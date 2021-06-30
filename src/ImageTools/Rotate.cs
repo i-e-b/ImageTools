@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using ImageTools.DistanceFields;
 using ImageTools.Utilities;
 // ReSharper disable InconsistentNaming
 // ReSharper disable IdentifierTypo
@@ -103,6 +104,65 @@ namespace ImageTools
 
             return dest;
         }
-    
+
+        public static Bitmap SelectRotate(Bitmap source, double angleDegrees)
+        {
+            if (source == null) return null;
+            
+            var ar = deg2rad(angleDegrees);
+            var rot = new Matrix2(
+                Math.Cos(ar), -Math.Sin(ar),
+                Math.Sin(ar),  Math.Cos(ar)
+                );
+
+            // Calculate how big the output image has to be
+            var width = (double)source.Width;
+            var height = (double)source.Height;
+            
+            var halfWidth = width / 2.0;
+            var halfHeight = height / 2.0;
+
+            var tl = new Vector2(-halfWidth, -halfHeight) * rot;
+            var tr = new Vector2(halfWidth, -halfHeight) * rot;
+            var bl = new Vector2(-halfWidth, halfHeight) * rot;
+            var br = new Vector2(halfWidth, halfHeight) * rot;
+            
+            var ty = Math.Min(Math.Min(tl.Dy, tr.Dy), Math.Min(bl.Dy, br.Dy));
+            var by = Math.Max(Math.Max(tl.Dy, tr.Dy), Math.Max(bl.Dy, br.Dy));
+            var lx = Math.Min(Math.Min(tl.Dx, tr.Dx), Math.Min(bl.Dx, br.Dx));
+            var rx = Math.Max(Math.Max(tl.Dx, tr.Dx), Math.Max(bl.Dx, br.Dx));
+            
+            var bounds_width = (int)Math.Ceiling(rx - lx);
+            var bounds_height = (int)Math.Ceiling(by - ty);
+
+            Console.WriteLine($"Original image size: width={width}; height={height}");
+            Console.WriteLine($"Estimated transform bounds: width={bounds_width}; height={bounds_height}");
+
+            // create an output image, and get source planes
+            var dest = new Bitmap(bounds_width, bounds_height, PixelFormat.Format32bppArgb);
+            BitmapTools.ArgbImageToYUVPlanes_f(source, out var sY, out var sU, out var sV);
+            BitmapTools.ArgbImageToYUVPlanes_f(dest, out var dY, out var dU, out var dV);
+
+            // TEMP: show the sample points:
+            // This is the WRONG way to do it.
+            for (int sy = 0; sy < height; sy++)
+            {
+                for (int sx = 0; sx < width; sx++)
+                {
+                    var dp = new Vector2(sx-halfWidth, sy-halfHeight) * rot;
+                    Set(bounds_width, 255, dY, dp.Dx - lx, dp.Dy - ty);
+                }
+            }
+
+            // pack back into bitmap
+            BitmapTools.YUVPlanes_To_ArgbImage(dest, 0, dY, dU, dV);
+
+            return dest;
+        }
+
+        private static void Set(int w, float c, float[] v, double x, double y)
+        {
+            v![w*(int)y + (int)x] = c;
+        }
     }
 }

@@ -19,5 +19,12 @@
                 Dy = a.m[1] * b.Dx + a.m[3] * b.Dy
             };
         }
+        
+        public static Vector2 operator* (Vector2 b, Matrix2 a) {
+            return new Vector2{ 
+                Dx = a.m[0] * b.Dx + a.m[2] * b.Dy,
+                Dy = a.m[1] * b.Dx + a.m[3] * b.Dy
+            };
+        }
     }
 }
