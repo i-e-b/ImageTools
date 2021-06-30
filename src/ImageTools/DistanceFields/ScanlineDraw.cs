@@ -12,6 +12,7 @@ namespace ImageTools.DistanceFields
     /// </summary>
     public static class ScanlineDraw
     {
+        private const double Epsilon = 0.00001;
 #region Tables
         private static readonly byte[] _gammaAdjust = new byte[256];
         /// <summary>
@@ -173,9 +174,9 @@ namespace ImageTools.DistanceFields
         }
 
         private static int SegmentSortHorizontal(Segment x, Segment y) => x.Pos.CompareTo(y.Pos);
-        private static int SegmentSortVertical(Segment x, Segment y) => x.Bottom.CompareTo(y.Bottom);
+        private static int SegmentSortVertical(Segment x, Segment y) => x.Top.CompareTo(y.Top);
         
-        private static bool Horizontal(PointF a, PointF b) => Math.Abs(a.Y - b.Y) < 0.00001;
+        private static bool Horizontal(PointF a, PointF b) => Math.Abs(a.Y - b.Y) <= Epsilon;
 
         /// <summary>
         /// Single pixel, scanline based anti-aliased line
@@ -275,10 +276,10 @@ namespace ImageTools.DistanceFields
 
             public Segment(PointF a, PointF b)
             {
-                if (Math.Abs(a.Y - b.Y) < 0.0001) Clockwise = a.X < b.X;
+                if (Math.Abs(a.Y - b.Y) < Epsilon) Clockwise = a.X < b.X;
                 else Clockwise = a.Y > b.Y;
 
-                if (a.Y < b.Y)
+                if (a.Y <= b.Y)
                 {
                     Top  = a.Y; Bottom  = b.Y;
                     TopX = a.X; BottomX = b.X;
@@ -294,7 +295,7 @@ namespace ImageTools.DistanceFields
                 Pos = int.MinValue;
             }
 
-            public bool Clockwise { get; set; }
+            public bool Clockwise { get; }
 
             public Segment PositionAtY(double y)
             {

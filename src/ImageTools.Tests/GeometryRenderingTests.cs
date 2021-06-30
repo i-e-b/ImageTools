@@ -17,10 +17,10 @@ namespace ImageTools.Tests
         public void render_anti_aliased_lines_with_scanline()
         {
             var sw = new Stopwatch();
+            ScanlineDraw.SetGamma(2.2);
             using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
             {
                 var byteImage = ByteImage.FromBitmap(bmp);
-                ScanlineDraw.SetGamma(2.2);
                 
                 sw.Start();
                 ScanlineDraw.DrawLine(byteImage, x1: 25, y1: 50, x2: 500, y2: 460, color: 0xffAA5577);
@@ -59,11 +59,13 @@ namespace ImageTools.Tests
         [Test]
         public void fill_polygon_with_scanline()
         {
-            var polygon1 = Points(45.6f,  10,  10,/**/3,0,  5,6,  0,2,  6,2,  1,6);
-            var polygon2 = Points(45.6f, 200, 200,/**/3,0,  5,6,  0,2,  6,2,  1,6);
-            var polygon3 = Points(22.5f, 400, 200,/**/3,0,  5,6,  0,2,  6,2,  1,6); // this one run off the edge to check clipping
-            var polygon4 = Points(22.5f, 350, 100,/**/0,1,  3,0,  4,3,  1,4);       // this one has multiple small gradients to check anti-aliasing
+            var polygon1 = Points(45.6f,  10,  10,/**/3,0,  5,6,   0,2,     6,2,  1,6); // 5 point star
+            var polygon2 = Points(40.2f, 200, 200,/**/3,0,  5,6,   0,2,     6,2,  1,6); // 5 point star with slightly different scale
+            var polygon3 = Points(22.5f, 400, 200,/**/3,0,  5,6,   0,2,     6,2,  1,6); // this one runs off the edge to check clipping
+            var polygon4 = Points(22.5f, 350, 100,/**/0,1,  3,0,   4,3,     1,4);       // this one has multiple small gradients to check anti-aliasing
+            var polygon5 = Points(1f,     10, 250,/**/0,1,  1,0, 199,200, 200,199);     // A long thin poly with a cross-over to show drop-out behaviour
             
+            ScanlineDraw.SetGamma(2.2);
             var sw = new Stopwatch();
             using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
             {
@@ -74,6 +76,7 @@ namespace ImageTools.Tests
                 ScanlineDraw.FillPolygon(byteImage, polygon2, color: 0xffAA5577, FillMode.Winding);
                 ScanlineDraw.FillPolygon(byteImage, polygon3, color: 0xff55AAFF, FillMode.Winding);
                 ScanlineDraw.FillPolygon(byteImage, polygon4, color: 0xffFFffFF, FillMode.Alternate); // this shows the AA problem with this scanline strategy
+                ScanlineDraw.FillPolygon(byteImage, polygon5, color: 0xffAAffAA, FillMode.Alternate); // there is a rounding fault here
                 sw.Stop();
                 
                 byteImage!.RenderOnBitmap(bmp);
@@ -86,10 +89,11 @@ namespace ImageTools.Tests
         [Test]
         public void fill_anti_aliased_polygon_with_sdf()
         {
-            var polygon1 = Points(45.6f,  10,  10,/**/3,0,  5,6,  0,2,  6,2,  1,6);
-            var polygon2 = Points(45.6f, 200, 200,/**/3,0,  5,6,  0,2,  6,2,  1,6);
-            var polygon3 = Points(22.5f, 400, 200,/**/3,0,  5,6,  0,2,  6,2,  1,6); // this one runs off the edge to check clipping
-            var polygon4 = Points(22.5f, 350, 100,/**/0,1,  3,0,  4,3,  1,4);       // this one has multiple small gradients to check anti-aliasing
+            var polygon1 = Points(45.6f,  10,  10,/**/3,0,  5,6,   0,2,     6,2,  1,6); // 5 point star
+            var polygon2 = Points(40.2f, 200, 200,/**/3,0,  5,6,   0,2,     6,2,  1,6); // 5 point star with slightly different scale
+            var polygon3 = Points(22.5f, 400, 200,/**/3,0,  5,6,   0,2,     6,2,  1,6); // this one runs off the edge to check clipping
+            var polygon4 = Points(22.5f, 350, 100,/**/0,1,  3,0,   4,3,     1,4);       // this one has multiple small gradients to check anti-aliasing
+            var polygon5 = Points(1f,     10, 250,/**/0,1,  1,0, 199,200, 200,199);     // A long thin poly with a cross-over to show drop-out behaviour
             
             var sw = new Stopwatch();
             using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
@@ -101,6 +105,7 @@ namespace ImageTools.Tests
                 SdfDraw.FillPolygon(byteImage, polygon2, color: 0xffAA5577, FillMode.Winding);
                 SdfDraw.FillPolygon(byteImage, polygon3, color: 0xff55AAFF, FillMode.Winding);
                 SdfDraw.FillPolygon(byteImage, polygon4, color: 0xffFFffFF, FillMode.Alternate);
+                SdfDraw.FillPolygon(byteImage, polygon5, color: 0xffAAffAA, FillMode.Alternate);
                 sw.Stop();
                 
                 byteImage!.RenderOnBitmap(bmp);
