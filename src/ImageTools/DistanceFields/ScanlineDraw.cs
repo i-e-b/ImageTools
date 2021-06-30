@@ -63,36 +63,47 @@ namespace ImageTools.DistanceFields
                 _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
             };
 
-            var spans = GetPolygonSpans(points, rule);
+            var spans = GetPolygonSpans(img, points, rule);
             if (spans == null) return;
             
             byte r = (byte) ((color >> 16) & 0xff);
             byte g = (byte) ((color >> 8) & 0xff);
             byte b = (byte) ((color) & 0xff);
 
-            // TODO: add antialiasing
             foreach (var span in spans)
             {
                 img.SetSpan(span, r, g, b);
             }
         }
         
-        private static IEnumerable<PixelSpan> GetPolygonSpans(PointF[] points, Action<IEnumerable<Segment>, ICollection<PixelSpan>, int> fillRule)
+        private static IEnumerable<PixelSpan> GetPolygonSpans(ByteImage img, PointF[] points, Action<IEnumerable<Segment>, ICollection<PixelSpan>, int> fillRule)
         {
-            var segments = ToLineSegments(points);
+            var segments = ToSortedLineSegments(points);
             var spans = new List<PixelSpan>();
             if (segments!.Count < 2) return spans;
             
-            var top = (int)segments.Min(s=>s.Top);
-            var bottom = (int)segments.Max(s=>s.Bottom);
+            var top = Math.Max(0, (int)segments.Min(s=>s.Top));
+            var bottom = Math.Min(img!.Bounds.Height, (int)segments.Max(s=>s.Bottom) + 1);
+            var skip = 0; // segments we can skip because we're below their lower bound
 
+            var activeList = new List<Segment>();
             for (var y = top; y < bottom; y++) // each scan line
             {
+                while (segments[skip].Bottom < y) skip++;
+
                 // find segments that affect this line
-                var rowSegments = segments.Where(s => s.Bottom >= y && s.Top <= y).Select(s => s.PositionedAtY(y) ).OrderBy(s=>s.Pos).ToArray(); // TODO: optimise this
-                if (rowSegments.Length < 1) continue; // nothing on this line
+                activeList.Clear();
+                for (int i = skip; i < segments.Count; i++)
+                {
+                    var s = segments[i];
+                    if (s.Top > y) continue;
+                    s.PositionAtY(y);
+                    activeList.Add(s);
+                }
+                activeList.Sort(SegmentSortHorizontal);
                 
-                fillRule!(rowSegments, spans, y);
+                // build pixel spans from the segments
+                fillRule!(activeList, spans, y);
             }
             return spans;
         }
@@ -139,15 +150,14 @@ namespace ImageTools.DistanceFields
                         Right = (int) span.Pos,
                         RightFraction = _gammaAdjust![RightFractional(span.Pos)]
                     });
-                    //spans!.Add(new PixelSpan{Y = y, Left = (int)left, Right = (int)span.Pos});
                 }
             }
         }
 
-        private static byte LeftFractional(double real) => (byte)((1.0 - (real - Math.Truncate(real))) * 255);
-        private static byte RightFractional(double real) => (byte)((real - Math.Truncate(real)) * 255);
+        private static byte LeftFractional(double real) => (byte)((1.0 - (real - (int)real)) * 255);
+        private static byte RightFractional(double real) => (byte)((real - (int)real) * 255);
         
-        private static List<Segment> ToLineSegments(PointF[] points)
+        private static List<Segment> ToSortedLineSegments(PointF[] points)
         {
             var outp = new List<Segment>();
             if (points == null || points.Length < 2) return outp;
@@ -158,8 +168,12 @@ namespace ImageTools.DistanceFields
                 if (Horizontal(points[i], points[j])) continue; // doesn't contribute to scan lines
                 outp.Add(new Segment(points[i], points[j]));
             }
+            outp.Sort(SegmentSortVertical);
             return outp;
         }
+
+        private static int SegmentSortHorizontal(Segment x, Segment y) => x.Pos.CompareTo(y.Pos);
+        private static int SegmentSortVertical(Segment x, Segment y) => x.Bottom.CompareTo(y.Bottom);
         
         private static bool Horizontal(PointF a, PointF b) => Math.Abs(a.Y - b.Y) < 0.00001;
 
@@ -282,12 +296,11 @@ namespace ImageTools.DistanceFields
 
             public bool Clockwise { get; set; }
 
-            public Segment PositionedAtY(double y)
+            public Segment PositionAtY(double y)
             {
-                var n = (Segment)MemberwiseClone();
                 var dy = y - Top;
-                n.Pos = (dy * Dx) + TopX;
-                return n;
+                Pos = dy * Dx + TopX;
+                return this;
             }
         }
     }

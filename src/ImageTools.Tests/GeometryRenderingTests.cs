@@ -62,6 +62,7 @@ namespace ImageTools.Tests
             var polygon1 = Points(45.6f,  10,  10,/**/3,0,  5,6,  0,2,  6,2,  1,6);
             var polygon2 = Points(45.6f, 200, 200,/**/3,0,  5,6,  0,2,  6,2,  1,6);
             var polygon3 = Points(22.5f, 400, 200,/**/3,0,  5,6,  0,2,  6,2,  1,6); // this one run off the edge to check clipping
+            var polygon4 = Points(22.5f, 350, 100,/**/0,1,  3,0,  4,3,  1,4);       // this one has multiple small gradients to check anti-aliasing
             
             var sw = new Stopwatch();
             using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
@@ -72,6 +73,7 @@ namespace ImageTools.Tests
                 ScanlineDraw.FillPolygon(byteImage, polygon1, color: 0xffEEDDCC, FillMode.Alternate);
                 ScanlineDraw.FillPolygon(byteImage, polygon2, color: 0xffAA5577, FillMode.Winding);
                 ScanlineDraw.FillPolygon(byteImage, polygon3, color: 0xff55AAFF, FillMode.Winding);
+                ScanlineDraw.FillPolygon(byteImage, polygon4, color: 0xffFFffFF, FillMode.Alternate); // this shows the AA problem with this scanline strategy
                 sw.Stop();
                 
                 byteImage!.RenderOnBitmap(bmp);
@@ -86,7 +88,8 @@ namespace ImageTools.Tests
         {
             var polygon1 = Points(45.6f,  10,  10,/**/3,0,  5,6,  0,2,  6,2,  1,6);
             var polygon2 = Points(45.6f, 200, 200,/**/3,0,  5,6,  0,2,  6,2,  1,6);
-            var polygon3 = Points(22.5f, 400, 200,/**/3,0,  5,6,  0,2,  6,2,  1,6); // this one run off the edge to check clipping
+            var polygon3 = Points(22.5f, 400, 200,/**/3,0,  5,6,  0,2,  6,2,  1,6); // this one runs off the edge to check clipping
+            var polygon4 = Points(22.5f, 350, 100,/**/0,1,  3,0,  4,3,  1,4);       // this one has multiple small gradients to check anti-aliasing
             
             var sw = new Stopwatch();
             using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
@@ -97,6 +100,7 @@ namespace ImageTools.Tests
                 SdfDraw.FillPolygon(byteImage, polygon1, color: 0xffEEDDCC, FillMode.Alternate);
                 SdfDraw.FillPolygon(byteImage, polygon2, color: 0xffAA5577, FillMode.Winding);
                 SdfDraw.FillPolygon(byteImage, polygon3, color: 0xff55AAFF, FillMode.Winding);
+                SdfDraw.FillPolygon(byteImage, polygon4, color: 0xffFFffFF, FillMode.Alternate);
                 sw.Stop();
                 
                 byteImage!.RenderOnBitmap(bmp);

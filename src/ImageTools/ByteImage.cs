@@ -77,7 +77,28 @@ namespace ImageTools
                 left++; // don't over-write
             }
 
+            
             // Fill main span
+            var length = right - left;
+            if (length >= 8) // unrolled section for long runs
+            {
+                var unrolled = length >> 3; // blocks of 8
+                for (int j = 0; j < unrolled; j++) // unrolled block
+                {
+                    left += 8;
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+                }
+            }
+
+            // Fill remainder after unrolled section
             for (int j = left; j <= right; j++)
             {
                 PixelBytes[pixelOffset++] = b;
