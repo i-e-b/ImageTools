@@ -56,6 +56,31 @@ namespace ImageTools.Tests
             Console.WriteLine($"Core draw took {sw.ElapsedMilliseconds}ms ({sw.ElapsedTicks} ticks)");
         }
         
+        [Test] // I don't have a scan-line version of this
+        public void render_variable_width_lines_with_sdf()
+        {
+            var sw = new Stopwatch();
+            using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
+            {
+                var byteImage = ByteImage.FromBitmap(bmp);
+
+                sw.Start();
+                SdfDraw.DrawPressureCurve(byteImage, color: 0xffFF00AA, new[]{
+                    new Vector3( 50,  50, 25),
+                    new Vector3(500,  10,  5),
+                    new Vector3(200, 500, 10),
+                    new Vector3( 20, 200, 15),
+                    new Vector3(500, 500,  1)
+                });
+                sw.Stop();
+                
+                byteImage!.RenderOnBitmap(bmp);
+                bmp.SaveBmp("./outputs/draw-variable-line-sdf.bmp");
+            }
+            Assert.That(Load.FileExists("./outputs/draw-variable-line-sdf.bmp"));
+            Console.WriteLine($"Core draw took {sw.ElapsedMilliseconds}ms ({sw.ElapsedTicks} ticks)");
+        }
+        
         [Test]
         public void fill_polygon_with_scanline()
         {

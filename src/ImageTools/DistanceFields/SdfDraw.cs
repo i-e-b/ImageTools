@@ -51,18 +51,67 @@ namespace ImageTools.DistanceFields
             maxY = Math.Min(img.Bounds.Bottom, maxY);
 
             // Pick a distance function based on the fill rule
-            Func<Vector2, Vector2[], double> distanceFunc = mode switch
+            Func<Vector2, double> distanceFunc = mode switch
             {
-                FillMode.Alternate => PolygonDistanceAlternate,
-                FillMode.Winding => PolygonDistanceWinding,
+                FillMode.Alternate => p => PolygonDistanceAlternate(p, vectors),
+                FillMode.Winding => p => PolygonDistanceWinding(p, vectors),
                 _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
             };
             
             // Do a general rendering of the function
-            RenderDistanceFunction(img, minY, maxY, minX, maxX, distanceFunc, vectors, b, g, r);
+            RenderDistanceFunction(img, minY, maxY, minX, maxX, distanceFunc, b, g, r);
+        }
+        
+
+        /// <summary>
+        /// Draw a set of lines, using `z` co-ord as line radius
+        /// </summary>
+        public static void DrawPressureCurve(ByteImage img, uint color, Vector3[] curve)
+        {
+            // Basic setup
+            if (img?.PixelBytes == null || curve == null) return;
+            if (curve.Length < 2) return; // line is a point. TODO: handle this
+            byte r = (byte) ((color >> 16) & 0xff);
+            byte g = (byte) ((color >> 8) & 0xff);
+            byte b = (byte) ((color) & 0xff);
+            
+            // Determine bounds
+            var minX = int.MaxValue;
+            var minY = int.MaxValue;
+            var maxX = int.MinValue;
+            var maxY = int.MinValue;
+            foreach (var point in curve)
+            {
+                minX = Math.Min(minX, (int)(point.Dx - point.Dz));
+                maxX = Math.Max(maxX, (int)(point.Dx + point.Dz));
+                minY = Math.Min(minY, (int)(point.Dy - point.Dz));
+                maxY = Math.Max(maxY, (int)(point.Dy + point.Dz));
+            }
+            minX = Math.Max(img.Bounds.Left, minX);
+            maxX = Math.Min(img.Bounds.Right, maxX);
+            minY = Math.Max(img.Bounds.Top, minY);
+            maxY = Math.Min(img.Bounds.Bottom, maxY);
+            
+            
+            // Build a distance function (we do all the line segments
+            // at once so the blending works correctly)
+            double DistanceFunc(Vector2 p)
+            {
+                var d = double.MaxValue;
+                var lim = curve.Length - 1;
+                for (int i = 0; i < lim; i++)
+                {
+                    d = Math.Min(d, sdUnevenCapsule(p, curve[i], curve[i + 1])); // 'min' in sdf is equivalent to logical 'or' in bitmaps
+                }
+
+                return d;
+            }
+
+            // Do a general rendering of the function
+            RenderDistanceFunction(img, minY, maxY, minX, maxX, DistanceFunc, b, g, r);
         }
 
-        private static void RenderDistanceFunction(ByteImage img, int minY, int maxY, int minX, int maxX, Func<Vector2, Vector2[], double> distanceFunc, Vector2[] vectors, byte b, byte g, byte r)
+        private static void RenderDistanceFunction(ByteImage img, int minY, int maxY, int minX, int maxX, Func<Vector2, double> distanceFunc, byte b, byte g, byte r)
         {
             // Scan through the bounds, skipping where possible
             // filling area based on distance to edge (internal in negative)
@@ -72,7 +121,7 @@ namespace ImageTools.DistanceFields
                 for (int x = minX; x < maxX; x++)
                 {
                     var s = new Vector2(x, y);
-                    var d = distanceFunc!(s, vectors);
+                    var d = distanceFunc!(s);
 
                     if (d >= 1) // outside the iso-surface
                     {
@@ -188,6 +237,34 @@ namespace ImageTools.DistanceFields
             q = new Matrix2(d.Dx, -d.Dy, d.Dy, d.Dx) * q;
             q = q.Abs() - (new Vector2(l, thickness)) * 0.5;
             return q.Max(0.0).Length() + Math.Min(Math.Max(q.Dx, q.Dy), 0.0);    
+        }
+        
+        // line with a linearly varying line width
+        private static double sdUnevenCapsule(Vector2 samplePoint /*samplePoint */, Vector3 va, Vector3 vb)
+        {
+            var pa = va.SplitXY_Z(out var ra);
+            var pb = vb.SplitXY_Z(out var rb);
+            
+            // rotate to standard form
+            samplePoint  -= pa;
+            pb -= pa;
+            var h = Vector2.Dot(pb,pb);
+            var q = new Vector2(Vector2.Dot(samplePoint, new Vector2(pb.Dy, -pb.Dx)), Vector2.Dot(samplePoint, pb)) / h;
+    
+            //-----------
+    
+            q.Dx = Math.Abs(q.Dx);
+    
+            var b = ra-rb;
+            var c = new Vector2(Math.Sqrt(h-b*b),b);
+    
+            var k = Vector2.Cross(c,q);
+            var m = Vector2.Dot(c,q);
+            var n = Vector2.Dot(q,q);
+    
+            if( k < 0.0 )  return Math.Sqrt(h*(n             )) - ra;
+            if( k > c.Dx ) return Math.Sqrt(h*(n+1.0-2.0*q.Dy)) - rb;
+            return                     m                        - ra;
         }
 
         // https://www.shadertoy.com/view/wdBXRW
