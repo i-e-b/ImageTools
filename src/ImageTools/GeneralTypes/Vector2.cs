@@ -1,36 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.CompilerServices;
 
-namespace ImageTools.DistanceFields
+namespace ImageTools.GeneralTypes
 {
-    public struct BoolVec3
+    public class VecSegment2
     {
-        public bool A, B, C;
-
-        public BoolVec3(bool a, bool b, bool c)
-        {
-            A = a;
-            B = b;
-            C = c;
-        }
-
-        public bool All() => A && B && C;
-
-        public bool None() => !A && !B && !C;
-    }
-
-    public struct Vector3
-    {
-        public double Dx, Dy, Dz;
-
-        public Vector3(double x, double y, double z) { Dx = x; Dy = y; Dz = z; }
-
-        public Vector2 SplitXY_Z(out double z)
-        {
-            z = Dz;
-            return new Vector2(Dx, Dy);
-        }
+        public Vector2 A { get; set; }
+        public Vector2 B { get; set; }
     }
 
     public struct Vector2
@@ -45,6 +23,32 @@ namespace ImageTools.DistanceFields
         public Vector2(PointF p)
         {
             Dx = p.X; Dy = p.Y;
+        }
+
+        /// <summary>
+        /// Helper for creating arrays of vectors
+        /// </summary>
+        public static Vector2[] Set(double scale, double dx, double dy, params double[] p)
+        {
+            var result = new List<Vector2>();
+            for (int i = 0; i < p!.Length - 1; i+=2)
+            {
+                result.Add(new Vector2(p[i]*scale + dx, p[i+1]*scale + dy));
+            }
+            return result.ToArray();
+        }
+        
+        /// <summary>
+        /// Helper for creating arrays of vectors
+        /// </summary>
+        public static Vector2[] Set(params double[] p)
+        {
+            var result = new List<Vector2>();
+            for (int i = 0; i < p!.Length - 1; i+=2)
+            {
+                result.Add(new Vector2(p[i], p[i+1]));
+            }
+            return result.ToArray();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

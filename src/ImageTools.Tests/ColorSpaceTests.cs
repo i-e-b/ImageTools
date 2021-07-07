@@ -179,6 +179,7 @@ namespace ImageTools.Tests
                     var maxP = new double[Lp.Length]; // to zero out other planes
                     for (int i = 0; i < zeroP.Length; i++) { zeroP[i] = 0.0; maxP[i] = 0.5; }
 
+                    //BitmapTools.PlanesToImage(dst, ColorSpace.Oklab_To_LinearRGB_Byte, 0, Lp, zeroP, zeroP); // use this to get a representation of the gamma correction
                     BitmapTools.PlanesToImage(dst, ColorSpace.Oklab_To_sRGB, 0, Lp, zeroP, zeroP);
                     dst.SaveBmp("./outputs/3_Oklab_L-only.bmp");
                     

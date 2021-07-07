@@ -1,4 +1,6 @@
-﻿using ImageTools.Utilities;
+﻿using System;
+using System.Diagnostics;
+using ImageTools.Utilities;
 using NUnit.Framework;
 
 namespace ImageTools.Tests

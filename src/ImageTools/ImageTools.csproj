@@ -59,9 +59,12 @@
     <Compile Include="DistanceFields\DistanceField.cs" />
     <Compile Include="DistanceFields\ScanlineDraw.cs" />
     <Compile Include="DistanceFields\SdfDraw.cs" />
-    <Compile Include="DistanceFields\Matrix2.cs" />
-    <Compile Include="DistanceFields\Vector2.cs" />
+    <Compile Include="GeneralTypes\BoolVec3.cs" />
+    <Compile Include="GeneralTypes\Contour.cs" />
+    <Compile Include="GeneralTypes\Matrix2.cs" />
     <Compile Include="GeneralTypes\Size2D.cs" />
+    <Compile Include="GeneralTypes\Vector2.cs" />
+    <Compile Include="GeneralTypes\Vector3.cs" />
     <Compile Include="ImageDataFormats\BitwiseStreamWrapper.cs" />
     <Compile Include="ErrorDiffusionScale.cs" />
     <Compile Include="ImageDataFormats\ColorRGB.cs" />

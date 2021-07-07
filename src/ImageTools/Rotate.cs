@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using ImageTools.DistanceFields;
+using ImageTools.GeneralTypes;
 using ImageTools.Utilities;
 // ReSharper disable InconsistentNaming
 // ReSharper disable IdentifierTypo
@@ -37,6 +39,8 @@ namespace ImageTools
             BitmapTools.ArgbImageToYUVPlanes_f(source, out var sY, out var sU, out var sV);
             BitmapTools.ArgbImageToYUVPlanes_f(dest, out var dY, out var dU, out var dV);
 
+            var sw = new Stopwatch();
+            sw.Start();
 
             // copy over with an offset and first X shear
             var yofc = bounds_height - height;
@@ -98,6 +102,8 @@ namespace ImageTools
                 }
             }
 
+            sw.Stop();
+            Console.WriteLine($"Core rotate took {sw.ElapsedMilliseconds}ms ({sw.ElapsedTicks} ticks)");
 
             // pack back into bitmap
             BitmapTools.YUVPlanes_To_ArgbImage(dest, 0, dY, dU, dV);
@@ -143,6 +149,10 @@ namespace ImageTools
             BitmapTools.ArgbImageToYUVPlanes_f(source, out var sY, out var sU, out var sV);
             BitmapTools.ArgbImageToYUVPlanes_f(dest, out var dY, out var dU, out var dV);
             
+            
+            var sw = new Stopwatch();
+            sw.Start();
+            
             // Invert the matrix, and look up a source location for each output pixel
             // This prevents any 'drop out' positions
             var half_bound_height = bounds_height / 2;
@@ -160,6 +170,9 @@ namespace ImageTools
                     CopySubsampled(/*from*/ (int)width,(int)height, sx, sy,   /* to */ bounds_width, dx - lx, dy - ty,  /* buffers */ sY,sU,sV,  dY,dU,dV );
                 }
             }
+            
+            sw.Stop();
+            Console.WriteLine($"Core rotate took {sw.ElapsedMilliseconds}ms ({sw.ElapsedTicks} ticks)");
 
             // pack back into bitmap
             BitmapTools.YUVPlanes_To_ArgbImage(dest, 0, dY, dU, dV);

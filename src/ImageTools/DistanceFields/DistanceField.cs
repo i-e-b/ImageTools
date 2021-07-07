@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using ImageTools.AnalyticalTransforms;
+using ImageTools.GeneralTypes;
 using ImageTools.Utilities;
 
 // ReSharper disable PossibleNullReferenceException

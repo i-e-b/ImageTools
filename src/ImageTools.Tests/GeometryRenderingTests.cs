@@ -5,6 +5,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using ImageTools.DistanceFields;
+using ImageTools.GeneralTypes;
 using ImageTools.Utilities;
 using NUnit.Framework;
 
@@ -140,6 +141,8 @@ namespace ImageTools.Tests
             Console.WriteLine($"Core draw took {sw.ElapsedMilliseconds}ms ({sw.ElapsedTicks} ticks)");
         }
 
+        // TODO: Check that multiple contours can work with the polygon fill (i.e. support holes)
+        
         private PointF[] Points(float scale, float dx, float dy, params int[] p)
         {
             var result = new List<PointF>();

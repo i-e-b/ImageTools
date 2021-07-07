@@ -1,4 +1,4 @@
-﻿namespace ImageTools.DistanceFields
+﻿namespace ImageTools.GeneralTypes
 {
     public struct Matrix2
     {

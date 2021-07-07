@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using ImageTools.GeneralTypes;
 
 namespace ImageTools.DistanceFields
 {
@@ -61,7 +62,12 @@ namespace ImageTools.DistanceFields
             // Do a general rendering of the function
             RenderDistanceFunction(img, minY, maxY, minX, maxX, distanceFunc, b, g, r);
         }
-        
+
+        public static void FillPolygon(ByteImage img, Contour[] contours, uint color, FillMode mode)
+        {
+            
+        }
+
 
         /// <summary>
         /// Draw a set of lines, using `z` co-ord as line radius
@@ -125,7 +131,8 @@ namespace ImageTools.DistanceFields
 
                     if (d >= 1) // outside the iso-surface
                     {
-                        x += (int) (d - 1);// jump if distance is big enough, to save calculations
+                        //img.PixelBytes![rowOffset + (x<<2)] = 255; // uncomment to get a debug view of jump points
+                        x += (int) (d - 1);// jump if distance is big enough to save calculations, but don't get too close or we break anti-aliasing.
                         continue;
                     }
 

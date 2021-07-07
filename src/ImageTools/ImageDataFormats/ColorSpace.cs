@@ -869,6 +869,9 @@ namespace ImageTools.ImageDataFormats
             return ComponentToCompound(0, clip(R * 255.0), clip(G * 255.0), clip(B * 255.0));
         }
 
+        /// <summary>
+        /// Returns values in a 0..1 linear range
+        /// </summary>
         public static void Oklab_To_LinearRGB(double cL, double ca, double cb, out double r, out double g, out double b)
         {
             var l_ = cL + 0.3963377774 * ca + 0.2158037573 * cb;
@@ -939,6 +942,14 @@ namespace ImageTools.ImageDataFormats
             r = LinearToSRGB(lr);
             g = LinearToSRGB(lg);
             b = LinearToSRGB(lb);
+        }
+        
+        public static void Oklab_To_LinearRGB_Byte(double cL, double ca, double cb, out double r, out double g, out double b)
+        {
+            Oklab_To_LinearRGB(cL, ca, cb, out var lr, out var lg, out var lb);
+            r = lr * 255;
+            g = lg * 255;
+            b = lb * 255;
         }
 
         /// <summary>
