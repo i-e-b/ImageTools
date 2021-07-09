@@ -141,15 +141,104 @@ namespace ImageTools.Tests
             Console.WriteLine($"Core draw took {sw.ElapsedMilliseconds}ms ({sw.ElapsedTicks} ticks)");
         }
 
-        // TODO: Check that multiple contours can work with the polygon fill (i.e. support holes)
+        // Check that multiple contours can work with the polygon fill (i.e. support holes)
+        [Test]
+        public void fill_complex_polygon_with_sdf()
+        {
+            var polygon1 = Points(22.5,  10.2, 10.8,/**/0,0,  10,0,   10,10,   0,10);         // outer box
+            var polygon2 = Points(22.5,  20.5, 20.5,/**/2,2,  0,2,  1.5,3.5,  1,6,  3,4.5,  5,6, 4.5,3.5,  6,2,  4,2,  3,0); // CCW 5 point star with no crossings
+            var polygon3 = ReversePoly(OffsetPoly(polygon2, 30.0,40.0));
+            
+            var polygon4 = Points(22.5,  250.2, 250.8,/**/0,0,  10,0,   10,10,   0,10);         // outer box
+            var polygon5 = Points(22.5,  260.5, 260.5,/**/2,2,  0,2,  1.5,3.5,  1,6,  3,4.5,  5,6, 4.5,3.5,  6,2,  4,2,  3,0); // CCW 5 point star with no crossings
+            var polygon6 = ReversePoly(OffsetPoly(polygon5, 30.0,40.0));
+            
+            var contour1 = Contour.Combine(polygon1, polygon2, polygon3);
+            var contour2 = Contour.Combine(polygon4, polygon5, polygon6);
+            
+            var sw = new Stopwatch();
+            using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
+            {
+                var byteImage = ByteImage.FromBitmap(bmp);
+
+                sw.Start();
+                SdfDraw.FillPolygon(byteImage, contour1, color: 0xffEEDDCC, FillMode.Alternate);
+                SdfDraw.FillPolygon(byteImage, contour2, color: 0xffCCDDEE, FillMode.Winding);
+                sw.Stop();
+                
+                byteImage!.RenderOnBitmap(bmp);
+                bmp.SaveBmp("./outputs/draw-poly-hole-sdf.bmp");
+            }
+            Assert.That(Load.FileExists("./outputs/draw-poly-hole-sdf.bmp"));
+            Console.WriteLine($"Core draw took {sw.ElapsedMilliseconds}ms ({sw.ElapsedTicks} ticks)");
+        }
+
+        // Check that multiple contours can work with the polygon fill (i.e. support holes)
+        [Test] // TODO: these aren't working quite right
+        public void fill_complex_polygon_with_scanline()
+        {
+            var polygon1 = Points(22.5,  10.2, 10.8,/**/0,0,  10,0,   10,10,   0,10);         // outer box
+            var polygon2 = Points(22.5,  20.5, 20.5,/**/2,2,  0,2,  1.5,3.5,  1,6,  3,4.5,  5,6, 4.5,3.5,  6,2,  4,2,  3,0); // CCW 5 point star with no crossings
+            var polygon3 = ReversePoly(OffsetPoly(polygon2, 30.0,40.0));
+            
+            var polygon4 = Points(22.5,  250.2, 250.8,/**/0,0,  10,0,   10,10,   0,10);         // outer box
+            var polygon5 = Points(22.5,  260.5, 260.5,/**/2,2,  0,2,  1.5,3.5,  1,6,  3,4.5,  5,6, 4.5,3.5,  6,2,  4,2,  3,0); // CCW 5 point star with no crossings
+            var polygon6 = ReversePoly(OffsetPoly(polygon5, 30.0,40.0));
+            
+            var contour1 = Contour.Combine(polygon1, polygon2, polygon3);
+            var contour2 = Contour.Combine(polygon4, polygon5, polygon6);
+            
+            var sw = new Stopwatch();
+            using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
+            {
+                var byteImage = ByteImage.FromBitmap(bmp);
+
+                sw.Start();
+                ScanlineDraw.FillPolygon(byteImage, contour1, color: 0xffEEDDCC, FillMode.Alternate);
+                ScanlineDraw.FillPolygon(byteImage, contour2, color: 0xffCCDDEE, FillMode.Winding);
+                sw.Stop();
+                
+                byteImage!.RenderOnBitmap(bmp);
+                bmp.SaveBmp("./outputs/draw-poly-hole-scan.bmp");
+            }
+            Assert.That(Load.FileExists("./outputs/draw-poly-hole-scan.bmp"));
+            Console.WriteLine($"Core draw took {sw.ElapsedMilliseconds}ms ({sw.ElapsedTicks} ticks)");
+        }
         
-        private PointF[] Points(float scale, float dx, float dy, params int[] p)
+        private PointF[] Points(double scale, double dx, double dy, params double[] p)
         {
             var result = new List<PointF>();
             for (int i = 0; i < p!.Length - 1; i+=2)
             {
-                result.Add(new PointF(p[i]*scale + dx, p[i+1]*scale + dy));
+                result.Add(new PointF((float)(p[i]*scale + dx), (float)(p[i+1]*scale + dy)));
             }
+            return result.ToArray();
+        }
+        
+        private PointF[] OffsetPoly(PointF[] p, double dx, double dy)
+        {
+            var result = new List<PointF>();
+            
+            for (int i = 0; i < p!.Length; i++)
+            {
+                result.Add(new PointF((float)(p[i].X + dx), (float)(p[i].Y + dy)));
+            }
+            
+            return result.ToArray();
+        }
+        
+        /// <summary>
+        /// reverse winding order
+        /// </summary>
+        private PointF[] ReversePoly(PointF[] p)
+        {
+            var result = new List<PointF>();
+            
+            for (int i = p!.Length - 1; i >= 0; i--)
+            {
+                result.Add(new PointF(p[i].X, p[i].Y));
+            }
+            
             return result.ToArray();
         }
     }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
+using ImageTools.GeneralTypes;
 
 namespace ImageTools.DistanceFields
 {
@@ -64,7 +65,8 @@ namespace ImageTools.DistanceFields
                 _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
             };
 
-            var spans = GetPolygonSpans(img, points, rule);
+            var segments = ToSortedLineSegments(points);
+            var spans = GetPolygonSpans(img, segments, rule);
             if (spans == null) return;
             
             byte r = (byte) ((color >> 16) & 0xff);
@@ -77,9 +79,36 @@ namespace ImageTools.DistanceFields
             }
         }
         
-        private static IEnumerable<PixelSpan> GetPolygonSpans(ByteImage img, PointF[] points, Action<IEnumerable<Segment>, ICollection<PixelSpan>, int> fillRule)
+        /// <summary>
+        /// Fill a polygon using a specific winding rule
+        /// </summary>
+        public static void FillPolygon(ByteImage img, Contour[] contours, uint color, FillMode mode)
         {
-            var segments = ToSortedLineSegments(points);
+            if (img == null) return;
+            Action<IEnumerable<Segment>, ICollection<PixelSpan>, int> rule = mode switch
+            {
+                FillMode.Alternate => OddEvenSpans,
+                FillMode.Winding => NonZeroWindingSpans,
+                _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
+            };
+
+            var segments = ToSortedLineSegments(contours);
+            var spans = GetPolygonSpans(img, segments, rule);
+            if (spans == null) return;
+            
+            byte r = (byte) ((color >> 16) & 0xff);
+            byte g = (byte) ((color >> 8) & 0xff);
+            byte b = (byte) ((color) & 0xff);
+
+            foreach (var span in spans)
+            {
+                img.SetSpan(span, r, g, b);
+            }
+        }
+
+
+        private static IEnumerable<PixelSpan> GetPolygonSpans(ByteImage img, List<Segment> segments, Action<IEnumerable<Segment>, ICollection<PixelSpan>, int> fillRule)
+        {
             var spans = new List<PixelSpan>();
             if (segments!.Count < 2) return spans;
             
@@ -168,6 +197,28 @@ namespace ImageTools.DistanceFields
                 
                 if (Horizontal(points[i], points[j])) continue; // doesn't contribute to scan lines
                 outp.Add(new Segment(points[i], points[j]));
+            }
+            outp.Sort(SegmentSortVertical);
+            return outp;
+        }
+        
+        private static List<Segment> ToSortedLineSegments(Contour[] contours)
+        {
+            var outp = new List<Segment>();
+            if (contours == null || contours.Length < 1) return outp;
+            for (int i = 0; i < contours.Length; i++)
+            {
+                var contour = contours[i];
+                var segCount = contour!.PairCount();
+                for (int j = 0; j < segCount; j++)
+                {
+                    var seg = contour.Pair(j);
+                    var pA = seg!.A.ToPointF();
+                    var pB = seg.B.ToPointF();
+                    if (Horizontal(pA, pB)) continue; // doesn't contribute to scan lines
+                    
+                    outp.Add(new Segment(pA, pB));
+                }
             }
             outp.Sort(SegmentSortVertical);
             return outp;

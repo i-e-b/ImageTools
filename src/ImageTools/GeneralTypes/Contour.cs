@@ -1,5 +1,6 @@
+using System.Drawing;
+using System.Linq;
 using System.Runtime.CompilerServices;
-using ImageTools.DistanceFields;
 
 namespace ImageTools.GeneralTypes
 {
@@ -26,6 +27,16 @@ namespace ImageTools.GeneralTypes
                 A = _points![idx    % _points.Length],
                 B = _points[(idx+1) % _points.Length]
             };
+        }
+
+        public static Contour[] Combine(params PointF[][] polygons)
+        {
+            var c = polygons!.Length;
+            var outp = new Contour[c];
+
+            for (int i = 0; i < c; i++) outp[i] = new Contour(polygons[i]!.Select(p => new Vector2(p)).ToArray());
+
+            return outp;
         }
     }
 }

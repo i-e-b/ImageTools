@@ -99,5 +99,7 @@ namespace ImageTools.GeneralTypes
         public static double Cross(Vector2 v0, Vector2 v1) {
             return v0.Dx * v1.Dy - v0.Dy * v1.Dx;
         }
+
+        public PointF ToPointF() => new PointF((float)Dx, (float)Dy);
     }
 }

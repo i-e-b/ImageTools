@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
@@ -35,21 +36,13 @@ namespace ImageTools.DistanceFields
             byte b = (byte) ((color) & 0xff);
             
             // Get bounds, and cast points to vectors
-            var minX = int.MaxValue;
-            var minY = int.MaxValue;
-            var maxX = int.MinValue;
-            var maxY = int.MinValue;
-            var vectors = points.Select(p => {
-                minX = Math.Min(minX, (int)(p.X-1));
-                minY = Math.Min(minY, (int)(p.Y-1));
-                maxX = Math.Max(maxX, (int)(p.X+1));
-                maxY = Math.Max(maxY, (int)(p.Y+1));
+            MinMaxRange(out var minX, out var minY, out var maxX, out var maxY);
+            var vectors = points.Select(p =>
+            {
+                ExpandRange(p, ref minX, ref minY, ref maxX, ref maxY);
                 return new Vector2(p);
             }).ToArray();
-            minX = Math.Max(img.Bounds.Left, minX);
-            maxX = Math.Min(img.Bounds.Right, maxX);
-            minY = Math.Max(img.Bounds.Top, minY);
-            maxY = Math.Min(img.Bounds.Bottom, maxY);
+            ReduceMinMaxToBounds(img, ref minX, ref maxX, ref minY, ref maxY);
 
             // Pick a distance function based on the fill rule
             Func<Vector2, double> distanceFunc = mode switch
@@ -65,9 +58,42 @@ namespace ImageTools.DistanceFields
 
         public static void FillPolygon(ByteImage img, Contour[] contours, uint color, FillMode mode)
         {
+            // basic setup
+            if (img?.PixelBytes == null || contours == null) return;
+            if (contours.Length < 1) return; // area is empty
+            byte r = (byte) ((color >> 16) & 0xff);
+            byte g = (byte) ((color >> 8) & 0xff);
+            byte b = (byte) ((color) & 0xff);
             
+            // Get bounds, and extract point pairs
+            MinMaxRange(out var minX, out var minY, out var maxX, out var maxY);
+            var allPairs = new List<VecSegment2>();
+            foreach (var contour in contours)
+            {
+                var pairCount = contour!.PairCount();
+                for (int i = 0; i < pairCount; i++)
+                {
+                    var pair = contour.Pair(i);
+                    allPairs.Add(pair);
+                    
+                    ExpandRange(pair!.A, ref minX, ref minY, ref maxX, ref maxY);
+                    ExpandRange(pair!.B, ref minX, ref minY, ref maxX, ref maxY);
+                }
+            }
+            ReduceMinMaxToBounds(img, ref minX, ref maxX, ref minY, ref maxY);
+            var pairs = allPairs.ToArray();
+            
+            // Pick a distance function based on the fill rule
+            Func<Vector2, double> distanceFunc = mode switch
+            {
+                FillMode.Alternate => p => PolygonDistanceAlternate(p, pairs),
+                FillMode.Winding => p => PolygonDistanceWinding(p, pairs),
+                _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
+            };
+            
+            // Do a general rendering of the function
+            RenderDistanceFunction(img, minY, maxY, minX, maxX, distanceFunc, b, g, r);
         }
-
 
         /// <summary>
         /// Draw a set of lines, using `z` co-ord as line radius
@@ -82,21 +108,16 @@ namespace ImageTools.DistanceFields
             byte b = (byte) ((color) & 0xff);
             
             // Determine bounds
-            var minX = int.MaxValue;
-            var minY = int.MaxValue;
-            var maxX = int.MinValue;
-            var maxY = int.MinValue;
+            MinMaxRange(out var minX, out var minY, out var maxX, out var maxY);
             foreach (var point in curve)
             {
+                ExpandRange(point, ref minX, ref minY, ref maxX, ref maxY);
                 minX = Math.Min(minX, (int)(point.Dx - point.Dz));
                 maxX = Math.Max(maxX, (int)(point.Dx + point.Dz));
                 minY = Math.Min(minY, (int)(point.Dy - point.Dz));
                 maxY = Math.Max(maxY, (int)(point.Dy + point.Dz));
             }
-            minX = Math.Max(img.Bounds.Left, minX);
-            maxX = Math.Min(img.Bounds.Right, maxX);
-            minY = Math.Max(img.Bounds.Top, minY);
-            maxY = Math.Min(img.Bounds.Bottom, maxY);
+            ReduceMinMaxToBounds(img, ref minX, ref maxX, ref minY, ref maxY);
             
             
             // Build a distance function (we do all the line segments
@@ -107,7 +128,7 @@ namespace ImageTools.DistanceFields
                 var lim = curve.Length - 1;
                 for (int i = 0; i < lim; i++)
                 {
-                    d = Math.Min(d, sdUnevenCapsule(p, curve[i], curve[i + 1])); // 'min' in sdf is equivalent to logical 'or' in bitmaps
+                    d = Math.Min(d, UnevenCapsule(p, curve[i], curve[i + 1])); // 'min' in sdf is equivalent to logical 'or' in bitmaps
                 }
 
                 return d;
@@ -247,7 +268,7 @@ namespace ImageTools.DistanceFields
         }
         
         // line with a linearly varying line width
-        private static double sdUnevenCapsule(Vector2 samplePoint /*samplePoint */, Vector3 va, Vector3 vb)
+        private static double UnevenCapsule(Vector2 samplePoint, Vector3 va, Vector3 vb)
         {
             var pa = va.SplitXY_Z(out var ra);
             var pb = vb.SplitXY_Z(out var rb);
@@ -297,6 +318,30 @@ namespace ImageTools.DistanceFields
 
             return s * Math.Sqrt(d);
         }
+        
+        // Same as above, but input is disconnected line segments
+        private static double PolygonDistanceAlternate(Vector2 p, VecSegment2[] v)
+        {
+            var num = v!.Length;
+            var d = Vector2.Dot(p - v[0].A, p - v[0].A);
+            var s = 1.0;
+            for (int i = 0; i < num; i++)
+            {
+                // distance
+                var e = v[i].B - v[i].A;
+                var w = p - v[i].A;
+                var b = w - e * Clamp(Vector2.Dot(w, e) / Vector2.Dot(e, e), 0.0, 1.0);
+                d = Math.Min(d, Vector2.Dot(b, b));
+
+                // winding number
+                var cond = new BoolVec3(p.Dy >= v[i].A.Dy,
+                    p.Dy < v[i].B.Dy,
+                    e.Dx * w.Dy > e.Dy * w.Dx);
+                if (cond.All() || cond.None()) s = -s;
+            }
+
+            return s * Math.Sqrt(d);
+        }
 
         // https://www.shadertoy.com/view/WdSGRd
         private static double PolygonDistanceWinding(Vector2 p, Vector2[] poly)
@@ -338,7 +383,91 @@ namespace ImageTools.DistanceFields
             var s = wn == 0 ? 1.0 : -1.0; // flip distance if we're inside
             return Math.Sqrt(d) * s;
         }
+        
+        // Same as above, but input is disconnected line segments
+        private static double PolygonDistanceWinding(Vector2 p, VecSegment2[] poly)
+        {
+            var length = poly!.Length;
+            var e = new Vector2[length];
+            var v = new Vector2[length];
+            var v2 = new Vector2[length];
+            var pq = new Vector2[length];
+            
+            // data
+            for (int i = 0; i < length; i++)
+            {
+                e[i] = poly[i].B - poly[i].A;
+                v[i] = p - poly[i].A;
+                v2[i] = p - poly[i].B;
+                pq[i] = v[i] - e[i] * Clamp(Vector2.Dot(v[i], e[i]) / Vector2.Dot(e[i], e[i]), 0.0, 1.0);
+            }
 
+            //distance
+            var d = Vector2.Dot(pq[0], pq[0]);
+            for (int i = 1; i < length; i++)
+            {
+                d = Math.Min(d, Vector2.Dot(pq[i], pq[i]));
+            }
+
+            //winding number
+            // from http://geomalgorithms.com/a03-_inclusion.html
+            var wn = 0;
+            for (int i = 0; i < length; i++)
+            {
+                var cond1 = 0.0 <= v[i].Dy;
+                var cond2 = 0.0 > v2[i].Dy;
+                var val3 = Vector2.Cross(e[i], v[i]); //isLeft
+                wn += cond1 && cond2 && val3 > 0.0 ? 1 : 0; // have  a valid up intersect
+                wn -= !cond1 && !cond2 && val3 < 0.0 ? 1 : 0; // have  a valid down intersect
+            }
+
+            var s = wn == 0 ? 1.0 : -1.0; // flip distance if we're inside
+            return Math.Sqrt(d) * s;
+        }
+
+        
+        #region Helpers
+        private static void ReduceMinMaxToBounds(ByteImage img, ref int minX, ref int maxX, ref int minY, ref int maxY)
+        {
+            minX = Math.Max(img!.Bounds.Left, minX);
+            maxX = Math.Min(img.Bounds.Right, maxX);
+            minY = Math.Max(img.Bounds.Top, minY);
+            maxY = Math.Min(img.Bounds.Bottom, maxY);
+        }
+        
+
+        private static void ExpandRange(PointF p, ref int minX, ref int minY, ref int maxX, ref int maxY)
+        {
+            minX = Math.Min(minX, (int) (p.X - 2));
+            minY = Math.Min(minY, (int) (p.Y - 2));
+            maxX = Math.Max(maxX, (int) (p.X + 2));
+            maxY = Math.Max(maxY, (int) (p.Y + 2));
+        }
+        
+        private static void ExpandRange(Vector2 p, ref int minX, ref int minY, ref int maxX, ref int maxY)
+        {
+            minX = Math.Min(minX, (int) (p.Dx - 2));
+            minY = Math.Min(minY, (int) (p.Dy - 2));
+            maxX = Math.Max(maxX, (int) (p.Dx + 2));
+            maxY = Math.Max(maxY, (int) (p.Dy + 2));
+        }
+        
+        private static void ExpandRange(Vector3 p, ref int minX, ref int minY, ref int maxX, ref int maxY)
+        {
+            minX = Math.Min(minX, (int)(p.Dx - p.Dz)-2);
+            maxX = Math.Max(maxX, (int)(p.Dx + p.Dz)+2);
+            minY = Math.Min(minY, (int)(p.Dy - p.Dz)-2);
+            maxY = Math.Max(maxY, (int)(p.Dy + p.Dz)+2);
+        }
+
+        private static void MinMaxRange(out int minX, out int minY, out int maxX, out int maxY)
+        {
+            minX = int.MaxValue;
+            minY = int.MaxValue;
+            maxX = int.MinValue;
+            maxY = int.MinValue;
+        }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static double Clamp(double v, double min, double max)
         {
@@ -346,5 +475,6 @@ namespace ImageTools.DistanceFields
             if (v > max) return max;
             return v;
         }
+        #endregion
     }
 }
