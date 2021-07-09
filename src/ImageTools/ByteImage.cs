@@ -116,6 +116,19 @@ namespace ImageTools
                 PixelBytes[pixelOffset + 2] = (byte) (((PixelBytes[pixelOffset + 2] * antiFraction) >> 8) + ((r * span.RightFraction) >> 8));
             }
         }
+
+        public void SetPixel(int x, int y, byte r, byte g, byte b)
+        {
+            if (y < 0 || y >= Bounds.Height) return;
+            if (x < 0 || x >= Bounds.Width) return;
+            
+            var rowOffset = y * RowBytes;
+            var pixelOffset = rowOffset + x * 4; // target pixel as byte offset from base
+            
+            PixelBytes![pixelOffset++] = b;
+            PixelBytes[pixelOffset++] = g;
+            PixelBytes[pixelOffset] = r;
+        }
     }
     
     public class PixelSpan

@@ -113,7 +113,7 @@ namespace ImageTools.Tests
         }
 
         [Test]
-        public void fill_anti_aliased_polygon_with_sdf()
+        public void fill_polygon_with_sdf()
         {
             var polygon1 = Points(45.6f,  10,  10,/**/3,0,  5,6,   0,2,     6,2,  1,6); // 5 point star
             var polygon2 = Points(40.2f, 200, 200,/**/3,0,  5,6,   0,2,     6,2,  1,6); // 5 point star with slightly different scale

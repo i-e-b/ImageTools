@@ -7,13 +7,15 @@ using ImageTools.GeneralTypes;
 
 namespace ImageTools.DistanceFields
 {
+
     /// <summary>
     /// Does the same stuff as SdfDraw, for comparison.
-    /// This tends to be around 10x faster, and about 5x worse looking
+    /// This tends to be a few times faster, and slightly worse looking
     /// </summary>
     public static class ScanlineDraw
     {
-        private const double Epsilon = 0.00001;
+        private const double Epsilon = float.Epsilon; // no, that's not an error
+        
 #region Tables
         private static readonly byte[] _gammaAdjust = new byte[256];
         /// <summary>
@@ -58,15 +60,15 @@ namespace ImageTools.DistanceFields
         public static void FillPolygon(ByteImage img, PointF[] points, uint color, FillMode mode)
         {
             if (img == null) return;
-            Action<IEnumerable<Segment>, ICollection<PixelSpan>, int> rule = mode switch
+            Action<IEnumerable<ScanlineSegment>, ICollection<PixelSpan>, int> rule = mode switch
             {
                 FillMode.Alternate => OddEvenSpans,
                 FillMode.Winding => NonZeroWindingSpans,
                 _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
             };
 
-            var segments = ToSortedLineSegments(points);
-            var spans = GetPolygonSpans(img, segments, rule);
+            var segments = ToSortedLineSegments(points, img.Bounds.Top, img.Bounds.Bottom);
+            var spans = GetPolygonSpans(segments, rule);
             if (spans == null) return;
             
             byte r = (byte) ((color >> 16) & 0xff);
@@ -76,6 +78,8 @@ namespace ImageTools.DistanceFields
             foreach (var span in spans)
             {
                 img.SetSpan(span, r, g, b);
+                //img.SetPixel(span!.Left, span.Y, 255,0,255);
+                //img.SetPixel(span!.Right, span.Y, 255,0,255);
             }
         }
         
@@ -85,15 +89,15 @@ namespace ImageTools.DistanceFields
         public static void FillPolygon(ByteImage img, Contour[] contours, uint color, FillMode mode)
         {
             if (img == null) return;
-            Action<IEnumerable<Segment>, ICollection<PixelSpan>, int> rule = mode switch
+            Action<IEnumerable<ScanlineSegment>, ICollection<PixelSpan>, int> rule = mode switch
             {
                 FillMode.Alternate => OddEvenSpans,
                 FillMode.Winding => NonZeroWindingSpans,
                 _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
             };
 
-            var segments = ToSortedLineSegments(contours);
-            var spans = GetPolygonSpans(img, segments, rule);
+            var segments = ToSortedLineSegments(contours, img.Bounds.Top, img.Bounds.Bottom);
+            var spans = GetPolygonSpans(segments, rule);
             if (spans == null) return;
             
             byte r = (byte) ((color >> 16) & 0xff);
@@ -103,70 +107,70 @@ namespace ImageTools.DistanceFields
             foreach (var span in spans)
             {
                 img.SetSpan(span, r, g, b);
+                //img.SetPixel(span!.Left, span.Y, 255,0,255);
+                //img.SetPixel(span!.Right, span.Y, 255,0,255);
             }
         }
 
 
-        private static IEnumerable<PixelSpan> GetPolygonSpans(ByteImage img, List<Segment> segments, Action<IEnumerable<Segment>, ICollection<PixelSpan>, int> fillRule)
+        private static IEnumerable<PixelSpan> GetPolygonSpans(BucketList segments, Action<IEnumerable<ScanlineSegment>, ICollection<PixelSpan>, int> fillRule)
         {
             var spans = new List<PixelSpan>();
-            if (segments!.Count < 2) return spans;
-            
-            var top = Math.Max(0, (int)segments.Min(s=>s.Top));
-            var bottom = Math.Min(img!.Bounds.Height, (int)segments.Max(s=>s.Bottom) + 1);
-            var skip = 0; // segments we can skip because we're below their lower bound
+            var buckets = segments!.SegmentsList;
+            if (buckets == null) return spans;
 
-            var activeList = new List<Segment>();
-            for (var y = top; y < bottom; y++) // each scan line
+            foreach (var bucket in buckets)
             {
-                while (segments[skip].Bottom < y) skip++;
-
-                // find segments that affect this line
-                activeList.Clear();
-                for (int i = skip; i < segments.Count; i++)
+                var activeList = new List<ScanlineSegment>();
+                for (var y = bucket!.TopBound; y <= bucket.BottomBound; y++) // each scan line
                 {
-                    var s = segments[i];
-                    if (s.Top > y) continue;
-                    s.PositionAtY(y);
-                    activeList.Add(s);
+                    // find segments that affect this line
+                    activeList.Clear();
+                    for (int i = 0; i < bucket.Segments!.Count; i++)
+                    {
+                        var s = bucket.Segments[i];
+                        s!.PositionAtY(y);
+                        activeList.Add(s);
+                    }
+
+                    activeList.Sort(SegmentSortHorizontal);
+
+                    // build pixel spans from the segments
+                    fillRule!(activeList, spans, y);
                 }
-                activeList.Sort(SegmentSortHorizontal);
-                
-                // build pixel spans from the segments
-                fillRule!(activeList, spans, y);
             }
             return spans;
         }
 
-        private static void OddEvenSpans(IEnumerable<Segment> rowSegments, ICollection<PixelSpan> spans, int y)
+        private static void OddEvenSpans(IEnumerable<ScanlineSegment> rowSegments, ICollection<PixelSpan> spans, int y)
         {
-            var windingCount = 0;
+            var oddState = 0;
             double left = 0;
             foreach (var span in rowSegments!) // run across the scan line, find left and right edges of drawn area
             {
-                if (windingCount == 0) left = span.Pos;
+                if (oddState == 0) left = span!.X;
                 else spans!.Add(new PixelSpan {
                     Y = y,
                     
                     Left = (int) left,
                     LeftFraction = _gammaAdjust![LeftFractional(left)],
                     
-                    Right = (int) span.Pos,
-                    RightFraction = _gammaAdjust![RightFractional(span.Pos)]
+                    Right = (int) span!.X,
+                    RightFraction = _gammaAdjust![RightFractional(span.X)]
                 });
 
-                windingCount = 1 - windingCount;
+                oddState = 1 - oddState;
             }
         }
         
-        private static void NonZeroWindingSpans(IEnumerable<Segment> rowSegments, ICollection<PixelSpan> spans, int y)
+        private static void NonZeroWindingSpans(IEnumerable<ScanlineSegment> rowSegments, ICollection<PixelSpan> spans, int y)
         {
             var windingCount = 0;
             double left = 0;
             foreach (var span in rowSegments!) // run across the scan line, find left and right edges of drawn area
             {
-                if (windingCount == 0) left = span.Pos;
-                if (span.Clockwise) windingCount--;
+                if (windingCount == 0) left = span!.X;
+                if (span!.Clockwise) windingCount--;
                 else windingCount++;
 
                 if (windingCount == 0)
@@ -177,8 +181,8 @@ namespace ImageTools.DistanceFields
                         Left = (int) left,
                         LeftFraction = _gammaAdjust![LeftFractional(left)],
                     
-                        Right = (int) span.Pos,
-                        RightFraction = _gammaAdjust![RightFractional(span.Pos)]
+                        Right = (int) span.X,
+                        RightFraction = _gammaAdjust![RightFractional(span.X)]
                     });
                 }
             }
@@ -187,25 +191,26 @@ namespace ImageTools.DistanceFields
         private static byte LeftFractional(double real) => (byte)((1.0 - (real - (int)real)) * 255);
         private static byte RightFractional(double real) => (byte)((real - (int)real) * 255);
         
-        private static List<Segment> ToSortedLineSegments(PointF[] points)
+        private static BucketList ToSortedLineSegments(PointF[] points, int topLimit, int bottomLimit)
         {
-            var outp = new List<Segment>();
-            if (points == null || points.Length < 2) return outp;
+            var segments = new List<ScanlineSegment>();
+            if (points == null || points.Length < 2) return new BucketList(segments, topLimit, bottomLimit);
+            
             for (int i = 0; i < points.Length; i++)
             {
                 var j = (i + 1) % points.Length;
                 
                 if (Horizontal(points[i], points[j])) continue; // doesn't contribute to scan lines
-                outp.Add(new Segment(points[i], points[j]));
+                segments.Add(new ScanlineSegment(points[i], points[j]));
             }
-            outp.Sort(SegmentSortVertical);
-            return outp;
+            
+            return new BucketList(segments, topLimit, bottomLimit);
         }
         
-        private static List<Segment> ToSortedLineSegments(Contour[] contours)
+        private static BucketList ToSortedLineSegments(Contour[] contours, int topLimit, int bottomLimit)
         {
-            var outp = new List<Segment>();
-            if (contours == null || contours.Length < 1) return outp;
+            var segments = new List<ScanlineSegment>();
+            if (contours == null || contours.Length < 1) return new BucketList(segments, topLimit, bottomLimit);
             for (int i = 0; i < contours.Length; i++)
             {
                 var contour = contours[i];
@@ -217,15 +222,14 @@ namespace ImageTools.DistanceFields
                     var pB = seg.B.ToPointF();
                     if (Horizontal(pA, pB)) continue; // doesn't contribute to scan lines
                     
-                    outp.Add(new Segment(pA, pB));
+                    segments.Add(new ScanlineSegment(pA, pB));
                 }
             }
-            outp.Sort(SegmentSortVertical);
-            return outp;
+            
+            return new BucketList(segments, topLimit, bottomLimit);
         }
 
-        private static int SegmentSortHorizontal(Segment x, Segment y) => x.Pos.CompareTo(y.Pos);
-        private static int SegmentSortVertical(Segment x, Segment y) => x.Top.CompareTo(y.Top);
+        private static int SegmentSortHorizontal(ScanlineSegment a, ScanlineSegment b) => a!.X.CompareTo(b!.X);
         
         private static bool Horizontal(PointF a, PointF b) => Math.Abs(a.Y - b.Y) <= Epsilon;
 
@@ -314,46 +318,98 @@ namespace ImageTools.DistanceFields
             }
         }
 
-        internal struct Segment
+    }
+    
+    public class BucketList
+    {
+        public class RangeAndSegments
         {
-            public readonly double Top;
-            public readonly double Bottom;
-            public readonly double TopX;
-            public readonly double BottomX;
-            public readonly double Dy;
-            public readonly double Dx;
+            public int TopBound;
+            public int BottomBound;
+            public readonly List<ScanlineSegment> Segments = new List<ScanlineSegment>();
+        }
+
+        public List<RangeAndSegments> SegmentsList { get; }
+
+        public BucketList(List<ScanlineSegment> source, int topLimit, int bottomLimit)
+        {
+            if (source == null) throw new Exception();
+            SegmentsList = new List<RangeAndSegments>();
+
+            // find all the integer Y values where a segment starts or ends.
+            // for each span between these, filter the segments into that 'bucket'
+            var switches = new SortedSet<int>();
+            foreach (var segment in source)
+            {
+                switches.Add(Math.Max(topLimit, segment!.TopScan));
+                switches.Add(Math.Min(bottomLimit, segment.BottomScan));
+            }
+
+            var switchPoints = switches.ToList();
+            for (var i = 0; i < switchPoints.Count - 1; i++)
+            {
+                var range = new RangeAndSegments
+                {
+                    TopBound = switchPoints[i],
+                    BottomBound = switchPoints[i + 1]
+                };
+
+                range.Segments!.AddRange(source.Where(s =>
+                     s!.TopScan <= range.TopBound && s.BottomScan >= range.BottomBound // fully spans this bucket
+                ));
+                
+                SegmentsList.Add(range);
+            }
+        }
+    }
+    
+    public class ScanlineSegment
+    {
+        private const double Epsilon = float.Epsilon; // no, that's not an error
         
-            public double Pos;
+        public readonly int TopScan;
+        public readonly int BottomScan;
+        
+        public readonly double Top;
+        public readonly double Bottom;
+        public readonly double TopX;
+        public readonly double BottomX;
+        public readonly double Dy;
+        public readonly double Dx;
+        
+        public double X;
 
-            public Segment(PointF a, PointF b)
+        public ScanlineSegment(PointF a, PointF b)
+        {
+            if (Math.Abs(a.Y - b.Y) < Epsilon) Clockwise = a.X < b.X;
+            else Clockwise = a.Y > b.Y;
+
+            if (a.Y <= b.Y)
             {
-                if (Math.Abs(a.Y - b.Y) < Epsilon) Clockwise = a.X < b.X;
-                else Clockwise = a.Y > b.Y;
-
-                if (a.Y <= b.Y)
-                {
-                    Top  = a.Y; Bottom  = b.Y;
-                    TopX = a.X; BottomX = b.X;
-                }
-                else
-                {
-                    Top  = b.Y; Bottom  = a.Y;
-                    TopX = b.X; BottomX = a.X;
-                }
-                Dy = Bottom-Top;
-                Dx = (BottomX - TopX) / Dy;
+                Top  = a.Y; Bottom  = b.Y;
+                TopX = a.X; BottomX = b.X;
+            }
+            else
+            {
+                Top  = b.Y; Bottom  = a.Y;
+                TopX = b.X; BottomX = a.X;
+            }
+            Dy = Bottom-Top;
+            Dx = (BottomX - TopX) / Dy;
             
-                Pos = int.MinValue;
-            }
+            
+            TopScan = (int)Math.Round(Top);
+            BottomScan = (int)Math.Round(Bottom);
+            
+            X = int.MinValue;
+        }
 
-            public bool Clockwise { get; }
+        public bool Clockwise { get; }
 
-            public Segment PositionAtY(double y)
-            {
-                var dy = y - Top;
-                Pos = dy * Dx + TopX;
-                return this;
-            }
+        public void PositionAtY(double y)
+        {
+            var dy = y - Top;
+            X = dy * Dx + TopX;
         }
     }
 }
