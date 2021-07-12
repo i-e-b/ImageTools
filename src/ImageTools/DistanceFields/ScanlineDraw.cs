@@ -397,7 +397,6 @@ namespace ImageTools.DistanceFields
             Dy = Bottom-Top;
             Dx = (BottomX - TopX) / Dy;
             
-            
             TopScan = (int)Math.Round(Top);
             BottomScan = (int)Math.Round(Bottom);
             
