@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using ImageTools.ImageDataFormats;
 using ImageTools.Utilities;
@@ -272,6 +274,43 @@ namespace ImageTools.Tests
             }
 
             Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_ms.bmp"));
+        }
+
+        [Test]
+        public void visualise_non_power_of_two_expansion_result()
+        {
+            // Show what the expansion algorithm is doing
+
+            using (var bmp = Load.FromFile("./inputs/glyph_non_power_2.png"))
+            {
+                BitmapTools.ImageToPlanes_ForcePower2(bmp, ColorSpace.RGBToYUV, out var Y, out var U, out var V, out var newWidth, out var newHeight);
+
+                using (var outp = new Bitmap(newWidth, newHeight, PixelFormat.Format32bppRgb))
+                {
+                    BitmapTools.PlanesToImage_f(outp, ColorSpace.YUVToRGB, 0, Y, U, V);
+                    outp.SaveBmp("./outputs/ExpansionVisualised.bmp");
+                }
+            }
+        }
+
+        [Test]
+        public void compressing_non_power_of_two_image_with_large_blocks_of_same_color()
+        {
+            // This shows some issues with the decomposition that I could improve:
+            //  - non-power-two border regions are adding frequency components that could be removed (zero after decompose?)
+            //  - border regions are being set to DC zero rather than AC zero
+            //  - color planes are carrying too much data? (~600b for nothing) TODO: try 0xFF -> 0xFF high probability preset in AC
+            
+            // ReSharper disable once StringLiteralTypo
+            using (var bmp = Load.FromFile("./inputs/glyph_non_power_2.png"))
+            {
+                using (var bmp2 = WaveletCompress.Planar2ReduceImage(bmp))
+                {
+                    bmp2.SaveBmp("./outputs/Cdf97_Planar2_32bpp_gnp2.bmp");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/Cdf97_Planar2_32bpp_gnp2.bmp"));
         }
 
         [Test]

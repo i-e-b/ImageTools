@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
@@ -264,8 +265,14 @@ namespace ImageViewer
 
         private void editButton_Click(object sender, EventArgs e)
         {
-            // TODO: open in Paint.Net
-            MessageBox.Show("Not implemented");
+            // C:\Program Files\paint.net\PaintDotNet.exe
+            
+            if (string.IsNullOrWhiteSpace(_files[_fileIndex]!)) return;
+            
+            // TODO: refine this so we can find other install locations
+            Process.Start(@"C:\Program Files\paint.net\PaintDotNet.exe", _files[_fileIndex]!);
+            
+            //MessageBox.Show("Not implemented");
         }
 
         private void exportButton_Click(object sender, EventArgs e)

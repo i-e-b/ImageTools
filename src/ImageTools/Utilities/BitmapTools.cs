@@ -759,6 +759,8 @@ namespace ImageTools.Utilities
             out float[] Y, out float[] U, out float[] V,
             out int width, out int height)
         {
+            if (conversion == null) throw new Exception("No data conversion");
+            if (src == null) throw new Exception("No source image");
             var ri = new Rectangle(Point.Empty, src.Size);
             var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
 
@@ -776,14 +778,16 @@ namespace ImageTools.Utilities
             int stride = srcData.Stride / sizeof(uint);
             try
             {
+                int src_yo;
                 var s = (uint*)srcData.Scan0;
                 for (int y = 0; y < srcHeight; y++)
                 {
-                    var src_yo = stride * y;
+                    src_yo = stride * y;
                     var dst_yo = width * y;
+                    int src_i;
                     for (int x = 0; x < srcWidth; x++)
                     {
-                        var src_i = src_yo + x;
+                        src_i = src_yo + x;
                         var dst_i = dst_yo + x;
                         ColorSpace.CompoundToComponent(s[src_i], out _, out var r, out var g, out var b);
                         conversion(r,g,b, out yv, out u, out v);
@@ -791,22 +795,32 @@ namespace ImageTools.Utilities
                         U[dst_i] = (float)u;
                         V[dst_i] = (float)v;
                     }
-                    // Continue filling any extra space with the last sample (stops zero-ringing)
+                    // Continue filling any extra space with a mirror image (reduces ringing)
+                    src_i = dst_yo + srcWidth - 1;
                     for (int x = srcWidth; x < width; x++)
                     {
                         var dst_i = dst_yo + x;
-                        Y[dst_i] = (float)yv;
-                        U[dst_i] = (float)u;
-                        V[dst_i] = (float)v;
+                        Y[dst_i] = Y[src_i];
+                        U[dst_i] = U[src_i];
+                        V[dst_i] = V[src_i];
+                        src_i--;
                     }
                 }
                 // fill any remaining rows with copies of the one above (in the planes, so we get the x-smear too)
-                var end = srcHeight * width;
-                for (int f = end; f < len; f++)
+                src_yo = srcHeight * width;
+                for (int y = srcHeight; y < height; y++)
                 {
-                    Y[f] = Y[f-width];
-                    U[f] = U[f-width];
-                    V[f] = V[f-width];
+                    var dst_yo = width * y;
+                    src_yo -= width;
+                    for (int x = 0; x < width; x++)
+                    {
+                        var dst_i = dst_yo + x;
+                        var src_i = src_yo + x;
+                        
+                        Y[dst_i] = Y[src_i];
+                        U[dst_i] = U[src_i];
+                        V[dst_i] = V[src_i];
+                    }
                 }
             }
             finally
