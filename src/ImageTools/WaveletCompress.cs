@@ -1621,7 +1621,7 @@ namespace ImageTools
             // Fibonacci coding strongly prefers small numbers
 
             // pretty good:
-            fYs = new double[]{12, 9, 4, 2.3, 1.5 };
+            fYs = new double[]{12, 9, 4, 2.3, 1.5, 1 };
             fCs = new double[]{10, 5, 2, 1 };
 
             // heavily crushed
@@ -1629,10 +1629,10 @@ namespace ImageTools
             //fCs = new double[]{1000, 200, 200, 50, 20, 10, 4};
 
             // about the same as 100% JPEG 4:2:0
-            //fYs = new double[]{ 1, 1, 1, 1, 1, 1, 1, 1, 1};
-            //fCs = new double[]{300, 200, 200, 50, 20, 1, 1, 1, 1};o
+            //fYs = new double[]{ 1 };
+            //fCs = new double[]{300, 200, 200, 50, 20, 1, 1, 1, 1};
 
-            // Unquantised
+            // Un-quantised
             //fYs = new double[] { 1 };
             //fCs = new double[] { 1 };
 
@@ -1641,6 +1641,7 @@ namespace ImageTools
             {
                 var factors = (ch == 0) ? fYs : fCs;
                 float factor = (float)((r >= factors.Length) ? factors[factors.Length - 1] : factors[r]);
+                if (factor <= 1) continue; // untouched level
                 if (mode == QuantiseType.Reduce) factor = 1 / factor;
 
                 var len = packedLength >> r;

@@ -49,13 +49,13 @@
     <Compile Include="ImageHeaderTests.cs" />
     <Compile Include="ImageRotationTests.cs" />
     <Compile Include="GeometryRenderingTests.cs" />
+    <Compile Include="IntraFramePredictions.cs" />
     <Compile Include="LosslessDataCompressionTests.cs" />
     <Compile Include="BlurringImages.cs" />
     <Compile Include="ByteEncodingTests.cs" />
     <Compile Include="ColorCellTests.cs" />
     <Compile Include="ColorSpaceTests.cs" />
     <Compile Include="InterleavedFileTests.cs" />
-    <Compile Include="MagicKernelTests.cs" />
     <Compile Include="SpaceFillingCurveTests.cs" />
     <Compile Include="Wavelet_3D_Tests.cs" />
     <Compile Include="SampleDownscales.cs" />

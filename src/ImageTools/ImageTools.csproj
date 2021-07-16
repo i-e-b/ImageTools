@@ -73,7 +73,6 @@
     <Compile Include="ImageHeaders.cs" />
     <Compile Include="ImageStorageFileFormats\VersionedInterleavedFile.cs" />
     <Compile Include="ImageStorageFileFormats\WaveletImageFormat.cs" />
-    <Compile Include="MagicKernel.cs" />
     <Compile Include="PixelScale.cs" />
     <Compile Include="Rotate.cs" />
     <Compile Include="Utilities\BitmapTools.cs" />

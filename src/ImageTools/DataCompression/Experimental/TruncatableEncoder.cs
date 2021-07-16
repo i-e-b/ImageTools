@@ -247,7 +247,12 @@ namespace ImageTools.DataCompression.Experimental
                 frozen[i] = false;
                 //map[i] = new DumbTree(COUNT_ENTRY, END_SYMBOL);
                 map[i] = new FenwickTree(COUNT_ENTRY, END_SYMBOL);
+                
             }
+            // Fibonacci encoding means a byte full of 1s is 4 zeros in a row.
+            // We are therefore hopefully in a big zero block -- so we set
+            // the initial probability of 0xFF -> 0xFF very high
+            map[0xFF].IncrementSymbol(0xFF, 10_000);
         }
         
         private SymbolProbability EncodeSymbol(int symbol)

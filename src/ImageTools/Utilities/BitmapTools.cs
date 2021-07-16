@@ -803,15 +803,15 @@ namespace ImageTools.Utilities
                         Y[dst_i] = Y[src_i];
                         U[dst_i] = U[src_i];
                         V[dst_i] = V[src_i];
-                        src_i--;
+                        //src_i--; // un-comment for mirror. Comment for smear
                     }
                 }
                 // fill any remaining rows with copies of the one above (in the planes, so we get the x-smear too)
-                src_yo = srcHeight * width;
+                src_yo = (srcHeight - 1) * width;
                 for (int y = srcHeight; y < height; y++)
                 {
                     var dst_yo = width * y;
-                    src_yo -= width;
+                    //src_yo -= width; // un-comment for mirror. Comment for smear
                     for (int x = 0; x < width; x++)
                     {
                         var dst_i = dst_yo + x;
