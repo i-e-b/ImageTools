@@ -333,7 +333,7 @@ namespace ImageTools.DistanceFields
                 for (int x = 0; x < width; x++)
                 {
                     var v = vectors[x, y];
-                    var thresh = Math.Min(v.Dx, v.Dy) - threshold;
+                    var thresh = Math.Min(v.X, v.Y) - threshold;
                     var s = shade - thresh;
                     var g = 255 - ((int) (s * rel)).Pin(0, 255);
 
@@ -361,8 +361,8 @@ namespace ImageTools.DistanceFields
                 {
                     var v = vectors[x, y];
                     var s = 255;
-                    if (Math.Min(v.Dx, v.Dy) < threshold) s -= 127;
-                    if (Math.Max(v.Dx, v.Dy) < threshold) s -= 127;
+                    if (Math.Min(v.X, v.Y) < threshold) s -= 127;
+                    if (Math.Max(v.X, v.Y) < threshold) s -= 127;
 
                     bmp.SetPixel(x, y, Color.FromArgb(s, s, s));
                 }
@@ -450,8 +450,8 @@ namespace ImageTools.DistanceFields
 
                 for (int x = 0; x < smallWidth; x++)
                 {
-                    stage[x, y].Dx = xBuffer[x];
-                    stage[x, y].Dy = yBuffer[x];
+                    stage[x, y].X = xBuffer[x];
+                    stage[x, y].Y = yBuffer[x];
                 }
             }
 
@@ -463,8 +463,8 @@ namespace ImageTools.DistanceFields
 
                 for (int y = 0; y < height; y++)
                 {
-                    xBuffer[y] = (float) stage[x, y].Dx;
-                    yBuffer[y] = (float) stage[x, y].Dy;
+                    xBuffer[y] = (float) stage[x, y].X;
+                    yBuffer[y] = (float) stage[x, y].Y;
                 }
 
                 var dy = (double) height / smallHeight;
@@ -474,8 +474,8 @@ namespace ImageTools.DistanceFields
 
                 for (int y = 0; y < smallHeight; y++)
                 {
-                    stage[x, y].Dx = xBuffer[y];
-                    stage[x, y].Dy = yBuffer[y];
+                    stage[x, y].X = xBuffer[y];
+                    stage[x, y].Y = yBuffer[y];
                 }
             }
 
@@ -616,8 +616,8 @@ namespace ImageTools.DistanceFields
                 for (int x = 0; x < smallWidth; x++)
                 {
                     var sx = (int) (x * dx);
-                    final[x, y].Dx = horzField[sx, sy];
-                    final[x, y].Dy = vertField[sx, sy];
+                    final[x, y].X = horzField[sx, sy];
+                    final[x, y].Y = vertField[sx, sy];
                 }
             }
 
@@ -667,8 +667,8 @@ namespace ImageTools.DistanceFields
                         }
                     }
 
-                    final[x, y].Dx = hf;
-                    final[x, y].Dy = vf;
+                    final[x, y].X = hf;
+                    final[x, y].Y = vf;
                 }
             }
 
@@ -703,8 +703,8 @@ namespace ImageTools.DistanceFields
                 for (int x = 0; x < dstWidth; x++)
                 {
                     var sx = (int) (x * dx);
-                    final[x, y].Dx = original[sx, sy].Dx;
-                    final[x, y].Dy = original[sx, sy].Dy;
+                    final[x, y].X = original[sx, sy].X;
+                    final[x, y].Y = original[sx, sy].Y;
                 }
             }
 
@@ -740,19 +740,19 @@ namespace ImageTools.DistanceFields
                     var lx = 1.0 - Lx;
 
                     var fx =
-                        (original[tx, ty].Dx * ly * lx) +
-                        (original[bx, ty].Dx * ly * Lx) +
-                        (original[tx, by].Dx * Ly * lx) +
-                        (original[bx, by].Dx * Ly * Lx);
+                        (original[tx, ty].X * ly * lx) +
+                        (original[bx, ty].X * ly * Lx) +
+                        (original[tx, by].X * Ly * lx) +
+                        (original[bx, by].X * Ly * Lx);
 
                     var fy =
-                        (original[tx, ty].Dy * ly * lx) +
-                        (original[bx, ty].Dy * ly * Lx) +
-                        (original[tx, by].Dy * Ly * lx) +
-                        (original[bx, by].Dy * Ly * Lx);
+                        (original[tx, ty].Y * ly * lx) +
+                        (original[bx, ty].Y * ly * Lx) +
+                        (original[tx, by].Y * Ly * lx) +
+                        (original[bx, by].Y * Ly * Lx);
 
-                    final[x, y].Dx = fx;
-                    final[x, y].Dy = fy;
+                    final[x, y].X = fx;
+                    final[x, y].Y = fy;
                 }
             }
 
@@ -783,13 +783,13 @@ namespace ImageTools.DistanceFields
 
                 for (int x = 0; x < srcWidth; x++)
                 {
-                    xBuffer[x] = original[x, y].Dx;
+                    xBuffer[x] = original[x, y].X;
                 }
 
                 xBuffer = CubicSplines.Resample1D(xBuffer, width);
                 for (int x = 0; x < width; x++)
                 {
-                    stage[x, y].Dx = xBuffer[x];
+                    stage[x, y].X = xBuffer[x];
                 }
             }
 
@@ -800,13 +800,13 @@ namespace ImageTools.DistanceFields
 
                 for (int y = 0; y < srcHeight; y++)
                 {
-                    xBuffer[y] = (float) stage[x, y].Dx;
+                    xBuffer[y] = (float) stage[x, y].X;
                 }
 
                 xBuffer = CubicSplines.Resample1D(xBuffer, height);
                 for (int y = 0; y < height; y++)
                 {
-                    stage[x, y].Dx = xBuffer[y];
+                    stage[x, y].X = xBuffer[y];
                 }
             }
 
@@ -821,13 +821,13 @@ namespace ImageTools.DistanceFields
 
                 for (int y = 0; y < srcHeight; y++)
                 {
-                    yBuffer[y] = (float) original[x, y].Dy;
+                    yBuffer[y] = (float) original[x, y].Y;
                 }
 
                 yBuffer = CubicSplines.Resample1D(yBuffer, height);
                 for (int y = 0; y < height; y++)
                 {
-                    stage[x, y].Dy = yBuffer[y];
+                    stage[x, y].Y = yBuffer[y];
                 }
             }
 
@@ -838,13 +838,13 @@ namespace ImageTools.DistanceFields
 
                 for (int x = 0; x < srcWidth; x++)
                 {
-                    yBuffer[x] = stage[x, y].Dy;
+                    yBuffer[x] = stage[x, y].Y;
                 }
 
                 yBuffer = CubicSplines.Resample1D(yBuffer, width);
                 for (int x = 0; x < width; x++)
                 {
-                    stage[x, y].Dy = yBuffer[x];
+                    stage[x, y].Y = yBuffer[x];
                 }
             }
 

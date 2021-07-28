@@ -13,16 +13,16 @@ namespace ImageTools.GeneralTypes
 
     public struct Vector2
     {
-        public double Dx, Dy;
+        public double X, Y;
 
         public Vector2(double x, double y)
         {
-            Dx = x; Dy = y;
+            X = x; Y = y;
         }
 
         public Vector2(PointF p)
         {
-            Dx = p.X; Dy = p.Y;
+            X = p.X; Y = p.Y;
         }
 
         /// <summary>
@@ -53,53 +53,53 @@ namespace ImageTools.GeneralTypes
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector2 operator- (Vector2 a, Vector2 b) {
-            return new Vector2{ Dx = a.Dx - b.Dx, Dy = a.Dy - b.Dy};
+            return new Vector2{ X = a.X - b.X, Y = a.Y - b.Y};
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector2 operator+ (Vector2 a, Vector2 b) {
-            return new Vector2{ Dx = a.Dx + b.Dx, Dy = a.Dy + b.Dy};
+            return new Vector2{ X = a.X + b.X, Y = a.Y + b.Y};
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector2 operator/ (Vector2 a, double b) {
-            return new Vector2{ Dx = a.Dx / b, Dy = a.Dy / b};
+            return new Vector2{ X = a.X / b, Y = a.Y / b};
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector2 operator* (Vector2 a, double b) {
-            return new Vector2{ Dx = a.Dx * b, Dy = a.Dy * b};
+            return new Vector2{ X = a.X * b, Y = a.Y * b};
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public double Length()
         {
-            return Math.Sqrt(Dx*Dx + Dy*Dy);
+            return Math.Sqrt(X*X + Y*Y);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector2 Abs()
         {
-            return new Vector2{Dx = Math.Abs(Dx), Dy = Math.Abs(Dy)};
+            return new Vector2{X = Math.Abs(X), Y = Math.Abs(Y)};
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector2 Max(double v)
         {
-            return new Vector2{Dx = Math.Max(Dx,v), Dy = Math.Max(Dy,v)};
+            return new Vector2{X = Math.Max(X,v), Y = Math.Max(Y,v)};
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double Dot(Vector2 a, Vector2 b)
         {
-            return a.Dx * b.Dx + a.Dy * b.Dy;
+            return a.X * b.X + a.Y * b.Y;
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static double Cross(Vector2 v0, Vector2 v1) {
-            return v0.Dx * v1.Dy - v0.Dy * v1.Dx;
+            return v0.X * v1.Y - v0.Y * v1.X;
         }
 
-        public PointF ToPointF() => new PointF((float)Dx, (float)Dy);
+        public PointF ToPointF() => new PointF((float)X, (float)Y);
     }
 }

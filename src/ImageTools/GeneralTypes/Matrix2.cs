@@ -15,15 +15,15 @@
         
         public static Vector2 operator* (Matrix2 a, Vector2 b) {
             return new Vector2{ 
-                Dx = a.m[0] * b.Dx + a.m[2] * b.Dy,
-                Dy = a.m[1] * b.Dx + a.m[3] * b.Dy
+                X = a.m[0] * b.X + a.m[2] * b.Y,
+                Y = a.m[1] * b.X + a.m[3] * b.Y
             };
         }
         
         public static Vector2 operator* (Vector2 b, Matrix2 a) {
             return new Vector2{ 
-                Dx = a.m[0] * b.Dx + a.m[2] * b.Dy,
-                Dy = a.m[1] * b.Dx + a.m[3] * b.Dy
+                X = a.m[0] * b.X + a.m[2] * b.Y,
+                Y = a.m[1] * b.X + a.m[3] * b.Y
             };
         }
 

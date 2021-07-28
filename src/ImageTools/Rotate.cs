@@ -133,10 +133,10 @@ namespace ImageTools
             var bl = new Vector2(-halfWidth, halfHeight) * rot;
             var br = new Vector2(halfWidth, halfHeight) * rot;
             
-            var ty = Math.Min(Math.Min(tl.Dy, tr.Dy), Math.Min(bl.Dy, br.Dy));
-            var by = Math.Max(Math.Max(tl.Dy, tr.Dy), Math.Max(bl.Dy, br.Dy));
-            var lx = Math.Min(Math.Min(tl.Dx, tr.Dx), Math.Min(bl.Dx, br.Dx));
-            var rx = Math.Max(Math.Max(tl.Dx, tr.Dx), Math.Max(bl.Dx, br.Dx));
+            var ty = Math.Min(Math.Min(tl.Y, tr.Y), Math.Min(bl.Y, br.Y));
+            var by = Math.Max(Math.Max(tl.Y, tr.Y), Math.Max(bl.Y, br.Y));
+            var lx = Math.Min(Math.Min(tl.X, tr.X), Math.Min(bl.X, br.X));
+            var rx = Math.Max(Math.Max(tl.X, tr.X), Math.Max(bl.X, br.X));
             
             var bounds_width = (int)Math.Ceiling(rx - lx);
             var bounds_height = (int)Math.Ceiling(by - ty);
@@ -163,8 +163,8 @@ namespace ImageTools
                 for (var dx = -half_bound_width; dx < half_bound_width; dx++)
                 {
                     var sp = new Vector2(dx, dy) * invmat;
-                    var sx = sp.Dx + halfWidth;
-                    var sy = sp.Dy + halfHeight;
+                    var sx = sp.X + halfWidth;
+                    var sy = sp.Y + halfHeight;
                     
                     // sample multiple points blended by sx/sy fractions
                     CopySubsampled(/*from*/ (int)width,(int)height, sx, sy,   /* to */ bounds_width, dx - lx, dy - ty,  /* buffers */ sY,sU,sV,  dY,dU,dV );

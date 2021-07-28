@@ -20,7 +20,21 @@ namespace ImageTools.DistanceFields
             byte r = (byte) ((color >> 16) & 0xff);
             byte g = (byte) ((color >> 8) & 0xff);
             byte b = (byte) ((color) & 0xff);
-            DistanceLine(img, thickness, x1, y1, x2, y2, r, g, b);
+            
+            // work out maximum rect we have to cover
+            var p1 = new Vector2(x1,y1);
+            var p2 = new Vector2(x2,y2);
+            
+            MinMaxRange(out var minX, out var minY, out var maxX, out var maxY);
+            ExpandRange(p1, ref minX, ref minY, ref maxX, ref maxY);
+            ExpandRange(p2, ref minX, ref minY, ref maxX, ref maxY);
+            ReduceMinMaxToBounds(img, ref minX, ref maxX, ref minY, ref maxY);
+            
+            // Line as a distance function
+            double DistanceFunc(Vector2 p) => OrientedBox(p, p1, p2, thickness);
+
+            // Do a general rendering of the function
+            RenderDistanceFunction(img, minY, maxY, minX, maxX, DistanceFunc, b, g, r);
         }
 
         /// <summary>
@@ -29,7 +43,7 @@ namespace ImageTools.DistanceFields
         public static void FillPolygon(ByteImage img, PointF[] points, uint color, FillMode mode)
         {
             // Basic setup
-            if (img?.PixelBytes == null || points == null) return;
+            if (points == null) return;
             if (points.Length < 3) return; // area is empty
             byte r = (byte) ((color >> 16) & 0xff);
             byte g = (byte) ((color >> 8) & 0xff);
@@ -59,7 +73,7 @@ namespace ImageTools.DistanceFields
         public static void FillPolygon(ByteImage img, Contour[] contours, uint color, FillMode mode)
         {
             // basic setup
-            if (img?.PixelBytes == null || contours == null) return;
+            if (contours == null) return;
             if (contours.Length < 1) return; // area is empty
             byte r = (byte) ((color >> 16) & 0xff);
             byte g = (byte) ((color >> 8) & 0xff);
@@ -101,7 +115,7 @@ namespace ImageTools.DistanceFields
         public static void DrawPressureCurve(ByteImage img, uint color, Vector3[] curve)
         {
             // Basic setup
-            if (img?.PixelBytes == null || curve == null) return;
+            if (curve == null) return;
             if (curve.Length < 2) return; // line is a point. TODO: handle this
             byte r = (byte) ((color >> 16) & 0xff);
             byte g = (byte) ((color >> 8) & 0xff);
@@ -112,10 +126,10 @@ namespace ImageTools.DistanceFields
             foreach (var point in curve)
             {
                 ExpandRange(point, ref minX, ref minY, ref maxX, ref maxY);
-                minX = Math.Min(minX, (int)(point.Dx - point.Dz));
-                maxX = Math.Max(maxX, (int)(point.Dx + point.Dz));
-                minY = Math.Min(minY, (int)(point.Dy - point.Dz));
-                maxY = Math.Max(maxY, (int)(point.Dy + point.Dz));
+                minX = Math.Min(minX, (int)(point.X - point.Z));
+                maxX = Math.Max(maxX, (int)(point.X + point.Z));
+                minY = Math.Min(minY, (int)(point.Y - point.Z));
+                maxY = Math.Max(maxY, (int)(point.Y + point.Z));
             }
             ReduceMinMaxToBounds(img, ref minX, ref maxX, ref minY, ref maxY);
             
@@ -144,7 +158,6 @@ namespace ImageTools.DistanceFields
             // filling area based on distance to edge (internal in negative)
             for (int y = minY; y < maxY; y++)
             {
-                var rowOffset = y * img!.RowBytes;
                 for (int x = minX; x < maxX; x++)
                 {
                     var s = new Vector2(x, y);
@@ -152,12 +165,9 @@ namespace ImageTools.DistanceFields
 
                     if (d >= 1) // outside the iso-surface
                     {
-                        //img.PixelBytes![rowOffset + (x<<2)] = 255; // uncomment to get a debug view of jump points
                         x += (int) (d - 1);// jump if distance is big enough to save calculations, but don't get too close or we break anti-aliasing.
                         continue;
                     }
-
-                    var pixelOffset = rowOffset + x * 4; // target pixel as byte offset from base
 
                     if (d < 0) // Inside the iso-surface
                     {
@@ -166,16 +176,9 @@ namespace ImageTools.DistanceFields
                         if (id >= 2) // if we're deep inside the polygon, draw big spans of pixels without shading
                         {
                             id = Math.Min(maxX - x, id);
-                            for (int j = 0; j < id; j++)
-                            {
-                                img.PixelBytes![pixelOffset++] = b;
-                                img.PixelBytes [pixelOffset++] = g;
-                                img.PixelBytes [pixelOffset++] = r;
-                                pixelOffset++; // skip alpha
-                                x++;
-                            }
+                            img!.SetSpan(y, x, x+id, r,g,b);
 
-                            x--;
+                            x+=id;
                             continue;
                         }
 
@@ -186,72 +189,9 @@ namespace ImageTools.DistanceFields
                     // so draw a single pixel with blending and advance a single pixel
                     
                     var f = 1 - d; // inverse of the distance (how much fill color to blend in)
+                    byte blend = (byte)(f * 255);
 
-                    img.PixelBytes![pixelOffset + 0] = (byte) (img.PixelBytes[pixelOffset + 0] * d + b * f);
-                    img.PixelBytes [pixelOffset + 1] = (byte) (img.PixelBytes[pixelOffset + 1] * d + g * f);
-                    img.PixelBytes [pixelOffset + 2] = (byte) (img.PixelBytes[pixelOffset + 2] * d + r * f);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Distance based anti-aliased line with thickness
-        /// </summary>
-        private static void DistanceLine(ByteImage img,
-            double thickness, // line thickness
-            double x1, double y1, double x2, double y2, // endpoints
-            byte cr, byte cg, byte cb) // color
-        {
-            if (img?.PixelBytes == null || img.RowBytes < 1) return;
-            
-            // For each pixel 'near' the line, we compute a signed distance to the line edge (negative is interior)
-            // We start in a box slightly larger than our bounds, and a ray-marching algorithm to (slightly)
-            // reduce the number of calculations.
-            
-            var a = new Vector2(x1, y1);
-            var b = new Vector2(x2, y2);
-            
-            var minX = (int) (Math.Min(x1, x2) - thickness);
-            var minY = (int) (Math.Min(y1, y2) - thickness);
-            var maxX = (int) (Math.Max(x1, x2) + thickness);
-            var maxY = (int) (Math.Max(y1, y2) + thickness);
-            
-            minX = Math.Max(img.Bounds.Left, minX);
-            maxX = Math.Min(img.Bounds.Right, maxX);
-            minY = Math.Max(img.Bounds.Top, minY);
-            maxY = Math.Min(img.Bounds.Bottom, maxY);
-            
-            for (int y = minY; y < maxY; y++)
-            {
-                var minD = 1000.0;
-                var rowOffset = y * img.RowBytes;
-                for (int x = minX; x < maxX; x++)
-                {
-                    var s = new Vector2(x,y);
-                    var d = OrientedBox(s, a, b, thickness);
-                    
-                    // jump if distance is big enough, to save calculations
-                    if (d >= 2)
-                    {
-                        x += (int) (d - 1);
-                        continue;
-                    }
-
-                    minD = Math.Min(minD, d);
-                    if (d <= 0) d = 0; // we could optimise very thick lines here by filling a span size of -d
-                    else if (d > 1)
-                    {
-                        if (d > minD) break; // we're moving further from the line, move to next scan
-                        d = 1;
-                    }
-
-                    var f = 1 - d;
-                    
-                    var pixelOffset = rowOffset + x*4; // target pixel as byte offset from base
-                    
-                    img.PixelBytes[pixelOffset + 0] = (byte) (img.PixelBytes[pixelOffset + 0] * d + cb * f);
-                    img.PixelBytes[pixelOffset + 1] = (byte) (img.PixelBytes[pixelOffset + 1] * d + cg * f);
-                    img.PixelBytes[pixelOffset + 2] = (byte) (img.PixelBytes[pixelOffset + 2] * d + cr * f);
+                    img!.BlendPixel(x,y,blend, r,g,b);
                 }
             }
         }
@@ -262,9 +202,9 @@ namespace ImageTools.DistanceFields
             var l = (b - a).Length();
             var d = (b - a) / l;
             var q = (samplePoint - (a + b) * 0.5);
-            q = new Matrix2(d.Dx, -d.Dy, d.Dy, d.Dx) * q;
+            q = new Matrix2(d.X, -d.Y, d.Y, d.X) * q;
             q = q.Abs() - (new Vector2(l, thickness)) * 0.5;
-            return q.Max(0.0).Length() + Math.Min(Math.Max(q.Dx, q.Dy), 0.0);    
+            return q.Max(0.0).Length() + Math.Min(Math.Max(q.X, q.Y), 0.0);    
         }
         
         // line with a linearly varying line width
@@ -277,11 +217,11 @@ namespace ImageTools.DistanceFields
             samplePoint  -= pa;
             pb -= pa;
             var h = Vector2.Dot(pb,pb);
-            var q = new Vector2(Vector2.Dot(samplePoint, new Vector2(pb.Dy, -pb.Dx)), Vector2.Dot(samplePoint, pb)) / h;
+            var q = new Vector2(Vector2.Dot(samplePoint, new Vector2(pb.Y, -pb.X)), Vector2.Dot(samplePoint, pb)) / h;
     
             //-----------
     
-            q.Dx = Math.Abs(q.Dx);
+            q.X = Math.Abs(q.X);
     
             var b = ra-rb;
             var c = new Vector2(Math.Sqrt(h-b*b),b);
@@ -291,7 +231,7 @@ namespace ImageTools.DistanceFields
             var n = Vector2.Dot(q,q);
     
             if( k < 0.0 )  return Math.Sqrt(h*(n             )) - ra;
-            if( k > c.Dx ) return Math.Sqrt(h*(n+1.0-2.0*q.Dy)) - rb;
+            if( k > c.X ) return Math.Sqrt(h*(n+1.0-2.0*q.Y)) - rb;
             return                     m                        - ra;
         }
 
@@ -310,9 +250,9 @@ namespace ImageTools.DistanceFields
                 d = Math.Min(d, Vector2.Dot(b, b));
 
                 // winding number
-                var cond = new BoolVec3(p.Dy >= v[i].Dy,
-                    p.Dy < v[j].Dy,
-                    e.Dx * w.Dy > e.Dy * w.Dx);
+                var cond = new BoolVec3(p.Y >= v[i].Y,
+                    p.Y < v[j].Y,
+                    e.X * w.Y > e.Y * w.X);
                 if (cond.All() || cond.None()) s = -s;
             }
 
@@ -323,20 +263,20 @@ namespace ImageTools.DistanceFields
         private static double PolygonDistanceAlternate(Vector2 p, VecSegment2[] v)
         {
             var num = v!.Length;
-            var d = Vector2.Dot(p - v[0].A, p - v[0].A);
+            var d = Vector2.Dot(p - v[0]!.A, p - v[0].A);
             var s = 1.0;
             for (int i = 0; i < num; i++)
             {
                 // distance
-                var e = v[i].B - v[i].A;
+                var e = v[i]!.B - v[i].A;
                 var w = p - v[i].A;
                 var b = w - e * Clamp(Vector2.Dot(w, e) / Vector2.Dot(e, e), 0.0, 1.0);
                 d = Math.Min(d, Vector2.Dot(b, b));
 
                 // winding number
-                var cond = new BoolVec3(p.Dy >= v[i].A.Dy,
-                    p.Dy < v[i].B.Dy,
-                    e.Dx * w.Dy > e.Dy * w.Dx);
+                var cond = new BoolVec3(p.Y >= v[i].A.Y,
+                    p.Y < v[i].B.Y,
+                    e.X * w.Y > e.Y * w.X);
                 if (cond.All() || cond.None()) s = -s;
             }
 
@@ -373,8 +313,8 @@ namespace ImageTools.DistanceFields
             for (var i = 0; i < length; i++)
             {
                 var i2 = (int) ((float) (i + 1) % length);
-                var cond1 = 0.0 <= v[i].Dy;
-                var cond2 = 0.0 > v[i2].Dy;
+                var cond1 = 0.0 <= v[i].Y;
+                var cond2 = 0.0 > v[i2].Y;
                 var val3 = Vector2.Cross(e[i], v[i]); //isLeft
                 wn += cond1 && cond2 && val3 > 0.0 ? 1 : 0; // have  a valid up intersect
                 wn -= !cond1 && !cond2 && val3 < 0.0 ? 1 : 0; // have  a valid down intersect
@@ -396,7 +336,7 @@ namespace ImageTools.DistanceFields
             // data
             for (int i = 0; i < length; i++)
             {
-                e[i] = poly[i].B - poly[i].A;
+                e[i] = poly[i]!.B - poly[i].A;
                 v[i] = p - poly[i].A;
                 v2[i] = p - poly[i].B;
                 pq[i] = v[i] - e[i] * Clamp(Vector2.Dot(v[i], e[i]) / Vector2.Dot(e[i], e[i]), 0.0, 1.0);
@@ -414,8 +354,8 @@ namespace ImageTools.DistanceFields
             var wn = 0;
             for (int i = 0; i < length; i++)
             {
-                var cond1 = 0.0 <= v[i].Dy;
-                var cond2 = 0.0 > v2[i].Dy;
+                var cond1 = 0.0 <= v[i].Y;
+                var cond2 = 0.0 > v2[i].Y;
                 var val3 = Vector2.Cross(e[i], v[i]); //isLeft
                 wn += cond1 && cond2 && val3 > 0.0 ? 1 : 0; // have  a valid up intersect
                 wn -= !cond1 && !cond2 && val3 < 0.0 ? 1 : 0; // have  a valid down intersect
@@ -446,18 +386,18 @@ namespace ImageTools.DistanceFields
         
         private static void ExpandRange(Vector2 p, ref int minX, ref int minY, ref int maxX, ref int maxY)
         {
-            minX = Math.Min(minX, (int) (p.Dx - 2));
-            minY = Math.Min(minY, (int) (p.Dy - 2));
-            maxX = Math.Max(maxX, (int) (p.Dx + 2));
-            maxY = Math.Max(maxY, (int) (p.Dy + 2));
+            minX = Math.Min(minX, (int) (p.X - 2));
+            minY = Math.Min(minY, (int) (p.Y - 2));
+            maxX = Math.Max(maxX, (int) (p.X + 2));
+            maxY = Math.Max(maxY, (int) (p.Y + 2));
         }
         
         private static void ExpandRange(Vector3 p, ref int minX, ref int minY, ref int maxX, ref int maxY)
         {
-            minX = Math.Min(minX, (int)(p.Dx - p.Dz)-2);
-            maxX = Math.Max(maxX, (int)(p.Dx + p.Dz)+2);
-            minY = Math.Min(minY, (int)(p.Dy - p.Dz)-2);
-            maxY = Math.Max(maxY, (int)(p.Dy + p.Dz)+2);
+            minX = Math.Min(minX, (int)(p.X - p.Z)-2);
+            maxX = Math.Max(maxX, (int)(p.X + p.Z)+2);
+            minY = Math.Min(minY, (int)(p.Y - p.Z)-2);
+            maxY = Math.Max(maxY, (int)(p.Y + p.Z)+2);
         }
 
         private static void MinMaxRange(out int minX, out int minY, out int maxX, out int maxY)

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace ImageTools
@@ -55,6 +56,7 @@ namespace ImageTools
         /// <summary>
         /// Set a range of pixels on the image
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetSpan(PixelSpan span, byte r, byte g, byte b)
         {
             if (span == null || PixelBytes == null) return;
@@ -117,6 +119,50 @@ namespace ImageTools
             }
         }
 
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetSpan(int y, int left, int right, byte r, byte g, byte b)
+        {
+            if (PixelBytes == null) return;
+            if (y < 0 || y >= Bounds.Height) return;
+            
+            var maxRight = Bounds.Width-1;
+            right = Math.Min(right, maxRight); 
+            left = Math.Max(left, 0);
+            var rowOffset = y * RowBytes;
+            var pixelOffset = rowOffset + left * 4; // target pixel as byte offset from base
+            
+            // Fill main span
+            var length = right - left;
+            if (length >= 8) // unrolled section for long runs
+            {
+                var unrolled = length >> 3; // blocks of 8
+                for (int j = 0; j < unrolled; j++) // unrolled block
+                {
+                    left += 8;
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+                    PixelBytes[pixelOffset++] = b; PixelBytes[pixelOffset++] = g; PixelBytes[pixelOffset++] = r; pixelOffset++;
+                }
+            }
+
+            // Fill remainder after unrolled section
+            for (int j = left; j <= right; j++)
+            {
+                PixelBytes[pixelOffset++] = b;
+                PixelBytes[pixelOffset++] = g;
+                PixelBytes[pixelOffset++] = r;
+                pixelOffset++; // skip alpha
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetPixel(int x, int y, byte r, byte g, byte b)
         {
             if (y < 0 || y >= Bounds.Height) return;
@@ -128,6 +174,22 @@ namespace ImageTools
             PixelBytes![pixelOffset++] = b;
             PixelBytes[pixelOffset++] = g;
             PixelBytes[pixelOffset] = r;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BlendPixel(int x, int y, byte blend, byte r, byte g, byte b)
+        {
+            if (PixelBytes == null) return;
+            if (y < 0 || y >= Bounds.Height) return;
+            if (x < 0 || x >= Bounds.Width) return;
+            
+            var rowOffset = y * RowBytes;
+            var pixelOffset = rowOffset + x * 4; // target pixel as byte offset from base
+        
+            var antiFraction = 255 - blend;
+            PixelBytes[pixelOffset + 0] = (byte) (((PixelBytes[pixelOffset + 0] * antiFraction) >> 8) + ((b * blend) >> 8));
+            PixelBytes[pixelOffset + 1] = (byte) (((PixelBytes[pixelOffset + 1] * antiFraction) >> 8) + ((g * blend) >> 8));
+            PixelBytes[pixelOffset + 2] = (byte) (((PixelBytes[pixelOffset + 2] * antiFraction) >> 8) + ((r * blend) >> 8));
         }
     }
     

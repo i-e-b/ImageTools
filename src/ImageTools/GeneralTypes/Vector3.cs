@@ -2,14 +2,14 @@ namespace ImageTools.GeneralTypes
 {
     public struct Vector3
     {
-        public double Dx, Dy, Dz;
+        public double X, Y, Z;
 
-        public Vector3(double x, double y, double z) { Dx = x; Dy = y; Dz = z; }
+        public Vector3(double x, double y, double z) { X = x; Y = y; Z = z; }
 
         public Vector2 SplitXY_Z(out double z)
         {
-            z = Dz;
-            return new Vector2(Dx, Dy);
+            z = Z;
+            return new Vector2(X, Y);
         }
     }
 }
