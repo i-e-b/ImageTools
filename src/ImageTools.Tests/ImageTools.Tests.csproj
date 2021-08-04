@@ -49,7 +49,7 @@
     <Compile Include="ImageHeaderTests.cs" />
     <Compile Include="ImageRotationTests.cs" />
     <Compile Include="GeometryRenderingTests.cs" />
-    <Compile Include="IntraFramePredictions.cs" />
+    <Compile Include="DecorrelationTests.cs" />
     <Compile Include="LosslessDataCompressionTests.cs" />
     <Compile Include="BlurringImages.cs" />
     <Compile Include="ByteEncodingTests.cs" />

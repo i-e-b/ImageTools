@@ -30,8 +30,10 @@ namespace ImageTools.DistanceFields
             ExpandRange(p2, ref minX, ref minY, ref maxX, ref maxY);
             ReduceMinMaxToBounds(img, ref minX, ref maxX, ref minY, ref maxY);
             
+            var realWidth = thickness / 2;
+            
             // Line as a distance function
-            double DistanceFunc(Vector2 p) => OrientedBox(p, p1, p2, thickness);
+            double DistanceFunc(Vector2 p) => OrientedBox(p, p1, p2, realWidth);
 
             // Do a general rendering of the function
             RenderDistanceFunction(img, minY, maxY, minX, maxX, DistanceFunc, b, g, r);
@@ -163,39 +165,36 @@ namespace ImageTools.DistanceFields
                     var s = new Vector2(x, y);
                     var d = distanceFunc!(s);
 
-                    if (d >= 1) // outside the iso-surface
+                    if (d > 1) // outside the iso-surface
                     {
-                        x += (int) (d - 1);// jump if distance is big enough to save calculations, but don't get too close or we break anti-aliasing.
+                        x += (int) (d - 1); // jump if distance is big enough to save calculations, but don't get too close or we break anti-aliasing.
                         continue;
                     }
 
-                    if (d < 0) // Inside the iso-surface
+                    if (d < -1) // Inside the iso-surface
                     {
                         var id = (int) -d;
 
-                        if (id >= 2) // if we're deep inside the polygon, draw big spans of pixels without shading
-                        {
-                            id = Math.Min(maxX - x, id);
-                            img!.SetSpan(y, x, x+id, r,g,b);
+                        id = Math.Min(maxX - x, id);
+                        img!.SetSpan(y, x, x + id, r, g, b);
 
-                            x+=id;
-                            continue;
-                        }
-
-                        d = 0;
+                        x += id;
+                        continue;
                     }
 
                     // Not outside or inside -- we're within 1 pixel of the edge
                     // so draw a single pixel with blending and advance a single pixel
-                    
-                    var f = 1 - d; // inverse of the distance (how much fill color to blend in)
-                    byte blend = (byte)(f * 255);
+
+                    var f = (d > 0) ? 1 - d : 1; // convert distance to blend
+                    Clamp(f, 0, 1);
+                    var blend = (byte)(f * 255);
 
                     img!.BlendPixel(x,y,blend, r,g,b);
                 }
             }
         }
         
+        #region Distance functions
         // square ends
         private static double OrientedBox(Vector2 samplePoint, Vector2 a, Vector2 b, double thickness)
         {
@@ -364,7 +363,7 @@ namespace ImageTools.DistanceFields
             var s = wn == 0 ? 1.0 : -1.0; // flip distance if we're inside
             return Math.Sqrt(d) * s;
         }
-
+        #endregion
         
         #region Helpers
         private static void ReduceMinMaxToBounds(ByteImage img, ref int minX, ref int maxX, ref int minY, ref int maxY)
