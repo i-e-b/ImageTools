@@ -189,6 +189,7 @@ namespace ImageTools.DistanceFields
             double DistanceFunc(Vector2 p)
             {
                 var dp = p - c;
+                //var ellipse = sdEllipse2(dp, rect);
                 var ellipse = sdEllipse(dp, rect);
                 
                 // TODO: need a triangle for each quadrant, and work out where it should be
@@ -211,6 +212,11 @@ namespace ImageTools.DistanceFields
                     var s = new Vector2(x, y);
                     var d = distanceFunc!(s);
 
+                    // TODO: when we jump, have an expected next distance
+                    //       if we're far off that, back-track and try again
+                    //       this should let us use 'approximate' distance
+                    //       functions with much better output.
+                    
                     if (d > 1) // outside the iso-surface
                     {
                         x += (int) (d - 1); // jump if distance is big enough to save calculations, but don't get too close or we break anti-aliasing.
@@ -221,7 +227,7 @@ namespace ImageTools.DistanceFields
                     {
                         var id = (int) -d;
 
-                        id = Math.Min(maxX - x, id);
+                        id = Math.Min(maxX - x, id - 1/*allow for some error*/);// don't run off the edge
                         img!.SetSpan(y, x, x + id, r, g, b);
 
                         x += id;
@@ -310,99 +316,39 @@ namespace ImageTools.DistanceFields
 
             return -sqrt(d.X)*sign(d.Y);
         }
-        
-        // Ellipses are hard in SDF!
-        private static double sdEllipse_fail2( Vector2 p, Vector2 ab )
+
+        /// <summary>
+        /// ellipse with edge sharpening
+        /// </summary>
+        private static double sdEllipse2(Vector2 p, Vector2 r)
         {
-            // symmetry
-            p = abs( p );
-    
-            // determine in/out and initial value
-            bool s = dot(p/ab,p/ab)>1.0;
-            var cs = normalize( s ? ab.YX*p : 
-                ( (ab.X*(p.X-ab.X)-ab.Y*(p.Y-ab.Y)<0.0) ? 
-                    vec2(0.01,1) : vec2(1,0.01) ) );
-    
-            // find root with Newton solver (see https://www.shadertoy.com/view/4lsXDN)
-            for( int i=0; i<4; i++ )
-            {
-                var u = ab*vec2( cs.X,cs.Y);
-                var v = ab*vec2(-cs.Y,cs.X);
-        
-                var a = dot(p-u,v);
-                var c = dot(p-u,u) + dot(v,v);
-                var b = sqrt(c*c-a*a);
-        
-                cs = vec2( cs.X*b-cs.Y*a, cs.Y*b+cs.X*a )/c;
-            }
-    
-            // compute final point and distance
-            return length(p-ab*cs) * (s?1.0:-1.0);
-        }
-        private static double sdEllipse_fail1( Vector2 p, Vector2 ab )
-        {
-            p = abs(p); if( p.X > p.Y ) {
-                p=p.YX;
-                ab=ab.YX;
-            }
+            var pl = p.Offset(-1, 0);
+            var pr = p.Offset(1, 0);
+
+            var d2 = sdEllipse(p, r);
+            if (d2 == 0.0) return d2;
             
-            var l = ab.Y*ab.Y - ab.X*ab.X;
-            var m = ab.X*p.X/l;      var m2 = m*m; 
-            var n = ab.Y*p.Y/l;      var n2 = n*n; 
-            var c = (m2+n2-1.0)/3.0; var c3 = c*c*c;
-            var q = c3 + m2*n2*2.0;
-            var d = c3 + m2*n2;
-            var g = m + m*n2;
-            double co;
-            if( d<0.0 )
-            {
-                var h = acos(q/c3)/3.0;
-                var s = cos(h);
-                var t = sin(h)*sqrt(3.0);
-                var rx = sqrt( -c*(s + t + 2.0) + m2 );
-                var ry = sqrt( -c*(s - t + 2.0) + m2 );
-                co = (ry+sign(l)*rx+abs(g)/(rx*ry)- m)/2.0;
-            }
-            else
-            {
-                var h = 2.0*m*n*sqrt( d );
-                var s = sign(q+h)*pow(abs(q+h), 1.0/3.0);
-                var u = sign(q-h)*pow(abs(q-h), 1.0/3.0);
-                var rx = -s - u - c*4.0 + 2.0*m2;
-                var ry = (s - u)*sqrt(3.0);
-                var rm = sqrt( rx*rx + ry*ry );
-                co = (ry/sqrt(rm-rx)+2.0*g/rm-m)/2.0;
-            }
-            var r = ab * vec2(co, sqrt(1.0-co*co));
-            return length(r-p) * sign(p.Y-r.Y);
+            var d1 = sdEllipse(pl, r);
+            var d3 = sdEllipse(pr, r);
+
+            if (d1 >= 0 && d3 <= 0) return d2;
+            if (d1 <= 0 && d3 >= 0) return d2;
+
+            if (d2 < 0) return (Math.Min(d1,d3)+d2) / 2;
+            return (Math.Max(d1,d3)+d2) / 2;
         }
-        private static double sdEllipse_fail3( Vector2 p, Vector2 e )
-        {
-            var pAbs = abs(p);
-            var ei = 1.0 / e;
-            var e2 = e*e;
-            var ve = ei * vec2(e2.X - e2.Y, e2.Y - e2.X);
-    
-            var t = vec2(0.70710678118654752, 0.70710678118654752);
-            for (int i = 0; i < 3; i++) {
-                var v = ve*t*t*t;
-                var u = normalize(pAbs - v) * length(t * e - v);
-                var w = ei * (v + u);
-                t = normalize(clamp(w, 0.0, 1.0));
-            }
-    
-            var nearestAbs = t * e;
-            var dist = length(pAbs - nearestAbs);
-            return dot(pAbs, pAbs) < dot(nearestAbs, nearestAbs) ? -dist : dist;
-        }
-        
+
         // This is only *very* approximate
-        // tends to blur out sharp edges
+        // it tends to blur out sharp edges
         private static double sdEllipse( in Vector2 p, in Vector2 r )
         {
             var k1 = length(p/r);
             var k2 = length(p/(r*r));
-            return k1*(k1-1.0)/k2;
+            var d = k1*(k1-1.0)/k2; 
+            
+            if (d > 1) return Math.Sqrt(d);
+            if (d < -1) return -Math.Sqrt(-d);
+            return d; // adjust for overshoot
         }
         
         // line with a linearly varying line width
