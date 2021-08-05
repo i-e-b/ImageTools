@@ -174,7 +174,7 @@ namespace ImageTools.Tests
         }
 
         // Check that multiple contours can work with the polygon fill (i.e. support holes)
-        [Test] // TODO: these aren't working quite right
+        [Test]
         public void fill_complex_polygon_with_scanline()
         {
             var polygon1 = Points(22.5,  10.2, 10.8,/**/0,0,  10,0,   10,10,   0,10);         // outer box
@@ -204,7 +204,26 @@ namespace ImageTools.Tests
             Assert.That(Load.FileExists("./outputs/draw-poly-hole-scan.bmp"));
             Console.WriteLine($"Core draw took {sw.ElapsedMilliseconds}ms ({sw.ElapsedTicks} ticks)");
         }
-        
+
+        [Test]
+        public void pie_slices_with_sdf()
+        {
+            var sw = new Stopwatch();
+            using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
+            {
+                var byteImage = ByteImage.FromBitmap(bmp);
+
+                sw.Start();
+                SdfDraw.FillPartialRing(byteImage, color: 0xffEEDDCC, x1: 25.0, y1: 180.0, x2: 480.0, y2: 320.0, startAngle: 45.0, endAngle: 300.0, thickness: 10.0);
+                sw.Stop();
+                
+                byteImage!.RenderOnBitmap(bmp);
+                bmp.SaveBmp("./outputs/draw-pie-sdf.bmp");
+            }
+            Assert.That(Load.FileExists("./outputs/draw-pie-sdf.bmp"));
+            Console.WriteLine($"Core draw took {sw.ElapsedMilliseconds}ms ({sw.ElapsedTicks} ticks)");
+        }
+
         private PointF[] Points(double scale, double dx, double dy, params double[] p)
         {
             var result = new List<PointF>();
