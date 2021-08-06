@@ -189,8 +189,11 @@ namespace ImageTools.DistanceFields
             double DistanceFunc(Vector2 p)
             {
                 var dp = p - c;
+                //var ellipse = sdEllipse(dp, rect);
                 //var ellipse = sdEllipse2(dp, rect);
-                var ellipse = sdEllipse(dp, rect);
+                //var ellipse = sdaEllipseV3(dp, rect);
+                var ellipse = sdaEllipseV4(dp, rect);
+
                 
                 // TODO: need a triangle for each quadrant, and work out where it should be
                 var triangle = sdTriangle(p, c, c.Offset(0,seg.Y), c.Offset(seg.X,0));
@@ -258,7 +261,9 @@ namespace ImageTools.DistanceFields
         private static double dot(Vector2 a, Vector2 b) => Vector2.Dot(a,b);
         private static Vector2 vec2(double x, double y) => new Vector2(x,y);
         private static Vector2 min(Vector2 a, Vector2 b) => Vector2.ComponentMin(a,b);
+        private static double min(double a, double b) => Math.Min(a,b);
         private static Vector2 max(Vector2 a, Vector2 b) => Vector2.ComponentMax(a,b);
+        private static double max(double a, double b) => Math.Max(a,b);
         private static double sign(double d) => Math.Sign(d);
         private static double sqrt(double d) => d >= 0 ? Math.Sqrt(d) : 0;
         private static double length(Vector2 v) => v.Length();
@@ -317,25 +322,26 @@ namespace ImageTools.DistanceFields
             return -sqrt(d.X)*sign(d.Y);
         }
 
-        /// <summary>
-        /// ellipse with edge sharpening
-        /// </summary>
+        // Approximate ellipse (squashed circle)
         private static double sdEllipse2(Vector2 p, Vector2 r)
         {
-            var pl = p.Offset(-1, 0);
-            var pr = p.Offset(1, 0);
+            var k1 = length(p/r);
+            return (k1-1.0)*min(r.X,r.Y);
+        }
+        
+        private static double sdaEllipseV3( in Vector2 p, in Vector2 r )
+        {
+            var k1 = length(p/r);
+            return length(p)*(1.0-1.0/k1);
+        }
 
-            var d2 = sdEllipse(p, r);
-            if (d2 == 0.0) return d2;
-            
-            var d1 = sdEllipse(pl, r);
-            var d3 = sdEllipse(pr, r);
-
-            if (d1 >= 0 && d3 <= 0) return d2;
-            if (d1 <= 0 && d3 >= 0) return d2;
-
-            if (d2 < 0) return (Math.Min(d1,d3)+d2) / 2;
-            return (Math.Max(d1,d3)+d2) / 2;
+        // Blend 2 different approximations to get a pretty good result
+        private static double sdaEllipseV4( in Vector2 p, in Vector2 r )
+        {
+            var under = sdEllipse(p,r);
+            var over = sdaEllipseV3(p,r);
+            if (over < 0) return under;
+            return (under + over)/2;
         }
 
         // This is only *very* approximate

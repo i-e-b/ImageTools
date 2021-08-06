@@ -215,9 +215,9 @@ namespace ImageTools.Tests
 
                 sw.Start();
                 SdfDraw.FillPartialRing(byteImage, color: 0xffEEDDCC, x1: 25.0, y1: 10.0, x2: 200.0, y2: 100.0, startAngle: 45.0, endAngle: 300.0, thickness: 10.0);
-                
-                // Tall ellipse is broken!
                 SdfDraw.FillPartialRing(byteImage, color: 0xffCCDDEE, x1: 200.0, y1: 10.0, x2: 300.0, y2: 200.0, startAngle: 45.0, endAngle: 300.0, thickness: 10.0);
+                
+                SdfDraw.FillPartialRing(byteImage, color: 0xffEECCDD, x1: 25.0, y1: 250.0, x2: 450.0, y2: 300.0, startAngle: 45.0, endAngle: 300.0, thickness: 10.0);
                 sw.Stop();
                 
                 byteImage!.RenderOnBitmap(bmp);
