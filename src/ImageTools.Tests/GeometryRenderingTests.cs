@@ -15,6 +15,27 @@ namespace ImageTools.Tests
     public class GeometryRenderingTests
     {
         [Test]
+        public void render_shapes_with_rectilinear_sdf()
+        {
+            var sw = new Stopwatch();
+            using (var bmp = new Bitmap(512,512, PixelFormat.Format32bppArgb))
+            {
+                var byteImage = ByteImage.FromBitmap(bmp);
+
+                sw.Start();
+                SdfLimsDraw.DrawRectangle(byteImage, color: 0xffEEDDCC, 100, 80, 75, 30, 15);
+                SdfLimsDraw.DrawOval(byteImage, color: 0xffAA5577, x1: 50, y1: 300, x2: 500, y2: 400);
+                //SdfDraw.DrawLine(byteImage, thickness:3.0, x1: 25, y1: 50, x2: 150, y2: 500, color: 0xffFFffFF);
+                sw.Stop();
+                
+                byteImage!.RenderOnBitmap(bmp);
+                bmp.SaveBmp("./outputs/draw-shapes-sdf-lims.bmp");
+            }
+            Assert.That(Load.FileExists("./outputs/draw-shapes-sdf-lims.bmp"));
+            Console.WriteLine($"Core draw took {sw.ElapsedMilliseconds}ms ({sw.ElapsedTicks} ticks)");
+        }
+
+        [Test]
         public void render_anti_aliased_lines_with_scanline()
         {
             var sw = new Stopwatch();

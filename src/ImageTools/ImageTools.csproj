@@ -57,8 +57,10 @@
     <Compile Include="DataCompression\LzType\LZSSPack.cs" />
     <Compile Include="DataCompression\LzType\LZWPack.cs" />
     <Compile Include="DistanceFields\DistanceField.cs" />
+    <Compile Include="DistanceFields\GlslHelper.cs" />
     <Compile Include="DistanceFields\ScanlineDraw.cs" />
     <Compile Include="DistanceFields\SdfDraw.cs" />
+    <Compile Include="DistanceFields\SdfLimsDraw.cs" />
     <Compile Include="GeneralTypes\BoolVec3.cs" />
     <Compile Include="GeneralTypes\Contour.cs" />
     <Compile Include="GeneralTypes\Matrix2.cs" />

@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using ImageTools.GeneralTypes;
 
 namespace ImageTools.DistanceFields
 {
-    public static class SdfDraw
+    public class SdfDraw:GlslHelper
     {
         /// <summary>
         /// Distance based anti-aliased line with thickness.
@@ -17,9 +16,7 @@ namespace ImageTools.DistanceFields
         public static void DrawLine(ByteImage img, double thickness, double x1, double y1, double x2, double y2, uint color)
         {
             if (img == null) return;
-            byte r = (byte) ((color >> 16) & 0xff);
-            byte g = (byte) ((color >> 8) & 0xff);
-            byte b = (byte) ((color) & 0xff);
+            SplitColor(color, out var r, out var g, out var b);
             
             // work out maximum rect we have to cover
             var p1 = new Vector2(x1,y1);
@@ -47,9 +44,7 @@ namespace ImageTools.DistanceFields
             // Basic setup
             if (points == null) return;
             if (points.Length < 3) return; // area is empty
-            byte r = (byte) ((color >> 16) & 0xff);
-            byte g = (byte) ((color >> 8) & 0xff);
-            byte b = (byte) ((color) & 0xff);
+            SplitColor(color, out var r, out var g, out var b);
             
             // Get bounds, and cast points to vectors
             MinMaxRange(out var minX, out var minY, out var maxX, out var maxY);
@@ -80,9 +75,7 @@ namespace ImageTools.DistanceFields
             // basic setup
             if (contours == null) return;
             if (contours.Length < 1) return; // area is empty
-            byte r = (byte) ((color >> 16) & 0xff);
-            byte g = (byte) ((color >> 8) & 0xff);
-            byte b = (byte) ((color) & 0xff);
+            SplitColor(color, out var r, out var g, out var b);
             
             // Get bounds, and extract point pairs
             MinMaxRange(out var minX, out var minY, out var maxX, out var maxY);
@@ -122,9 +115,7 @@ namespace ImageTools.DistanceFields
             // Basic setup
             if (curve == null) return;
             if (curve.Length < 2) return; // line is a point. TODO: handle this
-            byte r = (byte) ((color >> 16) & 0xff);
-            byte g = (byte) ((color >> 8) & 0xff);
-            byte b = (byte) ((color) & 0xff);
+            SplitColor(color, out var r, out var g, out var b);
             
             // Determine bounds
             MinMaxRange(out var minX, out var minY, out var maxX, out var maxY);
@@ -169,9 +160,7 @@ namespace ImageTools.DistanceFields
         {
             // Basic setup
             if (img == null) return;
-            byte r = (byte) ((color >> 16) & 0xff);
-            byte g = (byte) ((color >> 8) & 0xff);
-            byte b = (byte) ((color) & 0xff);
+            SplitColor(color, out var r, out var g, out var b);
             
             // Determine bounds
             MinMaxRange(out var minX, out var minY, out var maxX, out var maxY);
@@ -204,83 +193,10 @@ namespace ImageTools.DistanceFields
             RenderDistanceFunction(img, minY, maxY, minX, maxX, DistanceFunc, b, g, r);
         }
 
-        private static void RenderDistanceFunction(ByteImage img, int minY, int maxY, int minX, int maxX, Func<Vector2, double> distanceFunc, byte b, byte g, byte r)
-        {
-            // Scan through the bounds, skipping where possible
-            // filling area based on distance to edge (internal in negative)
-            for (int y = minY; y < maxY; y++)
-            {
-                for (int x = minX; x < maxX; x++)
-                {
-                    var s = new Vector2(x, y);
-                    var d = distanceFunc!(s);
-
-                    // TODO: when we jump, have an expected next distance
-                    //       if we're far off that, back-track and try again
-                    //       this should let us use 'approximate' distance
-                    //       functions with much better output.
-                    
-                    if (d > 1) // outside the iso-surface
-                    {
-                        x += (int) (d - 1); // jump if distance is big enough to save calculations, but don't get too close or we break anti-aliasing.
-                        continue;
-                    }
-
-                    if (d < -1) // Inside the iso-surface
-                    {
-                        var id = (int) -d;
-
-                        id = Math.Min(maxX - x, id - 1/*allow for some error*/);// don't run off the edge
-                        img!.SetSpan(y, x, x + id, r, g, b);
-
-                        x += id;
-                        continue;
-                    }
-
-                    // Not outside or inside -- we're within 1 pixel of the edge
-                    // so draw a single pixel with blending and advance a single pixel
-
-                    var f = (d > 0) ? 1 - d : 1; // convert distance to blend
-                    f = Clamp(f, 0, 1);
-                    var blend = (byte)(f * 255);
-
-                    img!.BlendPixel(x,y,blend, r,g,b);
-                }
-            }
-        }
-        
-        #region Math help
-        // helpers when converting from glsl to C#
-        private static double clamp(double v, double min, double max)
-        {
-            if (v < min) return min;
-            if (v > max) return max;
-            return v;
-        }
-        private static Vector2 clamp(Vector2 v, double min, double max) => new Vector2(clamp(v.X,min,max),clamp(v.Y,min,max));
-        private static double dot(Vector2 a, Vector2 b) => Vector2.Dot(a,b);
-        private static Vector2 vec2(double x, double y) => new Vector2(x,y);
-        private static Vector2 min(Vector2 a, Vector2 b) => Vector2.ComponentMin(a,b);
-        private static double min(double a, double b) => Math.Min(a,b);
-        private static Vector2 max(Vector2 a, Vector2 b) => Vector2.ComponentMax(a,b);
-        private static double max(double a, double b) => Math.Max(a,b);
-        private static double sign(double d) => Math.Sign(d);
-        private static double sqrt(double d) => d >= 0 ? Math.Sqrt(d) : 0;
-        private static double length(Vector2 v) => v.Length();
-        private static Vector2 abs(Vector2 v) => v.Abs();
-        private static double abs(double v) => Math.Abs(v);
-        private static Vector2 normalize(Vector2 v) => v.Normalized();
-        private static double acos(double d) => Math.Acos(d);
-        private static double cos(double d) => Math.Cos(d);
-        private static double sin(double d) => Math.Sin(d);
-        private static double pow(double d, double e) => Math.Pow(d,e);
-        #endregion
-        
         #region SDF combining
         private static double Union( double d1, double d2 ) => Math.Min(d1,d2);
         private static double Subtract( double thing, double from ) => Math.Max(-thing,from);
         private static double Intersect( double d1, double d2 ) => Math.Max(d1,d2);
-
         #endregion
         
         #region Distance functions
@@ -515,65 +431,5 @@ namespace ImageTools.DistanceFields
             return Math.Sqrt(d) * s;
         }
         #endregion
-        
-        #region Helpers
-        private static void ReduceMinMaxToBounds(ByteImage img, ref int minX, ref int maxX, ref int minY, ref int maxY)
-        {
-            minX = Math.Max(img!.Bounds.Left, minX);
-            maxX = Math.Min(img.Bounds.Right, maxX);
-            minY = Math.Max(img.Bounds.Top, minY);
-            maxY = Math.Min(img.Bounds.Bottom, maxY);
-        }
-        
-
-        private static void ExpandRange(PointF p, ref int minX, ref int minY, ref int maxX, ref int maxY)
-        {
-            minX = Math.Min(minX, (int) (p.X - 2));
-            minY = Math.Min(minY, (int) (p.Y - 2));
-            maxX = Math.Max(maxX, (int) (p.X + 2));
-            maxY = Math.Max(maxY, (int) (p.Y + 2));
-        }
-        
-        private static void ExpandRange(Vector2 p, ref int minX, ref int minY, ref int maxX, ref int maxY)
-        {
-            minX = Math.Min(minX, (int) (p.X - 2));
-            minY = Math.Min(minY, (int) (p.Y - 2));
-            maxX = Math.Max(maxX, (int) (p.X + 2));
-            maxY = Math.Max(maxY, (int) (p.Y + 2));
-        }
-        
-        private static void ExpandRange(double x, double y, ref int minX, ref int minY, ref int maxX, ref int maxY)
-        {
-            minX = Math.Min(minX, (int) (x - 2));
-            minY = Math.Min(minY, (int) (y - 2));
-            maxX = Math.Max(maxX, (int) (x + 2));
-            maxY = Math.Max(maxY, (int) (y + 2));
-        }
-        
-        private static void ExpandRange(Vector3 p, ref int minX, ref int minY, ref int maxX, ref int maxY)
-        {
-            minX = Math.Min(minX, (int)(p.X - p.Z)-2);
-            maxX = Math.Max(maxX, (int)(p.X + p.Z)+2);
-            minY = Math.Min(minY, (int)(p.Y - p.Z)-2);
-            maxY = Math.Max(maxY, (int)(p.Y + p.Z)+2);
-        }
-
-        private static void MinMaxRange(out int minX, out int minY, out int maxX, out int maxY)
-        {
-            minX = int.MaxValue;
-            minY = int.MaxValue;
-            maxX = int.MinValue;
-            maxY = int.MinValue;
-        }
-        
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static double Clamp(double v, double min, double max)
-        {
-            if (v < min) return min;
-            if (v > max) return max;
-            return v;
-        }
-        #endregion
-
     }
 }

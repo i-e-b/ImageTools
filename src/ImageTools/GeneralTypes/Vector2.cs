@@ -14,6 +14,15 @@ namespace ImageTools.GeneralTypes
     public struct Vector2
     {
         public double X, Y;
+        
+        /// <summary> Return a new vector with X and Y exchanged </summary>
+        // ReSharper disable InconsistentNaming
+        // ReSharper disable IdentifierTypo
+        public Vector2 YX => new Vector2(Y,X);
+        public Vector4 XYYX => new Vector4(X,Y,Y,X);
+        public Vector4 XXYY => new Vector4(X,X,Y,Y);
+        // ReSharper restore InconsistentNaming
+        // ReSharper restore IdentifierTypo
 
         public Vector2(double x, double y)
         {
@@ -24,11 +33,6 @@ namespace ImageTools.GeneralTypes
         {
             X = p.X; Y = p.Y;
         }
-
-        /// <summary>
-        /// Return a new vector with X and Y exchanged
-        /// </summary>
-        public Vector2 YX => new Vector2(Y,X);
 
         /// <summary>
         /// Helper for creating arrays of vectors
@@ -89,7 +93,7 @@ namespace ImageTools.GeneralTypes
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector2 operator* (Vector2 a, Vector2 b) {
-            return new Vector2{ X = a.X * b.Y, Y = a.Y * b.Y};
+            return new Vector2{ X = a.X * b.X, Y = a.Y * b.Y};
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -173,6 +177,38 @@ namespace ImageTools.GeneralTypes
             var hh = (b-t)/2.0;
             
             return new Vector2(hw, hh);
+        }
+
+        public static Vector2 LowestPair(double x1, double y1, double x2, double y2)
+        {
+            return new Vector2(Math.Min(x1,x2), Math.Min(y1,y2));
+        }
+
+        public static Vector2 HighestPair(double x1, double y1, double x2, double y2)
+        {
+            return new Vector2(Math.Max(x1,x2), Math.Max(y1,y2));
+        }
+    }
+
+    public class Vector4
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Z { get; set; }
+        public double W { get; set; }
+
+        public Vector4(double x, double y, double z, double w)
+        {
+            X = x;
+            Y = y;
+            Z = z;
+            W = w;
+        }
+        public Vector4() { }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector4 operator* (Vector4 a, Vector4 b) {
+            return new Vector4{ X = a.X * b.X, Y = a.Y * b.Y, Z = a.Z * b.Z, W = a.W * b.W};
         }
     }
 }
