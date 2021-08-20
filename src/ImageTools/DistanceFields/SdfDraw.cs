@@ -156,10 +156,11 @@ namespace ImageTools.DistanceFields
         /// <remarks>
         /// We can use min/max joining and just ellipse and triangle distance functions
         /// </remarks>
-        public static void FillPartialRing(ByteImage img, uint color, double x1, double y1, double x2, double y2, double startAngle, double endAngle, double thickness)
+        public static void FillPartialRing(ByteImage img, uint color, double x1, double y1, double x2, double y2, double startAngle, double clockwiseAngle, double thickness)
         {
             // Basic setup
             if (img == null) return;
+            if (clockwiseAngle == 0) return; // no section
             SplitColor(color, out var r, out var g, out var b);
             
             // Determine bounds
@@ -168,25 +169,89 @@ namespace ImageTools.DistanceFields
             ExpandRange(x2, y2, ref minX, ref minY, ref maxX, ref maxY);
             ReduceMinMaxToBounds(img, ref minX, ref maxX, ref minY, ref maxY);
             
-            // just to get testing our dist funcs, draw everything spread out
+            // Normalise to clockwise
+            var endAngle = startAngle + clockwiseAngle;
+            if (clockwiseAngle < 0.0)
+            {
+                var tmp = startAngle;
+                startAngle += clockwiseAngle;
+                endAngle = tmp;
+                if (startAngle < 0) startAngle = (startAngle + 360) % 360;
+            }
+            
+            
+            // position and size vectors
             var c = Vector2.Centre(x1,y1,x2,y2);
             var rect = Vector2.RectangleVector(x1,y1,x2,y2); // vector from centre to a vertex of the rect
-            var seg = rect * 4; // outer points for triangles
+            var length = rect.MaxComponent()*4;
+            var degToRad = Math.PI / 180.0;
+            var startRadians = (startAngle % 360) * degToRad; // 0 is centre-right
+            var endRadians = (endAngle % 360) * degToRad; // this is clockwise from start angle (i.e. 360 always gives a complete ellipse)
+
+            Vector2 QuadPrime(int q) => (q % 4) switch {
+                0 => new Vector2(1, 0),
+                1 => new Vector2(0, 1),
+                2 => new Vector2(-1, 0),
+                3 => new Vector2(0, -1),
+                _ => throw new Exception("Invalid")
+            };
+
+            // work out which triangles to subtract and what size they should be
+            var masks = new List<VecSegment2>();
+            if (clockwiseAngle < 360) // Not a complete loop. Needs cuts.
+            {
+                var degToQuad = 1.0 / 90.0;
+                var qstart = (int)((startAngle % 360) * degToQuad);
+                var qend = (int)((endAngle % 360) * degToQuad);
+                
+                // TODO: work out which quadrants need some portion removed
+                // IEB: I think a single sector and change between union and difference would be
+                //      better than trying to string together triangles.
+                //      look into removing one edge test from the triangle
+                for (int q = qstart; q <= qend; q++)
+                {
+                    if (q != qstart && q != qend) // empty quad
+                    {
+                        masks.Add(new VecSegment2 { A = QuadPrime(q) * length, B = QuadPrime(q+1) * length});
+                    }
+                }
+                
+                if (qstart == qend) // starts and ends in the same quad. Either a single mask, or the full 5
+                {
+                    if (startRadians < endRadians) // small segment, 5 cuts
+                    {
+                        masks.Add(new VecSegment2 { A = QuadPrime(qstart) * length, B = Vector2.Angle(startRadians) * length });
+                        masks.Add(new VecSegment2 { A = Vector2.Angle(endRadians) * length, B = QuadPrime(qstart + 1) * length });
+                        
+                        masks.Add(new VecSegment2 { A = QuadPrime(qstart + 1) * length, B = QuadPrime(qstart + 2) * length});
+                        masks.Add(new VecSegment2 { A = QuadPrime(qstart + 2) * length, B = QuadPrime(qstart + 3) * length});
+                        masks.Add(new VecSegment2 { A = QuadPrime(qstart + 3) * length, B = QuadPrime(qstart + 4) * length});
+                    }
+                    else // huge segment, 1 cut
+                    {
+                        masks.Add(new VecSegment2 { A = Vector2.Angle(startRadians) * length, B = Vector2.Angle(endRadians) * length });
+                    }
+
+                }
+
+            }
+
             
             // Build a distance function (we do all the line segments
             // at once so the blending works correctly)
             double DistanceFunc(Vector2 p)
             {
                 var dp = p - c;
-                //var ellipse = sdEllipse(dp, rect);
-                //var ellipse = sdEllipse2(dp, rect);
-                //var ellipse = sdaEllipseV3(dp, rect);
-                var ellipse = sdaEllipseV4(dp, rect);
+                var ellipse = sdaEllipseV4(dp, rect); //sdEllipseExact(dp, rect);
 
+                var dist = ellipse; // TODO: remove centre
+
+                foreach (var mask in masks)
+                {
+                    dist = Subtract(sdTriangle(p, c, mask.A+c, mask.B+c), from: dist);
+                }
                 
-                // TODO: need a triangle for each quadrant, and work out where it should be
-                var triangle = sdTriangle(p, c, c.Offset(0,seg.Y), c.Offset(seg.X,0));
-                return Subtract(triangle, from: ellipse);
+                return dist;
             }
 
             // Do a general rendering of the function
@@ -254,7 +319,7 @@ namespace ImageTools.DistanceFields
         // Blend 2 different approximations to get a pretty good result
         private static double sdaEllipseV4( in Vector2 p, in Vector2 r )
         {
-            var under = sdEllipse(p,r);
+            var under = sdEllipse2(p,r);
             var over = sdaEllipseV3(p,r);
             if (over < 0) return under;
             return (under + over)/2;
@@ -271,6 +336,41 @@ namespace ImageTools.DistanceFields
             if (d > 1) return Math.Sqrt(d);
             if (d < -1) return -Math.Sqrt(-d);
             return d; // adjust for overshoot
+        }
+        
+        private static double sdEllipseExact( Vector2 p,  Vector2 ab )
+        {
+            p = abs(p); if( p.X > p.Y ) {p=p.YX;ab=ab.YX;}
+            var l = ab.Y*ab.Y - ab.X*ab.X;
+            //if (l == 0.0) return 1.0; // ???
+            var m = ab.X*p.X/l;      var m2 = m*m; 
+            var n = ab.Y*p.Y/l;      var n2 = n*n; 
+            var c = (m2+n2-1.0)/3.0; var c3 = c*c*c;
+            var q = c3 + m2*n2*2.0;
+            var d = c3 + m2*n2;
+            var g = m + m*n2;
+            double co;
+            if( d<0.0 )
+            {
+                var h = acos(q/c3)/3.0;
+                var s = cos(h);
+                var t = sin(h)*sqrt(3.0);
+                var rx = sqrt( -c*(s + t + 2.0) + m2 );
+                var ry = sqrt( -c*(s - t + 2.0) + m2 );
+                co = (ry+sign(l)*rx+abs(g)/(rx*ry)- m)/2.0;
+            }
+            else
+            {
+                var h = 2.0*m*n*sqrt( d );
+                var s = sign(q+h)*pow(abs(q+h), 1.0/3.0);
+                var u = sign(q-h)*pow(abs(q-h), 1.0/3.0);
+                var rx = -s - u - c*4.0 + 2.0*m2;
+                var ry = (s - u)*sqrt(3.0);
+                var rm = sqrt( rx*rx + ry*ry );
+                co = (ry/sqrt(rm-rx)+2.0*g/rm-m)/2.0;
+            }
+            var r = ab * vec2(co, sqrt(1.0-co*co));
+            return length(r-p) * sign(p.Y-r.Y);
         }
         
         // line with a linearly varying line width

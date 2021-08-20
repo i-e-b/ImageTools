@@ -57,6 +57,7 @@
     <Compile Include="ColorSpaceTests.cs" />
     <Compile Include="InterleavedFileTests.cs" />
     <Compile Include="SpaceFillingCurveTests.cs" />
+    <Compile Include="TextureMappingTests.cs" />
     <Compile Include="Wavelet_3D_Tests.cs" />
     <Compile Include="SampleDownscales.cs" />
     <Compile Include="UpscalingImagesTests.cs" />

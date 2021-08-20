@@ -21,6 +21,8 @@ namespace ImageTools.GeneralTypes
         public Vector2 YX => new Vector2(Y,X);
         public Vector4 XYYX => new Vector4(X,Y,Y,X);
         public Vector4 XXYY => new Vector4(X,X,Y,Y);
+
+        public static Vector2 Zero => new Vector2(0,0);
         // ReSharper restore InconsistentNaming
         // ReSharper restore IdentifierTypo
 
@@ -187,6 +189,13 @@ namespace ImageTools.GeneralTypes
         public static Vector2 HighestPair(double x1, double y1, double x2, double y2)
         {
             return new Vector2(Math.Max(x1,x2), Math.Max(y1,y2));
+        }
+
+        public double MaxComponent() => Math.Max(X,Y);
+
+        public static Vector2 Angle(double radians)
+        {
+            return new Vector2(Math.Cos(radians), Math.Sin(radians));
         }
     }
 

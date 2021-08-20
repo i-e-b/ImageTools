@@ -191,8 +191,64 @@ namespace ImageTools
             PixelBytes[pixelOffset + 1] = (byte) (((PixelBytes[pixelOffset + 1] * antiFraction) >> 8) + ((g * blend) >> 8));
             PixelBytes[pixelOffset + 2] = (byte) (((PixelBytes[pixelOffset + 2] * antiFraction) >> 8) + ((r * blend) >> 8));
         }
+
+        /// <summary>
+        /// Return a cursor, which can be used like scanning through pointers
+        /// in old C/C++ code
+        /// </summary>
+        public ByteImageCursor GetCursor(int x, int y)
+        {
+            return new ByteImageCursor(this, x, y);
+        }
+
+        public void GetPixel(int x, int y, out byte r, out byte g, out byte b)
+        {
+            y = Clamp(y, 0, Bounds.Height);
+            x = Clamp(x, 0, Bounds.Width);
+            
+            var rowOffset = y * RowBytes;
+            var pixelOffset = rowOffset + x * 4; // target pixel as byte offset from base
+            
+            b = PixelBytes![pixelOffset++];
+            g = PixelBytes[pixelOffset++];
+            r = PixelBytes[pixelOffset];
+        }
+
+        private int Clamp(int v, int min, int exclMax)
+        {
+            if (v < min) return min;
+            if (v >= exclMax) return exclMax - 1;
+            return v;
+        }
     }
-    
+
+    public class ByteImageCursor
+    {
+        private readonly ByteImage _src;
+        private int _x;
+        private int _y;
+
+        public ByteImageCursor(ByteImage src, int x, int y)
+        {
+            _src = src;
+            _x = x;
+            _y = y;
+        }
+        
+        /// <summary>
+        /// Move cursor one pixel forward. Wraps in both directions
+        /// </summary>
+        public void Advance(){
+            _x++;
+            if (_x < _src!.Bounds.Width) return;
+            _y++; _x = 0;
+            if (_y < _src.Bounds.Height) return;
+            _y = 0;
+        }
+        public void Set(byte r, byte g, byte b) => _src!.SetPixel(_x,_y, r,g,b);
+        public void Get(out byte r, out byte g, out byte b) => _src!.GetPixel(_x,_y, out r, out g, out b);
+    }
+
     public class PixelSpan
     {
         public int Right;

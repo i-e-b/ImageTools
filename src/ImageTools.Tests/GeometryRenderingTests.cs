@@ -235,10 +235,17 @@ namespace ImageTools.Tests
                 var byteImage = ByteImage.FromBitmap(bmp);
 
                 sw.Start();
-                SdfDraw.FillPartialRing(byteImage, color: 0xffEEDDCC, x1: 25.0, y1: 10.0, x2: 200.0, y2: 100.0, startAngle: 45.0, endAngle: 300.0, thickness: 10.0);
-                SdfDraw.FillPartialRing(byteImage, color: 0xffCCDDEE, x1: 200.0, y1: 10.0, x2: 300.0, y2: 200.0, startAngle: 45.0, endAngle: 300.0, thickness: 10.0);
-                
-                SdfDraw.FillPartialRing(byteImage, color: 0xffEECCDD, x1: 25.0, y1: 250.0, x2: 450.0, y2: 300.0, startAngle: 45.0, endAngle: 300.0, thickness: 10.0);
+                for (int j = 0; j < 8; j++)
+                {
+                    var yo = j * 50;
+                    var c = j * 40.0;
+                    for (int i = 0; i < 8; i++)
+                    {
+                        var xo = i * 50;
+                        var a = i * 40.0;
+                        SdfDraw.FillPartialRing(byteImage, color: 0xffFFffFF, x1: xo + 10.0, y1: yo+10.0, x2: xo + 50.0, y2: yo+50.0, startAngle: a, clockwiseAngle: c, thickness: 10.0);
+                    }
+                }
                 sw.Stop();
                 
                 byteImage!.RenderOnBitmap(bmp);
