@@ -1,7 +1,7 @@
-﻿
-// ReSharper disable InconsistentNaming
+﻿// ReSharper disable InconsistentNaming
 // ReSharper disable InconsistentNaming
 // ReSharper disable JoinDeclarationAndInitializer
+
 namespace ImageTools.TextureRendering
 {
     /// <summary>
@@ -74,11 +74,11 @@ namespace ImageTools.TextureRendering
             //  technique
 
             x1 = poly.P1!.x + 0.5f;
-            y1 = poly.P1 .y + 0.5f;
+            y1 = poly.P1.y + 0.5f;
             x2 = poly.P2!.x + 0.5f;
-            y2 = poly.P2 .y + 0.5f;
+            y2 = poly.P2.y + 0.5f;
             x3 = poly.P3!.x + 0.5f;
-            y3 = poly.P3 .y + 0.5f;
+            y3 = poly.P3.y + 0.5f;
 
             // Calculate alternative 1/Z, U/Z and V/Z values which will be
             //  interpolated
@@ -264,7 +264,7 @@ namespace ImageTools.TextureRendering
             while (y1 < y2) // Loop through all lines in segment
             {
                 float iz, uiz, viz;
-                int u1, v1, u2, v2, u, v, du, dv;
+                long u1, v1, u2, v2, u, v, du, dv;
                 var x1 = (int)xa;
                 var x2 = (int)xb;
 
@@ -313,18 +313,28 @@ namespace ImageTools.TextureRendering
 
                     du = (u2 - u1) >> SubDivShift;
                     dv = (v2 - v1) >> SubDivShift;
+                    
+                    // only do jitter smoothing if textels cover more than one pixel
+                    var jx = (du >> 15) < 1 ? -1 : 0;
+                    var jy = (dv >> 15) < 1 ? -1 : 0;
+                    var j_on = jx&jy;
 
                     var x = SubDivSize;
-                    while (x-->0) // Draw span
+                    while (x-- > 0) // Draw span
                     {
                         // Copy pixel from texture to screen
 
-                        //*(scr++) = texture[((((int)v) & 0xff0000) >> 8) + ((((int)u) & 0xff0000) >> 16)]; // I think this assumes 256 pixel texture
-                        var int_u = (u & 0xff0000) >> 16;
-                        var int_v = (v & 0xff0000) >> 16;
-                        Texture!.GetPixel(int_u, int_v, out var r, out var g, out var b);
-                        cursor!.Set(r,g,b); cursor.Advance();
-                        
+                        // experimental jitter anti-alias
+                        var j = ((x+y1) & 1) << 15;
+                        var ju = u + (j&j_on);
+                        var jv = v + (j&j_on);
+
+                        var int_u = ju >> 16;
+                        var int_v = jv >> 16;
+                        Texture!.GetPixel((int)int_u, (int)int_v, out var r, out var g, out var b);
+                        cursor!.Set(r, g, b);
+                        cursor.Advance();
+
                         // Step horizontally along UV axes
 
                         u += du;
@@ -360,18 +370,16 @@ namespace ImageTools.TextureRendering
                     du = (u2 - u1) / xcount;
                     dv = (v2 - v1) / xcount;
 
-                    while (xcount-->0) // Draw span
+                    while (xcount-- > 0) // Draw span
                     {
                         // Copy pixel from texture to screen
-
-                        //*(scr++) = texture[((((int)v) & 0xff0000) >> 8) + ((((int)u) & 0xff0000) >> 16)];
-                        var int_u = (u & 0xff0000) >> 16;
-                        var int_v = (v & 0xff0000) >> 16;
-                        Texture!.GetPixel(int_u, int_v, out var r, out var g, out var b);
-                        cursor!.Set(r,g,b); cursor.Advance();
+                        var int_u = u >> 16;
+                        var int_v = v >> 16;
+                        Texture!.GetPixel((int)int_u, (int)int_v, out var r, out var g, out var b);
+                        cursor!.Set(r, g, b);
+                        cursor.Advance();
 
                         // Step horizontally along UV axes
-
                         u += du;
                         v += dv;
                     }
