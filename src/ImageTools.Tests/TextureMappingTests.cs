@@ -23,7 +23,7 @@ namespace ImageTools.Tests
 
             sw.Start();
             var tri1 = new PerspectiveTriangle(texture, Pt(20,20,10,  0,0), Pt(500, 10, 20,  128,0), Pt(10, 500, 20,  0,128));
-            var tri2 = new PerspectiveTriangle(texture, Pt(500, 10, 20,  128,0), Pt(10, 500, 20,  0,128), Pt(340,300,40,  128,128));
+            var tri2 = new PerspectiveTriangle(texture, Pt(500, 10, 20,  128,0), Pt(10, 500, 20,  0,128), Pt(320,320,30,  128,128));
             
             tri1.Draw(target);
             tri2.Draw(target);
