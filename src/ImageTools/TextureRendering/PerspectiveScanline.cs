@@ -285,7 +285,6 @@ namespace ImageTools.TextureRendering
                 v2 = (int)(viz * z);
 
                 // Length of line segment
-
                 var xcount = x2 - x1;
 
                 while (xcount >= SubDivSize) // Draw all full-length
@@ -314,20 +313,23 @@ namespace ImageTools.TextureRendering
                     du = (u2 - u1) >> SubDivShift;
                     dv = (v2 - v1) >> SubDivShift;
                     
-                    // only do jitter smoothing if textels cover more than one pixel
-                    var jx = (du >> 15) < 1 ? -1 : 0;
-                    var jy = (dv >> 15) < 1 ? -1 : 0;
+                    // do jitter smoothing if textels cover more than one pixel
+                    var jx = (du >> 15) < 1 ? 1 : 0;
+                    var jy = (dv >> 15) < 1 ? 1 : 0;
                     var j_on = jx&jy;
+                    var qq = (1 << 15) * j_on;
+                    var j = qq * (y1%2);
 
                     var x = SubDivSize;
                     while (x-- > 0) // Draw span
                     {
                         // Copy pixel from texture to screen
 
-                        // experimental jitter anti-alias
-                        var j = ((x+y1) & 1) << 15;
-                        var ju = u + (j&j_on);
-                        var jv = v + (j&j_on);
+                        // jitter the u and v sample points by half a texel
+                        // on alternating output pixels as a crude anti-alias
+                        j = qq - j;
+                        var ju = u + j;
+                        var jv = v + j;
 
                         var int_u = ju >> 16;
                         var int_v = jv >> 16;

@@ -35,5 +35,15 @@ namespace ImageTools.Utilities
             }
             return File.Exists(filePath);
         }
+
+        public static string FullPath(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath)) return filePath;
+            if (!File.Exists(filePath)) {
+                var basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                filePath = Path.Combine(basePath??"", filePath);
+            }
+            return Path.GetFullPath(filePath).Replace("\\","/");
+        }
     }
 }
