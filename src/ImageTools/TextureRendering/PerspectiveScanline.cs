@@ -281,8 +281,8 @@ namespace ImageTools.TextureRendering
                 // Calculate UV for the first pixel
 
                 var z = 65536 / iz;
-                u2 = (int)(uiz * z);
-                v2 = (int)(viz * z);
+                u2 = (long)(uiz * z);
+                v2 = (long)(viz * z);
 
                 // Length of line segment
                 var xcount = x2 - x1;
