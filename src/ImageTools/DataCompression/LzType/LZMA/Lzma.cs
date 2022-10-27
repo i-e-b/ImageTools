@@ -3141,11 +3141,11 @@ namespace ImageTools.DataCompression.LZMA
 
     public class OutWindow
     {
-        byte[] _buffer = null;
+        byte[]? _buffer = null;
         uint _pos;
         uint _windowSize = 0;
         uint _streamPos;
-        System.IO.Stream _stream;
+        System.IO.Stream? _stream;
 
         public uint TrainSize = 0;
 

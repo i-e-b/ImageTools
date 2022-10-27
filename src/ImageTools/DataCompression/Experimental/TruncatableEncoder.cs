@@ -54,9 +54,9 @@ namespace ImageTools.DataCompression.Experimental
         private const int END_SYMBOL = 256; // Symbol for end-of-data
 
         // 2nd order probability model:
-        private ISumTree[] map;
+        private ISumTree[]? map;
         private int lastSymbol;
-        private bool[] frozen;
+        private bool[]? frozen;
         public const ulong ProbabilityScale = 4; // how aggressively we grow the symbol probabilities
 
         /// <summary>

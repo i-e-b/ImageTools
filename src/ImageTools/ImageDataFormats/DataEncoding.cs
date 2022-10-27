@@ -534,7 +534,7 @@ namespace ImageTools.ImageDataFormats
         /// take a single number and return an array encoding of the fibonacci code. Returns empty array on error.
         /// Results are 1 or 0 encoded in a byte
         /// </summary>
-        public static Stack<byte> FibEncodeNum(uint n, Stack<byte> previous) {
+        public static Stack<byte> FibEncodeNum(uint n, Stack<byte>? previous) {
             if (n < 1) return new Stack<byte>(0);
 
             var res = previous ?? new Stack<byte>(20);

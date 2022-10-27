@@ -20,7 +20,6 @@ namespace ImageTools
         /// </summary>
         public static Bitmap MaintainAspect(Bitmap src, int maxWidth, int maxHeight)
         {
-            if (src == null) return null;
             float xScale = Math.Min(1.0f, (float)(maxWidth) / src.Width);
             float yScale = Math.Min(1.0f, (float)(maxHeight) / src.Height);
 
@@ -33,8 +32,6 @@ namespace ImageTools
 
         public static Bitmap DisregardAspect(Bitmap src, int targetWidth, int targetHeight)
         {
-            if (src == null) return null;
-            
             var planeWidth = Math.Max(targetWidth, src.Width);
             var planeHeight = Math.Max(targetHeight, src.Height);
             

@@ -783,6 +783,14 @@ namespace ImageTools.ImageDataFormats
         {
             o1 = i1; o2 = i2; o3 = i3;
         }
+        
+        /// <summary>
+        /// Scale a [0..1] value to a [0..255] value
+        /// </summary>
+        public static void Scaled(double i1, double i2, double i3, out double o1, out double o2, out double o3)
+        {
+            o1 = clip(i1*255); o2 = clip(i2*255); o3 = clip(i3*255);
+        }
 
         public static uint HCL_To_RGB32(int h, int c, int l)
         {

@@ -14,11 +14,10 @@ namespace ImageTools
 	{
 		/// <summary>
 		/// Create a rescaled copy of an image. Original image may be used as temp space
-		/// Image aspect ration is always maintained
+		/// Image aspect ratio is always maintained
 		/// </summary>
 		public static Bitmap MaintainAspect(Bitmap src, int maxWidth, int maxHeight)
 		{
-            if (src == null) return null;
 			float xScale = Math.Min(1.0f, (float)(maxWidth) / src.Width);
 			float yScale = Math.Min(1.0f, (float)(maxHeight) / src.Height);
 

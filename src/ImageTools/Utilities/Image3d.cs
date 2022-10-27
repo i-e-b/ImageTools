@@ -98,7 +98,7 @@ namespace ImageTools.Utilities
         /// Read a Z slice back to a 2D bitmap image.
         /// Caller should dispose.
         /// </summary>
-        public Bitmap ReadSlice(int z, BitmapTools.TripleToTripleSpace colorSpace = null)
+        public Bitmap ReadSlice(int z, BitmapTools.TripleToTripleSpace? colorSpace = null)
         {
             var dst = new Bitmap(Width, Height, PixelFormat.Format32bppArgb);
             var zo = z * zspan;

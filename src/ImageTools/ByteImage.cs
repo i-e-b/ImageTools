@@ -11,7 +11,7 @@ namespace ImageTools
     /// </summary>
     public class ByteImage
     {
-        public byte[] PixelBytes;
+        public byte[]? PixelBytes;
         public int RowBytes;
         public Rectangle Bounds;
         int heightLimit, widthLimit;

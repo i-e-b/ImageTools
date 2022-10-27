@@ -218,9 +218,9 @@ namespace ImageTools.DistanceFields
         }
 
 
-        public static Bitmap RenderFieldToImage(int[,] field)
+        public static Bitmap? RenderFieldToImage(int[,] field)
         {
-            if (field == null || field.Length < 4) return null;
+            if (field.Length < 4) return null;
 
             var width = field.GetLength(0);
             var height = field.GetLength(1);
@@ -245,10 +245,10 @@ namespace ImageTools.DistanceFields
             return bmp;
         }
 
-        public static Bitmap RenderFieldToImage(int[,] horzField, int[,] vertField)
+        public static Bitmap? RenderFieldToImage(int[,] horzField, int[,] vertField)
         {
-            if (horzField == null || horzField.Length < 4) return null;
-            if (vertField == null || vertField.Length < 4) return null;
+            if (horzField.Length < 4) return null;
+            if (vertField.Length < 4) return null;
 
             var width = horzField.GetLength(0);
             var height = horzField.GetLength(1);

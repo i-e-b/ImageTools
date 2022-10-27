@@ -18,7 +18,6 @@ namespace ImageTools
         /// </summary>
         public static Bitmap MaintainAspect(Bitmap src, int maxWidth, int maxHeight)
         {
-            if (src == null) return null;
             float xScale = Math.Min(1.0f, (float)(maxWidth) / src.Width);
             float yScale = Math.Min(1.0f, (float)(maxHeight) / src.Height);
 
@@ -34,8 +33,6 @@ namespace ImageTools
             // TODO: if any dimension is going *down* more than 50%, box filter it until it's less.
             
             // This is a pretty dumb way to do it, which calculates way more than it needs to.
-            if (src == null) return null;
-            
             var srcWidth = src.Width;
             var srcHeight = src.Height;
             BitmapTools.ArgbImageToYUVPlanes(src, out var sY, out var sU, out var sV);

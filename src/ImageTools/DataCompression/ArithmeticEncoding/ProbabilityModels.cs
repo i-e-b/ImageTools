@@ -282,9 +282,9 @@ namespace ImageTools.DataCompression.Encoding
             /// <summary>
             /// the map is treated as an independent set of cumulative probabilities.
             /// </summary>
-            private ulong[,] map; // [from,to]
+            private ulong[,]? map; // [from,to]
             private int lastSymbol;
-            private bool[] frozen;
+            private bool[]? frozen;
             private int leadIn;
 
             /// <summary>
@@ -392,9 +392,9 @@ namespace ImageTools.DataCompression.Encoding
             /// <summary>
             /// the map is treated as an independent set of cumulative probabilities.
             /// </summary>
-            private ulong[,,] map; // [lsA, lsB, cuml prob]
+            private ulong[,,]? map; // [lsA, lsB, cuml prob]
             private int lsA, lsB;
-            private bool[,] frozen;
+            private bool[,]? frozen;
             private int leadIn;
 
             /// <summary>

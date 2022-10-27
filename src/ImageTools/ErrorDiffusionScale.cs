@@ -18,7 +18,6 @@ namespace ImageTools
         /// </summary>
         public static Bitmap Upscale(Bitmap src, float scale)
         {
-            if (src == null) return null;
             BitmapTools.ImageToPlanesf(src, ColorSpace.RGBToYUV, out var srcY, out var srcU, out var srcV);
 
             var sqrScale = (int)Math.Ceiling(scale * scale);
@@ -74,9 +73,9 @@ namespace ImageTools
             return dst;
         }
 
-        private static T Pick<T>(int i, params T[] stuff)
+        private static T Pick<T>(int i, params T[]? stuff)
         {
-            return stuff == null ? default : stuff[i];
+            return (stuff == null ? default : stuff[i])!;
         }
     }
 }
