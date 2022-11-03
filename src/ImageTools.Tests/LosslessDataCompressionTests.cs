@@ -11,6 +11,7 @@ using System.Text;
 using ImageTools.DataCompression;
 using ImageTools.DataCompression.Encoding;
 using ImageTools.DataCompression.Experimental;
+using ImageTools.DataCompression.PPM;
 using ImageTools.Utilities;
 using ImageTools.WaveletTransforms;
 using NUnit.Framework;
@@ -43,6 +44,24 @@ namespace ImageTools.Tests
             Assert.That(ok, "Stream was truncated, but should not have been");
         }
 
+        [Test]
+        public void hash_match_round_trip()
+        {
+            var subject = new HashMatchCompressor();
+            
+            var expected = Moby;
+            var src = Encoding.UTF8.GetBytes(expected);
+
+            var encoded = subject.Compress(src);
+            var dst = subject.Decompress(encoded);
+            
+            var actual = Encoding.UTF8.GetString(dst);
+            
+            Console.WriteLine($"Original: {src.Length}; Compressed: {encoded.Length}; Expanded: {dst.Length}");
+            
+            Assert.That(actual, Is.EqualTo(expected));
+        }
+        
         [Test]
         public void Decoding_a_truncated_stream()
         {
@@ -406,6 +425,159 @@ namespace ImageTools.Tests
                 Console.WriteLine($"Wavelet transform took {sw.Elapsed}");
                 resultBmp.SaveBmp("./outputs/ArithmeticEncode_3.bmp");
             }
+        }
+        
+        [Test]
+        public void compressing_a_wavelet_image_with_PPM () {
+            var msY = new MemoryStream();
+            var msU = new MemoryStream();
+            var msV = new MemoryStream();
+
+            /*
+             
+             Results -- compressions is nowhere near as good as deflate or arithmetic coding,
+                        but the speed is very good given the non-existent optimisations
+             
+             PPM:
+                Raw 'Y' size = 320.86kb
+                Compression took 00:00:00.0058395
+                Encoded 'Y' size = 177.29kb
+                Decompression took 00:00:00.0054271
+            
+            Compared to Markov Arithmetic Coding;
+                Raw 'Y' size = 320.86kb
+                Arithmetic coding took 00:00:00.1050660
+                AC encoded 'Y' size = 122.52kb
+                Arithmetic decoding took 00:00:00.3786367
+*/
+
+            var acY = new MemoryStream();
+            var finalY = new MemoryStream();
+
+            var sw = new Stopwatch();
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                sw.Restart();
+                WaveletCompress.ReduceImage2D_ToStreams(bmp, CDF.Fwt97, msY, msU, msV);
+                sw.Stop();
+                Console.WriteLine($"Wavelet transform took {sw.Elapsed}");
+
+                Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
+
+                msY.Seek(0, SeekOrigin.Begin);
+
+                // Try the PPM 'Finnish' Hash match compressor
+                var subject = new HashMatchCompressor();
+                msY.Seek(0, SeekOrigin.Begin);
+                sw.Restart();
+                var compressed = subject.Compress(msY.ToArray());
+                sw.Stop();
+                Console.WriteLine($"Compression took {sw.Elapsed}");
+
+                acY.Write(compressed, 0, compressed.Length);
+                Console.WriteLine($"Encoded 'Y' size = {Bin.Human(acY.Length)}");
+
+
+                // Now decode:
+
+                acY.Seek(0, SeekOrigin.Begin);
+                sw.Restart();
+                var decompressed = subject.Decompress(acY.ToArray());
+                sw.Stop();
+                finalY.Write(decompressed, 0, decompressed.Length);
+                Console.WriteLine($"Decompression took {sw.Elapsed}");
+
+                finalY.Seek(0, SeekOrigin.Begin);
+                msU.Seek(0, SeekOrigin.Begin);
+                msV.Seek(0, SeekOrigin.Begin);
+
+                sw.Restart();
+                var resultBmp = WaveletCompress.RestoreImage2D_FromStreams(bmp.Width, bmp.Height, finalY, msU, msV, CDF.Iwt97);
+                sw.Stop();
+                Console.WriteLine($"Wavelet transform took {sw.Elapsed}");
+                resultBmp.SaveBmp("./outputs/PPM_Hash_Encode_3.bmp");
+            }
+        }
+        
+        [Test]
+        public void compressing_a_wavelet_image_with_PPM_and_custom_settings () {
+/*
+            Raw 'Y' size = 320.86kb
+            
+            20,3,-: 175.43kb
+            18,3,-: 175.39kb
+            15,3,-: 175.31kb
+            12,3,-: 177.29kb
+            10,3,-: 179.32kb
+             8,3,-: 180.96kb
+            
+            20,2,-: 169.58kb
+            18,2,-: 169.58kb  <--- (256kb LUT)
+            15,2,-: 169.88kb
+            12,2,-: 172.16kb
+            10,2,-: 174.41kb
+             8,2,-: 176.67kb
+            
+            10,1,-: 171.04kb
+             8,1,-: 171.81kb  <--- (256b LUT)
+             6,1,-: 173.44kb
+             4,1,-: 174.04kb  <--- (16b LUT)    Quite a good result for very small embedded systems
+             2,1,-: 174.38kb
+             1,1,-: 174.67kb  <--- (1b LUT)     This is essentially run-length encoding
+*/
+
+            
+            var subject = new HashMatchCompressor(1, 1);
+            
+            
+            var msY = new MemoryStream();
+            var msU = new MemoryStream();
+            var msV = new MemoryStream();
+
+            var acY = new MemoryStream();
+            var finalY = new MemoryStream();
+
+            var sw = new Stopwatch();
+            using var bmp = Load.FromFile("./inputs/3.png");
+            
+            sw.Restart();
+            WaveletCompress.ReduceImage2D_ToStreams(bmp, CDF.Fwt97, msY, msU, msV);
+            sw.Stop();
+            Console.WriteLine($"Wavelet transform took {sw.Elapsed}");
+
+            Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
+
+            msY.Seek(0, SeekOrigin.Begin);
+
+            // Try the PPM 'Finnish' Hash match compressor
+            msY.Seek(0, SeekOrigin.Begin);
+            sw.Restart();
+            var compressed = subject.Compress(msY.ToArray());
+            sw.Stop();
+            Console.WriteLine($"Compression took {sw.Elapsed}");
+
+            acY.Write(compressed, 0, compressed.Length);
+            Console.WriteLine($"Encoded 'Y' size = {Bin.Human(acY.Length)}");
+
+
+            // Now decode:
+
+            acY.Seek(0, SeekOrigin.Begin);
+            sw.Restart();
+            var decompressed = subject.Decompress(acY.ToArray());
+            sw.Stop();
+            finalY.Write(decompressed, 0, decompressed.Length);
+            Console.WriteLine($"Decompression took {sw.Elapsed}");
+
+            finalY.Seek(0, SeekOrigin.Begin);
+            msU.Seek(0, SeekOrigin.Begin);
+            msV.Seek(0, SeekOrigin.Begin);
+
+            sw.Restart();
+            var resultBmp = WaveletCompress.RestoreImage2D_FromStreams(bmp.Width, bmp.Height, finalY, msU, msV, CDF.Iwt97);
+            sw.Stop();
+            Console.WriteLine($"Wavelet transform took {sw.Elapsed}");
+            resultBmp.SaveBmp("./outputs/PPM_Hash_Encode_Custom_3.bmp");
         }
 
         public const string Moby = @"####Call me Ishmael. Some years ago--never mind how long precisely--having

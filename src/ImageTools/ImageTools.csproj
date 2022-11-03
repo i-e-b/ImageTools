@@ -57,6 +57,7 @@
     <Compile Include="DataCompression\LzType\LZMWPack.cs" />
     <Compile Include="DataCompression\LzType\LZSSPack.cs" />
     <Compile Include="DataCompression\LzType\LZWPack.cs" />
+    <Compile Include="DataCompression\PPM\HashMatchCompressor.cs" />
     <Compile Include="Decorrelation.cs" />
     <Compile Include="DistanceFields\DistanceField.cs" />
     <Compile Include="DistanceFields\GlslHelper.cs" />
