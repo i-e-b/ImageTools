@@ -287,6 +287,25 @@ namespace ImageTools.Utilities
         }
 
         
+        public static unsafe void XYZPlanes_To_ArgbImage(Bitmap dst, int offset, double[] X, double[] Y, double[] Z)
+        {
+            var ri = new Rectangle(Point.Empty, dst.Size);
+            var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            var len = dstData.Height * dstData.Width;
+            try
+            {
+                var s = (uint*)dstData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    s[i] = ColorSpace.XYZ_To_RGB32(X[offset+i], Y[offset+i], Z[offset+i]);
+                }
+            }
+            finally
+            {
+                dst.UnlockBits(dstData);
+            }
+        }
+        
         public static unsafe void YUVPlanes_To_ArgbImage(Bitmap dst, int offset, double[] Y, double[] Co, double[] Cg)
         {
             var ri = new Rectangle(Point.Empty, dst.Size);
@@ -425,6 +444,30 @@ namespace ImageTools.Utilities
             }
         }
         
+        public static unsafe void ArgbImageToXYZPlanes(Bitmap src, out double[] X, out double[] Y, out double[] Z)
+        {
+            var ri = new Rectangle(Point.Empty, src.Size);
+            var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            var len = srcData.Height * srcData.Width;
+            X = new double[len];
+            Y = new double[len];
+            Z = new double[len];
+            try
+            {
+                var s = (uint*)srcData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    ColorSpace.RGB32_To_XYZ(s[i], out var x, out var y, out var z);
+                    X[i] = x;
+                    Y[i] = y;
+                    Z[i] = z;
+                }
+            }
+            finally
+            {
+                src.UnlockBits(srcData);
+            }
+        }
         
         public static unsafe void YUVPlanes_To_ArgbImage_int(Bitmap dst, int offset, int[] Y, int[] U, int[] V)
         {
@@ -752,6 +795,20 @@ namespace ImageTools.Utilities
             finally
             {
                 dst.UnlockBits(dstData);
+            }
+        }
+        
+        public static void TranslatePlanes(TripleToTripleSpace conversion, double[] in1, double[] in2, double[] in3, out double[] out1, out double[] out2, out double[] out3)
+        {
+            out1 = new double[in1.Length];
+            out2 = new double[in1.Length];
+            out3 = new double[in1.Length];
+            for (int i = 0; i < in1.Length; i++)
+            {
+                conversion(in1[i], in2[i], in3[i], out var a, out var b, out var c);
+                out1[i]=a;
+                out2[i]=b;
+                out3[i]=c;
             }
         }
 

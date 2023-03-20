@@ -414,6 +414,33 @@ namespace ImageTools.ImageDataFormats
         }
         
         /// <summary>
+        /// Conversion to CIE XYZ with a reference white point of D65
+        /// </summary>
+        public static void RGB32_To_XYZ(uint c, out double X, out double Y, out double Z)
+        {
+            CompoundToComponent(c, out _, out var R, out var G, out var B);
+            var r = SRGBToLinear(R);
+            var g = SRGBToLinear(G);
+            var b = SRGBToLinear(B);
+            X = 0.4124564 * r + 0.3575761 * g + 0.1804375 * b;
+            Y = 0.2126729 * r + 0.7151522 * g + 0.0721750 * b;
+            Z = 0.0193339 * r + 0.1191920 * g + 0.9503041 * b;
+        }
+        
+        /// <summary>
+        /// LConversion from CIE XYZ to Gamma RGB32
+        /// </summary>
+        public static uint XYZ_To_RGB32(double X, double Y, double Z)
+        {
+            var sR =  3.2404542 * X + -1.5371385 * Y + -0.4985374 * Z;
+            var sG = -0.9692660 * X +  1.8760108 * Y +  0.0415560 * Z;
+            var sB =  0.0556434 * X + -0.2040259 * Y +  1.0572252 * Z;
+            
+            var (R,G,B) = LinearToRgb(sR, sG, sB);
+            return ComponentToCompound(0, clip(R*255), clip(G*255), clip(B*255));
+        }
+        
+        /// <summary>
         /// Integer conversion to YUV.
         /// You should use the matching integer conversion back
         /// </summary>
@@ -783,7 +810,29 @@ namespace ImageTools.ImageDataFormats
         {
             o1 = i1; o2 = i2; o3 = i3;
         }
+
+        /// <summary>
+        /// XYZ values to tristimulus values in the LMS color space, using Stockman & Sharpe (2000)
+        /// These are both human-perception models of RGB
+        /// </summary>
+        public static void XYZ_To_LMS(double X, double Y, double Z, out double L, out double M, out double S)
+        {
+            L =  0.210576 * X +  0.855098 * Y + -0.0396983 * Z;
+            M = -0.417076 * X +  1.177260 * Y +  0.0786283 * Z;
+            S =                                  0.5168350 * Z;
+        }
         
+        /// <summary>
+        /// LMS color space to CIE XYZ, using Stockman & Sharpe (2000)
+        /// These are both human-perception models of RGB
+        /// </summary>
+        public static void LMS_To_XYZ(double L, double M, double S, out double X, out double Y, out double Z)
+        {
+            X =  1.94735469 * L + -1.41445123 * M + -0.36476327 * S;
+            Y =  0.68990272 * L +  0.34832189 * M;
+            Z =                                      1.93485343 * S;
+        }
+
         /// <summary>
         /// Scale a [0..1] value to a [0..255] value
         /// </summary>
