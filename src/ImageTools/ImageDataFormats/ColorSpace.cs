@@ -823,6 +823,34 @@ namespace ImageTools.ImageDataFormats
         }
         
         /// <summary>
+        /// XYZ values to JPEG XL XYB space
+        /// </summary>
+        public static void XYZ_To_XYB(double X, double Y, double Z, out double jX, out double jY, out double jB)
+        {
+            var L =  0.210576 * X +  0.855098 * Y + -0.0396983 * Z;
+            var M = -0.417076 * X +  1.177260 * Y +  0.0786283 * Z;
+            var S =                                  0.5168350 * Z;
+            
+            jX = L - M;
+            jY = L + M;
+            jB = S;
+        }
+        
+        /// <summary>
+        /// JPEG XL XYB space to XYZ values
+        /// </summary>
+        public static void XYB_To_XYZ(double jX, double jY, double jB, out double X, out double Y, out double Z)
+        {
+            var L = (jX + jY) / 2.0;
+            var M = jY - L;
+            var S = jB;
+            
+            X =  1.94735469 * L + -1.41445123 * M + -0.36476327 * S;
+            Y =  0.68990272 * L +  0.34832189 * M;
+            Z =                                      1.93485343 * S;
+        }
+        
+        /// <summary>
         /// LMS color space to CIE XYZ, using Stockman & Sharpe (2000)
         /// These are both human-perception models of RGB
         /// </summary>

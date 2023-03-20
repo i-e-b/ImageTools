@@ -129,6 +129,29 @@ namespace ImageTools.Tests
         }
         
         [Test, Description("show the result of just one plane at a time from an image")]
+        public void XYB__separations()
+        {
+            using var bmp = Load.FromFile("./inputs/3.png");
+            using var dst = new Bitmap(bmp);
+            BitmapTools.ArgbImageToXYZPlanes(bmp, out var Xp, out var Yp, out var Zp);
+            BitmapTools.TranslatePlanes(ColorSpace.XYZ_To_XYB, Xp, Yp, Zp, out var jX, out var jY, out var jB);
+            var zeroP = new double[Xp.Length]; // to zero out other planes
+            for (int i = 0; i < zeroP.Length; i++) { zeroP[i] = 0.0; }
+
+            BitmapTools.TranslatePlanes(ColorSpace.XYB_To_XYZ, jX, zeroP, zeroP, out Xp, out Yp, out Zp);
+            BitmapTools.XYZPlanes_To_ArgbImage(dst, 0, Xp, Yp, Zp);
+            dst.SaveBmp("./outputs/3_XYB_X-only.bmp");
+                    
+            BitmapTools.TranslatePlanes(ColorSpace.XYB_To_XYZ, zeroP, jY, zeroP, out Xp, out Yp, out Zp);
+            BitmapTools.XYZPlanes_To_ArgbImage(dst, 0, Xp, Yp, Zp);
+            dst.SaveBmp("./outputs/3_XYB_Y-only.bmp");
+                    
+            BitmapTools.TranslatePlanes(ColorSpace.XYB_To_XYZ, zeroP, zeroP, jB, out Xp, out Yp, out Zp);
+            BitmapTools.XYZPlanes_To_ArgbImage(dst, 0, Xp, Yp, Zp);
+            dst.SaveBmp("./outputs/3_XYB_B-only.bmp");
+        }
+        
+        [Test, Description("show the result of just one plane at a time from an image")]
         public void Y_Co_Cg__separations()
         {
             using var bmp = Load.FromFile("./inputs/3.png");
