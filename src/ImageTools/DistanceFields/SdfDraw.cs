@@ -153,9 +153,6 @@ namespace ImageTools.DistanceFields
         /// If thickness >= radius, the ring will be a filled pie segment.
         /// If startAngle == endAngle, the ring will be an ellipse
         /// </summary>
-        /// <remarks>
-        /// We can use min/max joining and just ellipse and triangle distance functions
-        /// </remarks>
         public static void FillPartialRing(ByteImage img, uint color, double x1, double y1, double x2, double y2, double startAngle, double clockwiseAngle, double thickness)
         {
             // Basic setup
@@ -183,79 +180,66 @@ namespace ImageTools.DistanceFields
             // position and size vectors
             var c = Vector2.Centre(x1,y1,x2,y2);
             var rect = Vector2.RectangleVector(x1,y1,x2,y2); // vector from centre to a vertex of the rect
-            var length = rect.MaxComponent()*4;
+            var length = rect.MaxComponent();
             var degToRad = Math.PI / 180.0;
             var startRadians = (startAngle % 360) * degToRad; // 0 is centre-right
             var endRadians = (endAngle % 360) * degToRad; // this is clockwise from start angle (i.e. 360 always gives a complete ellipse)
 
-            Vector2 QuadPrime(int q) => (q % 4) switch {
-                0 => new Vector2(1, 0),
-                1 => new Vector2(0, 1),
-                2 => new Vector2(-1, 0),
-                3 => new Vector2(0, -1),
-                _ => throw new Exception("Invalid")
-            };
-
-            // work out which triangles to subtract and what size they should be
-            var masks = new List<VecSegment2>();
-            if (clockwiseAngle < 360) // Not a complete loop. Needs cuts.
-            {
-                var degToQuad = 1.0 / 90.0;
-                var qstart = (int)((startAngle % 360) * degToQuad);
-                var qend = (int)((endAngle % 360) * degToQuad);
-                
-                // TODO: work out which quadrants need some portion removed
-                // IEB: I think a single sector and change between union and difference would be
-                //      better than trying to string together triangles.
-                //      look into removing one edge test from the triangle
-                for (int q = qstart; q <= qend; q++)
-                {
-                    if (q != qstart && q != qend) // empty quad
-                    {
-                        masks.Add(new VecSegment2 { A = QuadPrime(q) * length, B = QuadPrime(q+1) * length});
-                    }
-                }
-                
-                if (qstart == qend) // starts and ends in the same quad. Either a single mask, or the full 5
-                {
-                    if (startRadians < endRadians) // small segment, 5 cuts
-                    {
-                        masks.Add(new VecSegment2 { A = QuadPrime(qstart) * length, B = Vector2.Angle(startRadians) * length });
-                        masks.Add(new VecSegment2 { A = Vector2.Angle(endRadians) * length, B = QuadPrime(qstart + 1) * length });
-                        
-                        masks.Add(new VecSegment2 { A = QuadPrime(qstart + 1) * length, B = QuadPrime(qstart + 2) * length});
-                        masks.Add(new VecSegment2 { A = QuadPrime(qstart + 2) * length, B = QuadPrime(qstart + 3) * length});
-                        masks.Add(new VecSegment2 { A = QuadPrime(qstart + 3) * length, B = QuadPrime(qstart + 4) * length});
-                    }
-                    else // huge segment, 1 cut
-                    {
-                        masks.Add(new VecSegment2 { A = Vector2.Angle(startRadians) * length, B = Vector2.Angle(endRadians) * length });
-                    }
-
-                }
-
-            }
-
+            var sX = Math.Cos(startRadians);
+            var sY = Math.Sin(startRadians);
+            var p0 = new Vector2(sX, sY);
+            
+            var eX = Math.Cos(endRadians);
+            var eY = Math.Sin(endRadians);
+            var p3 = new Vector2(eX, eY);
+            
+            var pp0 = p0 * length + c;
+            var pp3 = p3 * length + c;
+            
+            var vc = (pp0 + ((pp3-pp0)/2)) - c;
+            var el = (length - vc.Length()) + 1;
+            vc *= el;
+            vc *= 2;
+            var pp1 = pp0 + vc;
+            var pp2 = pp3 + vc;
+            
+            // We start with a complete ellipse, then
+            // - If the arc is less than half a turn, we intersect with the wedge
+            // - If the arc is half a turn or more, we subtract the wedge
+            // The wedge is the triangle between c,p1,p2; plus a rectangle p1,p2 extended away from c.
             
             // Build a distance function (we do all the line segments
             // at once so the blending works correctly)
-            double DistanceFunc(Vector2 p)
+            double DistanceFuncLessThanHalf(Vector2 p)
             {
                 var dp = p - c;
-                var ellipse = sdaEllipseV4(dp, rect); //sdEllipseExact(dp, rect);
-
-                var dist = ellipse; // TODO: remove centre
-
-                foreach (var mask in masks)
-                {
-                    dist = Subtract(sdTriangle(p, c, mask.A+c, mask.B+c), from: dist);
-                }
+                var ellipse = sdaEllipseV4(dp, rect);
                 
-                return dist;
+                var ring = Subtract(ellipse + thickness, ellipse);
+                var wedge = PolygonDistanceAlternate(p, new[]{c, pp0, pp1, pp2, pp3});
+                
+                return Intersect(ring, wedge);
+            }
+            double DistanceFuncMoreThanHalf(Vector2 p)
+            {
+                var dp = p - c;
+                var ellipse = sdaEllipseV4(dp, rect);
+                
+                var ring = Subtract(ellipse + thickness, ellipse);
+                var wedge = PolygonDistanceAlternate(p, new[]{c, pp0, pp1, pp2, pp3});
+                
+                return Subtract(wedge, ring);
             }
 
             // Do a general rendering of the function
-            RenderDistanceFunction(img, minY, maxY, minX, maxX, DistanceFunc, b, g, r);
+            if (clockwiseAngle < 180)
+            {
+                RenderDistanceFunction(img, minY, maxY, minX, maxX, DistanceFuncLessThanHalf, b, g, r);
+            }
+            else
+            {
+                RenderDistanceFunction(img, minY, maxY, minX, maxX, DistanceFuncMoreThanHalf, b, g, r);
+            }
         }
 
         #region SDF combining

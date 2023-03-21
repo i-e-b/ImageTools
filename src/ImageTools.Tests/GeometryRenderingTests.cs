@@ -226,7 +226,7 @@ namespace ImageTools.Tests
             Console.WriteLine($"Core draw took {sw.ElapsedMilliseconds}ms ({sw.ElapsedTicks} ticks)");
         }
 
-        [Test]
+        [Test] // TODO: check the exactly 180 deg case
         public void pie_slices_with_sdf()
         {
             var sw = new Stopwatch();
@@ -243,7 +243,9 @@ namespace ImageTools.Tests
                     {
                         var xo = i * 50;
                         var a = i * 40.0;
-                        SdfDraw.FillPartialRing(byteImage, color: 0xffFFffFF, x1: xo + 10.0, y1: yo+10.0, x2: xo + 50.0, y2: yo+50.0, startAngle: a, clockwiseAngle: c, thickness: 10.0);
+                        SdfDraw.FillPartialRing(byteImage, color: 0xffFFffFF,
+                            x1: xo + 10.0, y1: yo+10.0, x2: xo + 50.0, y2: yo+50.0,
+                            startAngle: a, clockwiseAngle: c, thickness: 2.0);
                     }
                 }
                 sw.Stop();
