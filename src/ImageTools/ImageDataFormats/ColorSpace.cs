@@ -40,9 +40,9 @@ namespace ImageTools.ImageDataFormats
             long cb = (c >>  8) & 0xFF;
             long cr = (c      ) & 0xFF;
             
-            var R = clip(1.164 * (Y - 16) + 0.0 * (cb - 128) + 1.596 * (cr - 128));
-            var G = clip(1.164 * (Y - 16) + -0.392 * (cb - 128) + -0.813 * (cr - 128));
-            var B = clip(1.164 * (Y - 16) + 2.017 * (cb - 128) + 0.0 * (cr - 128));
+            var R = clip(1.164 * (Y - 16) - 0.0017 * (cb - 128) + 1.596 * (cr - 128));
+            var G = clip(1.164 * (Y - 16) - 0.3914 * (cb - 128) - 0.813 * (cr - 128));
+            var B = clip(1.164 * (Y - 16) + 2.0178 * (cb - 128) + 0.001 * (cr - 128));
 
             return (uint)((R << 16) + (G << 8) + B);
         }
@@ -180,13 +180,54 @@ namespace ImageTools.ImageDataFormats
             i = (i * 0.8393) + 127;
             q = (q * 0.9567) + 127;
         }
-
+        
         public static uint Yiq_To_RGB32(int Y, int i, int q)
         {
             YiqToRGB(Y, i, q, out var R, out var G, out var B);
 
             return (uint)((clip(R) << 16) + (clip(G) << 8) + clip(B));
         }
+        
+        /// <summary>
+        /// LPQ space as described by Evan Wallace.
+        /// It uses the values L for luminance, P for yellow vs. blue, and Q for red vs. green
+        /// </summary>
+        public static void RGBToLpq(double R, double G, double B, out double L, out double p, out double q){
+            L = (R+G+B) / 3.0;
+            p = (R+G) / 2.0 - B;
+            q = R - G;
+        }
+        
+        /// <summary>
+        /// LPQ space as described by Evan Wallace.
+        /// It uses the values L for luminance, P for yellow vs. blue, and Q for red vs. green
+        /// </summary>
+        public static void LpqToRGB(double L, double p, double q, out double R, out double G, out double B) {
+            B = L - 2.0/3.0 * p;
+            R = (3 * L - B + q) / 2;
+            G = R - q;
+        }
+        
+        /// <summary>
+        /// A variant of LPQ, which doubles the influence of green
+        /// </summary>
+        public static void RGBToLpqg(double R, double G, double B, out double L, out double p, out double q){
+            // in matrix form to make the inversion simpler
+            L = 0.25 * R + 0.50 * G + 0.25 * B;
+            p = 0.50 * R + 0.50 * G - 1.00 * B;
+            q = 1.00 * R - 1.00 * G + 0.00 * B;
+        }
+        
+        /// <summary>
+        /// A variant of LPQ, which doubles the influence of green
+        /// </summary>
+        public static void LpqgToRGB(double L, double p, double q, out double R, out double G, out double B) {
+            // in matrix form to make the inversion simpler
+            R = 1.00 * L + 0.25 * p + 0.625 * q;
+            G = 1.00 * L + 0.25 * p - 0.375 * q;
+            B = 1.00 * L - 0.75 * p + 0.125 * q;
+        }
+
 
         /// <summary>
         /// Lossy conversion from RGB to YCoCg (both 24 bit, stored as 32).

@@ -243,7 +243,6 @@ namespace ImageTools.Tests
             dst.SaveBmp("./outputs/3_Oklab_restored.bmp");
         }
         
-        
         [Test, Description("show the result of just one plane at a time from an image")]
         public void KLA__separations()
         {
@@ -271,7 +270,6 @@ namespace ImageTools.Tests
             BitmapTools.PlanesToImage(dst, ColorSpace.KLA_To_RGB, 0, Lp, Ap, Bp);
             dst.SaveBmp("./outputs/3_KLA_restored.bmp");
         }
-
         
         [Test, Description("show the result of just one plane at a time from an image")]
         public void YIQ__separations()
@@ -291,7 +289,63 @@ namespace ImageTools.Tests
                     
             BitmapTools.PlanesToImage(dst, ColorSpace.YiqToRGB, 0, zeroP, zeroP, Qp);
             dst.SaveBmp("./outputs/3_YIQ_Q-only.bmp");
+            
+            BitmapTools.PlanesToImage(dst, ColorSpace.YiqToRGB, 0, Yp, Ip, Qp);
+            dst.SaveBmp("./outputs/3_YIQ_restored.bmp");
         }
+        
+        [Test, Description("show the result of just one plane at a time from an image")]
+        public void LPQ__separations()
+        {
+            using var bmp = Load.FromFile("./inputs/3.png");
+            using var dst = new Bitmap(bmp);
+            BitmapTools.ImageToPlanes(bmp, ColorSpace.RGBToLpq , out var Lp, out var Pp, out var Qp);
+
+            var zeroP = new double[Lp.Length]; // to zero out other planes
+            for (int i = 0; i < zeroP.Length; i++) { zeroP[i] = 0; }
+            var midP = new double[Lp.Length]; // to mid-point other planes
+            for (int i = 0; i < midP.Length; i++) { midP[i] = 127.5; }
+
+            BitmapTools.PlanesToImage(dst, ColorSpace.LpqToRGB, 0, Lp, zeroP, zeroP);
+            dst.SaveBmp("./outputs/3_LPQ-L-only.bmp");
+                    
+            BitmapTools.PlanesToImage(dst, ColorSpace.LpqToRGB, 0, midP, Pp, zeroP);
+            dst.SaveBmp("./outputs/3_LPQ-P-only.bmp");
+                    
+            BitmapTools.PlanesToImage(dst, ColorSpace.LpqToRGB, 0, midP, zeroP, Qp);
+            dst.SaveBmp("./outputs/3_LPQ-Q-only.bmp");
+            
+                    
+            BitmapTools.PlanesToImage(dst, ColorSpace.LpqToRGB, 0, Lp, Pp, Qp);
+            dst.SaveBmp("./outputs/3_LPQ_restored.bmp");
+        }
+        
+        [Test, Description("show the result of just one plane at a time from an image")]
+        public void LPQg__separations()
+        {
+            using var bmp = Load.FromFile("./inputs/3.png");
+            using var dst = new Bitmap(bmp);
+            BitmapTools.ImageToPlanes(bmp, ColorSpace.RGBToLpqg , out var Lp, out var Pp, out var Qp);
+
+            var zeroP = new double[Lp.Length]; // to zero out other planes
+            for (int i = 0; i < zeroP.Length; i++) { zeroP[i] = 0; }
+            var midP = new double[Lp.Length]; // to mid-point other planes
+            for (int i = 0; i < midP.Length; i++) { midP[i] = 127.5; }
+
+            BitmapTools.PlanesToImage(dst, ColorSpace.LpqgToRGB, 0, Lp, zeroP, zeroP);
+            dst.SaveBmp("./outputs/3_LPQg-L-only.bmp");
+                    
+            BitmapTools.PlanesToImage(dst, ColorSpace.LpqgToRGB, 0, midP, Pp, zeroP);
+            dst.SaveBmp("./outputs/3_LPQg-P-only.bmp");
+                    
+            BitmapTools.PlanesToImage(dst, ColorSpace.LpqgToRGB, 0, midP, zeroP, Qp);
+            dst.SaveBmp("./outputs/3_LPQg-Q-only.bmp");
+            
+                    
+            BitmapTools.PlanesToImage(dst, ColorSpace.LpqgToRGB, 0, Lp, Pp, Qp);
+            dst.SaveBmp("./outputs/3_LPQg_restored.bmp");
+        }
+        
         
         [Test, Description("Outputs a sample image showing the color planes")]
         public void YCoCg_Swatch()
