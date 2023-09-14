@@ -8,6 +8,9 @@ namespace ImageTools.DataCompression.Encoding
     /// </summary>
     public static class ProbabilityModels
     {
+        /// <summary>
+        /// Model probability based on most recent symbols
+        /// </summary>
         public class PushToFrontModel : IProbabilityModel
         {
             private readonly int[] _symbols;
@@ -111,7 +114,7 @@ namespace ImageTools.DataCompression.Encoding
         }
 
         /// <summary>
-        /// A really simple model for testing
+        /// Model based on histogram of data seen so far
         /// </summary>
         public class SimpleLearningModel : IProbabilityModel
         {
@@ -273,7 +276,7 @@ namespace ImageTools.DataCompression.Encoding
         }
 
         /// <summary>
-        /// A very simple table-based markov predictor. Predicts based on 1 previous value
+        /// A simple table-based markov predictor. Predicts based on current value and 1 previous value
         /// </summary>
         public class LearningMarkov_2D : IProbabilityModel
         {
@@ -282,9 +285,9 @@ namespace ImageTools.DataCompression.Encoding
             /// <summary>
             /// the map is treated as an independent set of cumulative probabilities.
             /// </summary>
-            private ulong[,]? map; // [from,to]
+            private ulong[,] map; // [from,to]
             private int lastSymbol;
-            private bool[]? frozen;
+            private bool[] frozen;
             private int leadIn;
 
             /// <summary>
@@ -293,6 +296,8 @@ namespace ImageTools.DataCompression.Encoding
             /// <param name="leadInBytes">If greater than zero, this many bytes are ignored for learning at the start of the data. This prevents preamble poisoning.</param>
             public LearningMarkov_2D(int leadInBytes = 0)
             {
+                map = new ulong[258,258];
+                frozen = new bool[258];
                 _leadInBytes = leadInBytes;
                 Reset();
             }
@@ -350,8 +355,6 @@ namespace ImageTools.DataCompression.Encoding
             {
                 lastSymbol = 0;
                 leadIn = _leadInBytes;
-                map = new ulong[258,258];
-                frozen = new bool[258];
                 for (int i = 0; i < 258; i++)
                 {
                     frozen[i] = false;

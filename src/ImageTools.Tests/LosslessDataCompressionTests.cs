@@ -38,7 +38,8 @@ namespace ImageTools.Tests
             dst.Seek(0, SeekOrigin.Begin);
             var actual = Encoding.UTF8.GetString(dst.ToArray());
             
-            Console.WriteLine($"Original: {src.Length}; Compressed: {encoded.Length}; Expanded: {dst.Length}");
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Compressed: {Bin.Human(encoded.Length)}; Expanded: {Bin.Human(dst.Length)}");
+            Console.WriteLine(actual);
             
             Assert.That(actual, Is.EqualTo(expected));
             Assert.That(ok, "Stream was truncated, but should not have been");
@@ -722,6 +723,30 @@ nearly the same feelings towards the ocean with me.####";
 
         
         [Test]
+        public void lzma_round_trip () {
+            var expected = Moby;
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
+            //var lzPack = new LZMWPack(sizeLimit:50);
+
+            DataCompression.LZMA.LzmaCompressor.Compress(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)}");
+            DataCompression.LZMA.LzmaCompressor.Decompress(encoded, dst);
+            Console.WriteLine();
+
+            dst.Seek(0, SeekOrigin.Begin);
+            var result = Encoding.UTF8.GetString(dst.ToArray());
+            
+            Console.WriteLine(result);
+
+            // failing at size limit. Are we deleting the dictionary entries out of order?
+            Assert.That(result, Is.EqualTo(expected));
+        }
+        
+        [Test]
         public void compress_wavelet_image_with_LZSS () {
 
             var msY = new MemoryStream();
@@ -954,7 +979,6 @@ nearly the same feelings towards the ocean with me.####";
             }
         }
     }
-
 
     [TestFixture]
     public class FoldingHashTests {
