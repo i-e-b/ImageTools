@@ -484,6 +484,19 @@ namespace ImageTools.Tests
                 Console.WriteLine($"Wavelet transform took {sw.Elapsed}");
                 resultBmp.SaveBmp("./outputs/LzmaEncode_3.bmp");
             }
+            
+            // Check that input and output of compressor are identical
+            msY.Seek(0, SeekOrigin.Begin);
+            finalY.Seek(0, SeekOrigin.Begin);
+
+            while (true)
+            {
+                var inp = msY.ReadByte();
+                var outp = finalY.ReadByte();
+                Assert.AreEqual(inp, outp);
+                
+                if (inp < 0 || outp < 0) break;
+            }
         }
         
         [Test]
@@ -787,7 +800,6 @@ nearly the same feelings towards the ocean with me.####";
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
             var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
-            //var lzPack = new LZMWPack(sizeLimit:50);
 
             DataCompression.LZMA.LzmaCompressor.Compress(src, encoded);
             encoded.Seek(0, SeekOrigin.Begin);
@@ -800,7 +812,6 @@ nearly the same feelings towards the ocean with me.####";
             
             Console.WriteLine(result);
 
-            // failing at size limit. Are we deleting the dictionary entries out of order?
             Assert.That(result, Is.EqualTo(expected));
         }
         
