@@ -428,6 +428,64 @@ namespace ImageTools.Tests
             }
         }
         
+        
+        [Test]
+        public void compressing_a_wavelet_image_with_LZMA () {
+            /* FINDINGS
+             
+            Deflate encoded 'Y' size = 123.47kb
+            AC encoded 'Y' size = 120.27kb          (learning markov with 256b lead-in and +2 growth)
+            LZMA encoded 'Y' size = 117.49kb
+            
+            */
+
+
+            var msY = new MemoryStream();
+            var msU = new MemoryStream();
+            var msV = new MemoryStream();
+
+            var acY = new MemoryStream();
+            var finalY = new MemoryStream();
+
+            var sw = new Stopwatch();
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                sw.Restart();
+                WaveletCompress.ReduceImage2D_ToStreams(bmp, CDF.Fwt97, msY, msU, msV);
+                sw.Stop();
+                Console.WriteLine($"Wavelet transform took {sw.Elapsed}");
+
+                Console.WriteLine($"Raw 'Y' size = {Bin.Human(msY.Length)}");
+
+                // Try compression
+                msY.Seek(0, SeekOrigin.Begin);
+                sw.Restart();
+                DataCompression.LZMA.LzmaCompressor.Compress(msY, acY);
+                sw.Stop();
+                Console.WriteLine($"LZMA coding took {sw.Elapsed}");
+
+                Console.WriteLine($"LZMA encoded 'Y' size = {Bin.Human(acY.Length)}");
+
+
+                // Now decode:
+                acY.Seek(0, SeekOrigin.Begin);
+                sw.Restart();
+                DataCompression.LZMA.LzmaCompressor.Decompress(acY, finalY);
+                sw.Stop();
+                Console.WriteLine($"LZMA decoding took {sw.Elapsed}");
+
+                finalY.Seek(0, SeekOrigin.Begin);
+                msU.Seek(0, SeekOrigin.Begin);
+                msV.Seek(0, SeekOrigin.Begin);
+
+                sw.Restart();
+                var resultBmp = WaveletCompress.RestoreImage2D_FromStreams(bmp.Width, bmp.Height, finalY, msU, msV, CDF.Iwt97);
+                sw.Stop();
+                Console.WriteLine($"Wavelet transform took {sw.Elapsed}");
+                resultBmp.SaveBmp("./outputs/LzmaEncode_3.bmp");
+            }
+        }
+        
         [Test]
         public void compressing_a_wavelet_image_with_PPM () {
             var msY = new MemoryStream();
