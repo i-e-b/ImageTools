@@ -15,6 +15,7 @@ using ImageTools.DataCompression.PPM;
 using ImageTools.Utilities;
 using ImageTools.WaveletTransforms;
 using NUnit.Framework;
+// ReSharper disable AssignNullToNotNullAttribute
 
 namespace ImageTools.Tests
 {
@@ -705,7 +706,8 @@ nearly the same feelings towards the ocean with me.####";
             encoded.Seek(0, SeekOrigin.Begin);
 
             subject.Reset();
-            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)}");
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
             model.ReadPreamble(encoded);
             subject.Decode(encoded, dst);
 
@@ -730,7 +732,8 @@ nearly the same feelings towards the ocean with me.####";
             lzPack.Encode(src, encoded);
             encoded.Seek(0, SeekOrigin.Begin);
 
-            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)}");
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
             lzPack.Decode(encoded, dst);
 
             dst.Seek(0, SeekOrigin.Begin);
@@ -756,7 +759,8 @@ nearly the same feelings towards the ocean with me.####";
             lzPack.Encode(src, encoded);
             encoded.Seek(0, SeekOrigin.Begin);
 
-            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)}");
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
             lzPack.Decode(encoded, dst);
 
             dst.Seek(0, SeekOrigin.Begin);
@@ -780,7 +784,8 @@ nearly the same feelings towards the ocean with me.####";
 
             lzPack.Encode(src, encoded);
             encoded.Seek(0, SeekOrigin.Begin);
-            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)}");
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
             lzPack.Decode(encoded, dst);
 
             dst.Seek(0, SeekOrigin.Begin);
@@ -792,7 +797,6 @@ nearly the same feelings towards the ocean with me.####";
             Assert.That(result, Is.EqualTo(expected));
         }
 
-        
         [Test]
         public void lzma_round_trip () {
             var expected = Moby;
@@ -803,7 +807,8 @@ nearly the same feelings towards the ocean with me.####";
 
             DataCompression.LZMA.LzmaCompressor.Compress(src, encoded);
             encoded.Seek(0, SeekOrigin.Begin);
-            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)}");
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
             DataCompression.LZMA.LzmaCompressor.Decompress(encoded, dst);
             Console.WriteLine();
 
@@ -814,7 +819,31 @@ nearly the same feelings towards the ocean with me.####";
 
             Assert.That(result, Is.EqualTo(expected));
         }
-        
+
+        [Test]
+        public void push_to_front_round_trip()
+        {
+            var expected = Moby;
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
+
+            PushToFrontEncoder.Compress(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            PushToFrontEncoder.Decompress(encoded, dst);
+            Console.WriteLine();
+
+            dst.Seek(0, SeekOrigin.Begin);
+            var result = Encoding.UTF8.GetString(dst.ToArray());
+            
+            Console.WriteLine(result);
+
+            Assert.That(result, Is.EqualTo(expected));
+        }
+
         [Test]
         public void compress_wavelet_image_with_LZSS () {
 
@@ -1046,6 +1075,99 @@ nearly the same feelings towards the ocean with me.####";
                 //  real wit byte  = 160.35kb  <-- i.e. no fibonacci for dict offset
                 //  Ave backref    = 56
             }
+        }
+
+        [Test]
+        public void compress_firmware_image_lzma()
+        {
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+            
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(expected);
+
+            DataCompression.LZMA.LzmaCompressor.Compress(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            DataCompression.LZMA.LzmaCompressor.Decompress(encoded, dst);
+            Console.WriteLine();
+
+            dst.Seek(0, SeekOrigin.Begin);
+            var result = dst.ToArray();
+            
+            Assert.That(result, Is.EqualTo(expected).AsCollection);
+        }
+        
+        [Test]
+        public void compress_firmware_image_push_to_front()
+        {
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+            
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(expected);
+
+            PushToFrontEncoder.Compress(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            PushToFrontEncoder.Decompress(encoded, dst);
+            Console.WriteLine();
+
+            dst.Seek(0, SeekOrigin.Begin);
+            var result = dst.ToArray();
+            
+            Assert.That(result, Is.EqualTo(expected).AsCollection);
+        }
+        
+        [Test]
+        public void compress_firmware_image_ac () {
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(expected);
+
+            src.Seek(0, SeekOrigin.Begin);
+            var test = new MemoryStream();
+            using (var gz =  new DeflateStream(test, CompressionLevel.Optimal, true)) {
+                var bytes = expected;
+                gz.Write(bytes,0,bytes.Length);
+                gz.Flush();
+            }
+            var percentDeflate = (100.0 * test.Length) / src.Length;
+            Console.WriteLine($"Equivalent deflate: {Bin.Human(test.Length)} ({percentDeflate:0.0}%)");
+
+
+            src.Seek(0, SeekOrigin.Begin);
+            //var model = new ProbabilityModels.PrescanModel(src);
+            var model = new ProbabilityModels.SimpleLearningModel();
+            //var model = new ProbabilityModels.LearningMarkov();
+            var subject = new ArithmeticEncode(model);
+            src.Seek(0, SeekOrigin.Begin);
+            model.WritePreamble(encoded);
+            subject.Encode(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+
+            subject.Reset();
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            model.ReadPreamble(encoded);
+            subject.Decode(encoded, dst);
+
+            dst.Seek(0, SeekOrigin.Begin);
+            var result = dst.ToArray();
+
+            //Console.WriteLine("\r\n--------RESULT----------");
+            //Console.WriteLine(result);
+
+            Assert.That(result, Is.EqualTo(expected).AsCollection);
         }
     }
 

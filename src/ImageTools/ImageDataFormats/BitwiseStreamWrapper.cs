@@ -164,11 +164,17 @@ namespace ImageTools.ImageDataFormats
             currentIn = 0;
         }
 
+        /// <summary>
+        /// Returns true if the original data has been exhausted
+        /// </summary>
         public bool IsEmpty()
         {
             return inRunOut;
         }
 
+        /// <summary>
+        /// Returns true if data (including run-out data) can be read
+        /// </summary>
         public bool CanRead()
         {
             return _runoutBits > 0;
