@@ -679,7 +679,10 @@ nearly the same feelings towards the ocean with me.####";
             // Original: 1.11kb; Encoded: 740b (simple learning + 1)
             // Original: 1.11kb; Encoded: 785b (rolling 1000)
             // Original: 1.11kb; Encoded: 859b (learning markov + 2)
+            // Original: 1.11kb; Encoded: 859b (LearningMarkov_2D)
             // Original: 1.11kb; Encoded: 893b (prescan -- 637b without preamble)
+            // Original: 1.11kb; Encoded: 1.03kb (LearningMarkov_3D)
+            // Original: 1.11kb; Encoded: 1.05kb (LearningMarkov_2DH4)
 
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
@@ -697,8 +700,9 @@ nearly the same feelings towards the ocean with me.####";
 
             src.Seek(0, SeekOrigin.Begin);
             //var model = new ProbabilityModels.PrescanModel(src);
-            var model = new ProbabilityModels.SimpleLearningModel();
-            //var model = new ProbabilityModels.LearningMarkov();
+            //var model = new ProbabilityModels.SimpleLearningModel();
+            //var model = new ProbabilityModels.LearningMarkov_2D();
+            var model = new ProbabilityModels.LearningMarkov_3D();
             var subject = new ArithmeticEncode(model);
             src.Seek(0, SeekOrigin.Begin);
             model.WritePreamble(encoded);
@@ -709,6 +713,41 @@ nearly the same feelings towards the ocean with me.####";
             var percent = (100.0 * encoded.Length) / src.Length;
             Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
             model.ReadPreamble(encoded);
+            subject.Decode(encoded, dst);
+
+            dst.Seek(0, SeekOrigin.Begin);
+            var result = Encoding.UTF8.GetString(dst.ToArray());
+
+            Console.WriteLine("\r\n--------RESULT----------");
+            Console.WriteLine(result);
+
+            Assert.That(result, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void lzac_round_trip()
+        {
+            var expected = Moby;
+
+            // Equivalent deflate: 645b
+            // ...
+            // Original: 1.11kb; Encoded: 714b (62.8%)  <-- before implementing LZ part, this is just the AC
+            // Original: 1.11kb; Encoded: 713b (62.7%)  <-- with basic LZ, plus AC (before implementing decode)
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
+
+
+            src.Seek(0, SeekOrigin.Begin);
+            var subject = new LZAC();
+            src.Seek(0, SeekOrigin.Begin);
+            subject.Encode(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+
+            subject.Reset();
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
             subject.Decode(encoded, dst);
 
             dst.Seek(0, SeekOrigin.Begin);
@@ -1143,12 +1182,35 @@ nearly the same feelings towards the ocean with me.####";
             }
             var percentDeflate = (100.0 * test.Length) / src.Length;
             Console.WriteLine($"Equivalent deflate: {Bin.Human(test.Length)} ({percentDeflate:0.0}%)");
+            
+            // LearningMarkov_2D:     Encoded: 377.64kb (75.3%)
+            // LearningMarkov_2DHn=2: Encoded: 377.64kb (75.3%)
+            // LearningMarkov_3D:     Encoded: 392.41kb (78.3%)
+            // LearningMarkov_2DHn=4: Encoded: 432.58kb (86.3%)
+            // SimpleLearningModel:   Encoded: 443.36kb (88.4%)
+            // BraindeadModel:        Encoded: 494.35kb (98.6%)
+            // PushToFrontModel:      Encoded: 774.3kb (154.4%)
 
-
+            // 2DHn:
+            // 1,8=(75.8%);  2,8=(75.8%);  3,8=(86.2%)
+            // 1,16=(76.4%); 2,16=(76.4%); 3,16=(87.2%)
+            
+            // 2D (gain):
+            // 1=(75.7%); 2=(75.3%); 3=(75.3%); 4=(75.4%); 8=(75.8%); 16=(76.4%)
+            
+            // Simple (gain)
+            // 1=(88.4%); 2=(88.4%); 4=(88.4%); 8=(88.4%); 16=(88.4%); 32=(88.4%)
+            
             src.Seek(0, SeekOrigin.Begin);
-            //var model = new ProbabilityModels.PrescanModel(src);
-            var model = new ProbabilityModels.SimpleLearningModel();
-            //var model = new ProbabilityModels.LearningMarkov();
+            //var model = new ProbabilityModels.PushToFrontModel(3);
+            //var model = new ProbabilityModels.SimpleLearningModel(32);
+            //var model = new ProbabilityModels.LearningMarkov_2D(0, 2);
+            //var model = new ProbabilityModels.BraindeadModel();
+            var model = new ProbabilityModels.MixShiftModel();
+            //var model = new ProbabilityModels.LearningMarkov_3D();
+            //var model = new ProbabilityModels.LearningMarkov_2DHn(0, 3,16);
+            
+            model.Reset();
             var subject = new ArithmeticEncode(model);
             src.Seek(0, SeekOrigin.Begin);
             model.WritePreamble(encoded);
@@ -1156,6 +1218,7 @@ nearly the same feelings towards the ocean with me.####";
             encoded.Seek(0, SeekOrigin.Begin);
 
             subject.Reset();
+            model.Reset();
             var percent = (100.0 * encoded.Length) / src.Length;
             Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
             model.ReadPreamble(encoded);
@@ -1169,6 +1232,33 @@ nearly the same feelings towards the ocean with me.####";
 
             Assert.That(result, Is.EqualTo(expected).AsCollection);
         }
+        
+        [Test]
+        public void compress_firmware_image_truncatable_encoder () {
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(expected);
+            
+            src.Seek(0, SeekOrigin.Begin);
+            new TruncatableEncoder().CompressStream(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            
+            new TruncatableEncoder().DecompressStream(encoded, dst);
+
+            dst.Seek(0, SeekOrigin.Begin);
+            var result = dst.ToArray();
+
+            Assert.That(result, Is.EqualTo(expected).AsCollection);
+        }
+        
+        //[Test]
+        //public void compress_
     }
 
     [TestFixture]

@@ -64,8 +64,7 @@ public static class LzmaCompressor
             outSize |= ((long)(byte)v) << (8 * i);
         }
 
-        var compressedSize = inStream.Length - inStream.Position;
-        decoder.Code(inStream, outStream, compressedSize, outSize);
+        decoder.Code(inStream, outStream, outSize);
     }
 }
 
@@ -1930,8 +1929,7 @@ internal class LzmaDecoder
         _posAlignDecoder.Init();
     }
 
-    public void Code(Stream inStream, Stream outStream,
-        long inSize, long outSize)
+    public void Code(Stream inStream, Stream outStream, long outSize)
     {
         Init(inStream, outStream);
 

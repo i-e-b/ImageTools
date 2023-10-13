@@ -161,7 +161,7 @@ namespace ImageTools.DataCompression.Encoding
                 yield return c;
 
                 high = low + (range * p.high) / p.count - 1;
-                low = low + (range * p.low) / p.count;
+                low += (range * p.low) / p.count;
 
                 while (true) { // symbol decoding loop
                     if ( high < ONE_HALF ) {
@@ -249,12 +249,6 @@ namespace ImageTools.DataCompression.Encoding
         public ulong low;
         public ulong high; 
         public ulong count;
-    };
-
-    public interface IBitwiseIO
-    {
-        void OutputBit(bool value);
-        uint GetBit();
     }
 
     public interface IProbabilityModel
