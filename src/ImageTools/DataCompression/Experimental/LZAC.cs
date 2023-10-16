@@ -10,14 +10,12 @@ namespace ImageTools.DataCompression.Experimental
     /// </summary>
     public class LZAC
     {
-        private readonly IProbabilityModel _model;
-        private readonly ArithmeticEncode _encoder;
-        private const int TerminationSymbol = 256;
+        //private readonly IProbabilityModel _model;
+        //private readonly ArithmeticEncode _encoder;
+        //private const int TerminationSymbol = 256;
 
         public LZAC()
         {
-            _model = new ProbabilityModels.LearningModel(TerminationSymbol, 2);
-            _encoder = new ArithmeticEncode(_model, TerminationSymbol);
         }
         
         /// <summary>
@@ -26,9 +24,14 @@ namespace ImageTools.DataCompression.Experimental
         public void Encode(Stream src, Stream encoded)
         {
             //var symbols = SimpleScanningLz(src);
-            var symbols = SimpleDictionaryLzw(src);
+            var symbols = SimpleDictionaryLzw(src,out var maxW);
+            int terminationSymbol = maxW + 1;
+            symbols.Add(terminationSymbol);
             
-            _encoder.Encode(symbols, encoded);
+            var model = new ProbabilityModels.LearningModel(terminationSymbol, 2);
+            var encoder = new ArithmeticEncode(model, terminationSymbol);
+            
+            encoder.Encode(symbols, encoded);
         }
 
         /// <summary>
@@ -53,15 +56,12 @@ namespace ImageTools.DataCompression.Experimental
         /// <summary>
         /// Dynamic memory, hash lookups. This should be better at finding matches
         /// </summary>
-        private static List<int> SimpleDictionaryLzw(Stream src)
+        private static List<int> SimpleDictionaryLzw(Stream src, out int maxBackRef)
         {
             // https://jsfiddle.net/i_e_b/jzgj1uou/
-            bool literalMode = true; // which run-length type we are in
-            List<int> waitingSym = new(); // waiting back-refs or literals
             List<int> symbols = new(); // LZ symbol stream (fed into AC)
             Dictionary<string, int> lookBack = new(); // backreference dictionary TODO: change to byte array rather than string
             
-            int maxSpan = 0;
             int bytesRead = 0;
             var read = src.ReadByte();
             if (read < 0) throw new Exception("Zero length input");
@@ -69,6 +69,7 @@ namespace ImageTools.DataCompression.Experimental
             int i = 1; // next byte to look at
             string key = ""+(char)read; // look-back key TODO: change to byte list
             int lookBackRef = 256; // first non-byte
+            maxBackRef = 0;
             
             while (true)
             {
@@ -85,65 +86,16 @@ namespace ImageTools.DataCompression.Experimental
                 }
                 else // next key not in dictionary, must add to output.
                 {
-                    // Here, we do some run-length encoding
-                    // when we switch between literals and back-refs,
-                    // then we output a run-length and a set of symbols.
-                    // The symbol stream therefore alternate between runs and symbols.
-                    // The run lengths are 0..127 for literals, and 128..255 for back-refs
-                    
                     if (key.Length > 1) // dictionary entry - we want to add a back-reference
                     {
-                        if (literalMode) // flush literals, switch to back-refs
-                        {
-                            literalMode = false;
-                            if (waitingSym.Count > 0)
-                            {
-                                maxSpan = Math.Max(maxSpan, waitingSym.Count);
-                                symbols.Add(waitingSym.Count - 1);
-                                symbols.AddRange(waitingSym);
-                                waitingSym.Clear();
-                            }
-                        }
-                        
-                        // add to back-refs
-                        //waitingSym.Add(lookBack[key] - 256);
-                        Console.WriteLine($"Ref: {lookBack[key] - 255}");
-                        Write32kRef(waitingSym, lookBack[key] - 256);
-
-                        // flush if too long.
-                        if (waitingSym.Count > 126)
-                        {
-                            maxSpan = Math.Max(maxSpan, waitingSym.Count);
-                            symbols.Add(waitingSym.Count + 127);
-                            symbols.AddRange(waitingSym);
-                            waitingSym.Clear();
-                        }
+                        symbols.Add(lookBack[key]);
+                        Console.Write($"_{lookBack[key]-256}");
+                        if (lookBack[key] > maxBackRef) maxBackRef = lookBack[key];
                     }
                     else // literal
                     {
-                        if (!literalMode) // flush back-refs, switch to literals
-                        {
-                            literalMode = true;
-                            if (waitingSym.Count > 0)
-                            {
-                                maxSpan = Math.Max(maxSpan, waitingSym.Count);
-                                symbols.Add(waitingSym.Count + 127);
-                                symbols.AddRange(waitingSym);
-                                waitingSym.Clear();
-                            }
-                        }
-                        
-                        // add to literals
-                        waitingSym.Add(b);
-
-                        // flush if too long.
-                        if (waitingSym.Count > 126)
-                        {
-                            maxSpan = Math.Max(maxSpan, waitingSym.Count);
-                            symbols.Add(waitingSym.Count - 1);
-                            symbols.AddRange(waitingSym);
-                            waitingSym.Clear();
-                        }
+                        symbols.Add(b);
+                        Console.Write(b);
                     }
                     
                     lookBack.Add(keyNext, lookBackRef++);
@@ -152,28 +104,10 @@ namespace ImageTools.DataCompression.Experimental
                 }
             }
             
-            
-            // Flush anything left over
-            if (waitingSym.Count > 0)
-            {
-                maxSpan = Math.Max(maxSpan, waitingSym.Count);
-                
-                if (literalMode) symbols.Add(waitingSym.Count - 1);
-                else symbols.Add(waitingSym.Count + 127);
-                
-                symbols.AddRange(waitingSym);
-                waitingSym.Clear();
-            }
-
             // Write end-of-stream marker
-            symbols.Add(TerminationSymbol);
+            //symbols.Add(TerminationSymbol);
             
-            Console.WriteLine($"\r\n\r\n{bytesRead} bytes -> {symbols.Count} symbols. Max span = {maxSpan}\r\n");
-            foreach (var sym in symbols)
-            {
-                if(sym > 120 || sym < 31) Console.Write($" {sym} ");
-                else Console.Write((char)sym);
-            }
+            Console.WriteLine($"\r\n\r\n{bytesRead} bytes -> {symbols.Count} symbols\r\n");
 
             return symbols;
         }
@@ -317,7 +251,7 @@ namespace ImageTools.DataCompression.Experimental
             }
 
             // Write end-of-stream marker
-            symbols.Add(TerminationSymbol);
+            //symbols.Add(TerminationSymbol);
             
             Console.WriteLine($"\r\n\r\n{bytesRead} bytes -> {symbols.Count} symbols");
             
@@ -335,8 +269,8 @@ namespace ImageTools.DataCompression.Experimental
 
         public void Reset()
         {
-            _model.Reset();
-            _encoder.Reset();
+            //_model.Reset();
+            //_encoder.Reset();
         }
     }
 }
