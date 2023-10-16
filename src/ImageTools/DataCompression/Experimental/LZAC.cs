@@ -12,10 +12,7 @@ namespace ImageTools.DataCompression.Experimental
     {
         private readonly IProbabilityModel _model;
         private readonly ArithmeticEncode _encoder;
-        private const int BackRefSymbol_0_to_255 = 256+1;
-        private const int BackRefSymbol_256_to_510 = 256+2;
-        private const int BackRefSymbol_511_to_765 = 256+3;
-        private const int TerminationSymbol = 256+4;
+        private const int TerminationSymbol = 256;
 
         public LZAC()
         {
@@ -52,29 +49,6 @@ namespace ImageTools.DataCompression.Experimental
             }
         }
 
-        /// <summary>
-        /// Write a value 0..765 into a symbol stream as a course/fine symbol pair
-        /// </summary>
-        private static void WriteRangedBackref(List<int> symbols, int value)
-        {
-            if (value > 765) throw new Exception("out of range");
-            if (value > 510)
-            {
-                symbols.Add(BackRefSymbol_511_to_765);
-                symbols.Add(value-511);
-            }
-            else if (value > 255)
-            {
-                symbols.Add(BackRefSymbol_256_to_510);
-                symbols.Add(value-256);
-            }
-            else
-            {
-                symbols.Add(BackRefSymbol_0_to_255);
-                symbols.Add(value);
-                return;
-            }
-        }
 
         /// <summary>
         /// Dynamic memory, hash lookups. This should be better at finding matches
@@ -82,9 +56,12 @@ namespace ImageTools.DataCompression.Experimental
         private static List<int> SimpleDictionaryLzw(Stream src)
         {
             // https://jsfiddle.net/i_e_b/jzgj1uou/
+            bool literalMode = true; // which run-length type we are in
+            List<int> waitingSym = new(); // waiting back-refs or literals
             List<int> symbols = new(); // LZ symbol stream (fed into AC)
             Dictionary<string, int> lookBack = new(); // backreference dictionary TODO: change to byte array rather than string
             
+            int maxSpan = 0;
             int bytesRead = 0;
             var read = src.ReadByte();
             if (read < 0) throw new Exception("Zero length input");
@@ -106,18 +83,67 @@ namespace ImageTools.DataCompression.Experimental
                 {
                     key = keyNext; // grow look-back key
                 }
-                else // next key not in dictionary, must add to output
+                else // next key not in dictionary, must add to output.
                 {
-                    if (key.Length > 1) // dictionary entry
+                    // Here, we do some run-length encoding
+                    // when we switch between literals and back-refs,
+                    // then we output a run-length and a set of symbols.
+                    // The symbol stream therefore alternate between runs and symbols.
+                    // The run lengths are 0..127 for literals, and 128..255 for back-refs
+                    
+                    if (key.Length > 1) // dictionary entry - we want to add a back-reference
                     {
-                        //symbols.Add(BackRefSymbol);
-                        WriteRangedBackref(symbols, lookBack[key] - 256);
-                        Console.Write($"<{lookBack[key] - 256}<");
+                        if (literalMode) // flush literals, switch to back-refs
+                        {
+                            literalMode = false;
+                            if (waitingSym.Count > 0)
+                            {
+                                maxSpan = Math.Max(maxSpan, waitingSym.Count);
+                                symbols.Add(waitingSym.Count - 1);
+                                symbols.AddRange(waitingSym);
+                                waitingSym.Clear();
+                            }
+                        }
+                        
+                        // add to back-refs
+                        //waitingSym.Add(lookBack[key] - 256);
+                        Console.WriteLine($"Ref: {lookBack[key] - 255}");
+                        Write32kRef(waitingSym, lookBack[key] - 256);
+
+                        // flush if too long.
+                        if (waitingSym.Count > 126)
+                        {
+                            maxSpan = Math.Max(maxSpan, waitingSym.Count);
+                            symbols.Add(waitingSym.Count + 127);
+                            symbols.AddRange(waitingSym);
+                            waitingSym.Clear();
+                        }
                     }
                     else // literal
                     {
-                        symbols.Add(key[0]);
-                        Console.Write(key[0]);
+                        if (!literalMode) // flush back-refs, switch to literals
+                        {
+                            literalMode = true;
+                            if (waitingSym.Count > 0)
+                            {
+                                maxSpan = Math.Max(maxSpan, waitingSym.Count);
+                                symbols.Add(waitingSym.Count + 127);
+                                symbols.AddRange(waitingSym);
+                                waitingSym.Clear();
+                            }
+                        }
+                        
+                        // add to literals
+                        waitingSym.Add(b);
+
+                        // flush if too long.
+                        if (waitingSym.Count > 126)
+                        {
+                            maxSpan = Math.Max(maxSpan, waitingSym.Count);
+                            symbols.Add(waitingSym.Count - 1);
+                            symbols.AddRange(waitingSym);
+                            waitingSym.Clear();
+                        }
                     }
                     
                     lookBack.Add(keyNext, lookBackRef++);
@@ -125,12 +151,30 @@ namespace ImageTools.DataCompression.Experimental
                     key = ""+b;
                 }
             }
+            
+            
+            // Flush anything left over
+            if (waitingSym.Count > 0)
+            {
+                maxSpan = Math.Max(maxSpan, waitingSym.Count);
+                
+                if (literalMode) symbols.Add(waitingSym.Count - 1);
+                else symbols.Add(waitingSym.Count + 127);
+                
+                symbols.AddRange(waitingSym);
+                waitingSym.Clear();
+            }
 
             // Write end-of-stream marker
             symbols.Add(TerminationSymbol);
             
-            Console.WriteLine($"\r\n\r\n{bytesRead} bytes -> {symbols.Count} symbols");
-            
+            Console.WriteLine($"\r\n\r\n{bytesRead} bytes -> {symbols.Count} symbols. Max span = {maxSpan}\r\n");
+            foreach (var sym in symbols)
+            {
+                if(sym > 120 || sym < 31) Console.Write($" {sym} ");
+                else Console.Write((char)sym);
+            }
+
             return symbols;
         }
 
