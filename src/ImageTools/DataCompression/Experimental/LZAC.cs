@@ -28,7 +28,7 @@ namespace ImageTools.DataCompression.Experimental
             int terminationSymbol = maxW + 1;
             symbols.Add(terminationSymbol);
             
-            var model = new ProbabilityModels.LearningModel(terminationSymbol, 2);
+            var model = new ProbabilityModels.LearningModel(terminationSymbol, 4);
             var encoder = new ArithmeticEncode(model, terminationSymbol);
             
             encoder.Encode(symbols, encoded);
@@ -89,13 +89,13 @@ namespace ImageTools.DataCompression.Experimental
                     if (key.Length > 1) // dictionary entry - we want to add a back-reference
                     {
                         symbols.Add(lookBack[key]);
-                        Console.Write($"_{lookBack[key]-256}");
+                        //Console.Write($"_{lookBack[key]-256}");
                         if (lookBack[key] > maxBackRef) maxBackRef = lookBack[key];
                     }
                     else // literal
                     {
                         symbols.Add(b);
-                        Console.Write(b);
+                        //Console.Write(b);
                     }
                     
                     lookBack.Add(keyNext, lookBackRef++);

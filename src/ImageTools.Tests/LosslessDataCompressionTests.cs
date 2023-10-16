@@ -45,24 +45,6 @@ namespace ImageTools.Tests
             Assert.That(actual, Is.EqualTo(expected));
             Assert.That(ok, "Stream was truncated, but should not have been");
         }
-
-        [Test]
-        public void hash_match_round_trip()
-        {
-            var subject = new HashMatchCompressor();
-            
-            var expected = Moby;
-            var src = Encoding.UTF8.GetBytes(expected);
-
-            var encoded = subject.Compress(src);
-            var dst = subject.Decompress(encoded);
-            
-            var actual = Encoding.UTF8.GetString(dst);
-            
-            Console.WriteLine($"Original: {src.Length}; Compressed: {encoded.Length}; Expanded: {dst.Length}");
-            
-            Assert.That(actual, Is.EqualTo(expected));
-        }
         
         [Test]
         public void Decoding_a_truncated_stream()
@@ -733,6 +715,8 @@ nearly the same feelings towards the ocean with me.####";
             // ...
             // Original: 1.11kb; Encoded: 714b (62.8%)  <-- before implementing LZ part, this is just the AC
             // Original: 1.11kb; Encoded: 713b (62.7%)  <-- with basic LZ, plus AC (before implementing decode)
+            // Original: 1.11kb; Encoded: 691b (60.8%)  <-- wide symbol space LZW (before implementing decode)
+            // Original: 1.11kb; Encoded: 685b (60.2%)  <-- wide symbol + 4 gain
 
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
@@ -838,6 +822,7 @@ nearly the same feelings towards the ocean with me.####";
 
         [Test]
         public void lzma_round_trip () {
+            // Original: 1.11kb; Encoded: 784b (69.0%)
             var expected = Moby;
 
             var encoded = new MemoryStream();
@@ -858,10 +843,60 @@ nearly the same feelings towards the ocean with me.####";
 
             Assert.That(result, Is.EqualTo(expected));
         }
+        
+        [Test]
+        public void lzjb_round_trip () {
+            // Original: 1.11kb; Encoded: 1.03kb (92.6%)  <-- not great, but it is very fast
+            var expected = Moby;
+
+            var src = Encoding.UTF8.GetBytes(expected);
+            var dst = new byte[src.Length];
+            var encoded = new byte[src.Length];
+
+            var compressLength = Lzjb.Compress(src, encoded); // TODO: implement with Stream?
+            
+            var percent = (100.0 * compressLength) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(compressLength)} ({percent:0.0}%)");
+
+            /*for (int i = 0; i < compressLength; i++)
+            {
+                if (encoded[i] > 30 && encoded[i] < 120) Console.Write((char)encoded[i]);
+                else Console.Write($"_{encoded[i]}");
+            }*/
+            
+            var decompressLength = Lzjb.Decompress(encoded, compressLength, dst);
+            Console.WriteLine();
+
+            var result = Encoding.UTF8.GetString(dst, 0, decompressLength);
+            
+            Console.WriteLine(result);
+
+            Assert.That(result, Is.EqualTo(expected));
+        }
+        
+        [Test]
+        public void hash_match_round_trip()
+        {
+            var subject = new HashMatchCompressor();
+            
+            var expected = Moby;
+            var src = Encoding.UTF8.GetBytes(expected);
+
+            var encoded = subject.Compress(src);
+            var dst = subject.Decompress(encoded);
+            
+            var actual = Encoding.UTF8.GetString(dst);
+            
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            
+            Assert.That(actual, Is.EqualTo(expected));
+        }
 
         [Test]
         public void push_to_front_round_trip()
         {
+            // Original: 1.11kb; Encoded: 793b (69.7%)
             var expected = Moby;
 
             var encoded = new MemoryStream();
@@ -1119,6 +1154,7 @@ nearly the same feelings towards the ocean with me.####";
         [Test]
         public void compress_firmware_image_lzma()
         {
+            // Original: 503.48kb; Encoded: 291.35kb (57.9%)
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
             
@@ -1143,6 +1179,7 @@ nearly the same feelings towards the ocean with me.####";
         [Test]
         public void compress_firmware_image_push_to_front()
         {
+            // Original: 503.48kb; Encoded: 471.83kb (93.7%)
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
             
@@ -1235,6 +1272,7 @@ nearly the same feelings towards the ocean with me.####";
         
         [Test]
         public void compress_firmware_image_truncatable_encoder () {
+            // Original: 503.48kb; Encoded: 383.31kb (76.1%)
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
 
@@ -1256,9 +1294,86 @@ nearly the same feelings towards the ocean with me.####";
 
             Assert.That(result, Is.EqualTo(expected).AsCollection);
         }
-        
-        //[Test]
-        //public void compress_
+
+        [Test]
+        public void compress_firmware_experimental_lzac()
+        {
+            // Equivalent deflate: 321.13kb (64.0%)
+            // Original: 503.48kb; Encoded: 393.49kb (78.2%) <-- gain = 2
+            // Original: 503.48kb; Encoded: 390.77kb (77.6%) <-- gain = 4
+            
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(expected);
+            
+            src.Seek(0, SeekOrigin.Begin);
+            
+            new LZAC().Encode(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            
+            //new TruncatableEncoder().DecompressStream(encoded, dst);
+
+            //dst.Seek(0, SeekOrigin.Begin);
+            //var result = dst.ToArray();
+
+            //Assert.That(result, Is.EqualTo(expected).AsCollection);
+        }
+
+        [Test]
+        public void compress_firmware_lzjb()
+        {
+            // Equivalent deflate: 321.13kb (64.0%)
+            // Original: 503.48kb; Encoded: 438.68kb (87.1%)    <-- just the LZJB
+            // Original: 503.48kb; Encoded+AC: 383.31kb (76.1%) <-- plus basic AC
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+            var encoded = new byte[expected.Length];
+            var result = new byte[expected.Length];
+            
+            var compressLength = Lzjb.Compress(expected, encoded);
+            
+            var percent = (100.0 * compressLength) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(compressLength)} ({percent:0.0}%)");
+            
+            
+            var acSrc = new MemoryStream(expected);
+            var acDst = new MemoryStream();
+            new TruncatableEncoder().CompressStream(acSrc, acDst);
+            percent = (100.0 * acDst.Length) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded+AC: {Bin.Human(acDst.Length)} ({percent:0.0}%)");
+
+            var resultLength = Lzjb.Decompress(encoded, compressLength, result);
+            result = result.Take(resultLength).ToArray();
+            
+            Assert.That(result, Is.EqualTo(expected).AsCollection);
+        }
+
+        [Test]
+        public void compress_firmware_hash_match()
+        {
+            // Original: 503.48kb; Encoded: 455.64kb (90.5%)
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+            
+            var subject = new HashMatchCompressor();
+            
+            var encoded = subject.Compress(expected);
+            var dst = subject.Decompress(encoded);
+            
+            
+            var percent = (100.0 * encoded.Length) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            
+            var result = dst.ToArray();
+
+            Assert.That(result, Is.EqualTo(expected).AsCollection);
+        }
     }
 
     [TestFixture]

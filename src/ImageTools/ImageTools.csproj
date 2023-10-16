@@ -56,6 +56,7 @@
     <Compile Include="DataCompression\Experimental\PushToFrontEncoder.cs" />
     <Compile Include="DataCompression\Experimental\SumTree.cs" />
     <Compile Include="DataCompression\Experimental\TruncatableEncoder.cs" />
+    <Compile Include="DataCompression\LzType\Lzjb.cs" />
     <Compile Include="DataCompression\LzType\LZMWPack.cs" />
     <Compile Include="DataCompression\LzType\LZSSPack.cs" />
     <Compile Include="DataCompression\LzType\LZWPack.cs" />
