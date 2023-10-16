@@ -1374,6 +1374,17 @@ nearly the same feelings towards the ocean with me.####";
 
             Assert.That(result, Is.EqualTo(expected).AsCollection);
         }
+
+        [Test]
+        public void firmware_haar_transform_test()
+        {
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var data = File.ReadAllBytes(path);
+
+            BinaryFolding.Encode(data);
+            
+            File.WriteAllBytes(@"C:\temp\_Haar1.bin", data);
+        }
     }
 
     [TestFixture]
