@@ -55,6 +55,7 @@
     <Compile Include="DataCompression\Experimental\LZAC.cs" />
     <Compile Include="DataCompression\Experimental\NybbleEncoder.cs" />
     <Compile Include="DataCompression\Experimental\PushToFrontEncoder.cs" />
+    <Compile Include="DataCompression\Experimental\SplitTree.cs" />
     <Compile Include="DataCompression\Experimental\SumTree.cs" />
     <Compile Include="DataCompression\Experimental\TruncatableEncoder.cs" />
     <Compile Include="DataCompression\LzType\Lzjb.cs" />

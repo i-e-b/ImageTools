@@ -875,6 +875,34 @@ nearly the same feelings towards the ocean with me.####";
         }
         
         [Test]
+        public void SplitTree_round_trip () {
+            var expected = Moby;
+
+            var src = Encoding.UTF8.GetBytes(expected);
+            var encoded = new MemoryStream();
+
+            SplitTree.Compress(src, encoded);
+            
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+
+            /*for (int i = 0; i < compressLength; i++)
+            {
+                if (encoded[i] > 30 && encoded[i] < 120) Console.Write((char)encoded[i]);
+                else Console.Write($"_{encoded[i]}");
+            }*/
+            
+            /*var decompressLength = Lzjb.Decompress(encoded, compressLength, dst);
+            Console.WriteLine();
+
+            var result = Encoding.UTF8.GetString(dst, 0, decompressLength);
+            
+            Console.WriteLine(result);
+
+            Assert.That(result, Is.EqualTo(expected));*/
+        }
+        
+        [Test]
         public void hash_match_round_trip()
         {
             var subject = new HashMatchCompressor();
