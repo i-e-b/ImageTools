@@ -1413,6 +1413,38 @@ nearly the same feelings towards the ocean with me.####";
             
             File.WriteAllBytes(@"C:\temp\_Haar1.bin", data);
         }
+
+        [Test]
+        public void external_quick_sort_works()
+        {
+            // This sort doesn't touch the data itself.
+            // Used to help with porting Go code.
+            var values =   new []{6,7,5,2,3,1,4,9,8};
+            var expected = new []{1,2,3,4,5,6,7,8,9};
+            
+            IndexedSort.ExternalQSort(
+                length:  values.Length,
+                compare: (i, j) => { if (values[i] < values[j]) return -1; if (values[i] > values[j]) return 1; return 0; },
+                swap:    (i, j) => { (values[i], values[j]) = (values[j], values[i]); });
+            
+            
+            Assert.That(values, Is.EqualTo(expected).AsCollection);
+        }
+
+        [Test]
+        public void initial_BWST_checks()
+        {
+            var input = Encoding.UTF8.GetBytes(Moby);
+            
+            var output = Bwst.Transform(input);
+            
+            Console.WriteLine(Encoding.UTF8.GetString(output));
+            
+            // Check all the characters are the same
+            Array.Sort(input);
+            Array.Sort(output);
+            Assert.That(output, Is.EqualTo(input).AsCollection);
+        }
     }
 
     [TestFixture]
