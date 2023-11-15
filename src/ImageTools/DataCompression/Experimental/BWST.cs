@@ -13,8 +13,8 @@ namespace ImageTools.DataCompression.Experimental
         /// <summary>
         /// Compute the Burrows-Wheeler-Scott transform of 's'. This is done out-of-place.
         /// </summary>
-        public static byte[] Transform(byte[] s) {
-            int[] words = factorize(s);
+        public static byte[] ForwardTransform(byte[] s) {
+            var words = Factorize(s); // this is producing a different result from the go sources
             
             // Sorting all rotations of all Lyndon words and then choosing the last
             // character of each is the same as choosing the character to the left of
@@ -27,7 +27,7 @@ namespace ImageTools.DataCompression.Experimental
             foreach (var charLocs in locs) {
                 if (charLocs is null) continue;
                 
-                sortrots(s, words, charLocs);
+                SortRotations(s, words, charLocs);
             }
             
             foreach (var charLocs in locs) {
@@ -44,26 +44,72 @@ namespace ImageTools.DataCompression.Experimental
             }
             return b.ToArray();
         }
-        
+
+        /// <summary>
+        /// Compute the inverse of the Burrows-Wheeler-Scott transform of 's'. This is done out-of-place.
+        /// </summary>
+        public static byte[] ReverseTransform(byte[] s)
+        {
+            var sorted = s.ToList(); // make a copy
+            sorted.Sort();
+            
+            var used = new bool[s.Length+1]; // big array of false. In the Go code, this is a BigInt -- which we might want to do here
+            used[s.Length] = true;
+            var links = new int[s.Length];
+            //....
+            
+            for i, c := range sorted {
+                // find the first unused index in b of c
+                for j, c2 := range b {
+                    if c == c2 && used.Bit(j) == 0 {
+                        links[i] = j
+                        used.SetBit(used, j, 1)
+                        break
+                    }
+                }
+            }
+            
+            // We need to know once again whether each byte is used, so instead of
+            // resetting the bitset or using more memory, we can just ask whether it's
+            // unused.
+            unused := used
+            words := multibytesorter{}
+            for i := range sorted {
+                if unused.Bit(i) == 1 {
+                    word := []byte{}
+                    x := i
+                    for unused.Bit(x) == 1 {
+                        word = append(word, sorted[x])
+                        unused.SetBit(unused, x, 0)
+                        x = links[x]
+                    }
+                    words = append(words, nil)
+                    copy(words[1:], words)
+                    words[0] = word
+                }
+            }
+            if !sort.IsSorted(words) {
+                sort.Sort(words)
+            }
+            x := len(b)
+            s := make([]byte, len(b))
+            for _, word := range words {
+                x -= len(word)
+                copy(s[x:], word)
+            }
+            return s
+        }
+
         // Compute the Lyndon factorization of s. Includes both endpoints.
-        private static int[] factorize(byte[] s) {
+        private static int[] Factorize(byte[] s) {
             // Do an initial pass to count the number of words. Hopefully this avoids
             // enough copying to be faster.
-            var n = 1;
-            foreach (var _ in findLyndon(s)) {
-                n++;
-            }
-                
-            var bounds = new List<int>();
-            foreach (var i in findLyndon(s)) {
-                bounds.Add(i);
-            }
-            return bounds.ToArray();
+            return FindLyndon(s).ToArray();
         }
         
-        // Duval's algorithm. This is done concurrently under factorize() to enable
-        // word counting without doing extra work.  <-- TODO: fix this for C# once working and under test
-        private static IEnumerable<int> findLyndon(byte[] s) {
+        // Duval's algorithm
+        private static List<int> FindLyndon(byte[] s) {
+            var result = new List<int> { 0 };
             // Thanks to Jonathan on golang-nuts for simplifying the inner loop.
             var k = -1;
             while (k < (s.Length -1)) {
@@ -85,16 +131,17 @@ namespace ImageTools.DataCompression.Experimental
                 }
                 while (k < i) {
                     k += j - i;
-                    yield return k + 1;
+                    result.Add(k+1);
                 }
             }
+            return result;
         }
         
         // Each instance of a character is considered to be at the beginning of a
         // rotation of its word, so the locations can be sorted. Because each char is
         // in order already, we only need to sort the occurrences of each char
         // separately to sort the entire thing.
-        private static void sortrots(byte[] s, int[] words, LocList locs) {
+        private static void SortRotations(byte[] s, int[] words, LocList locs) {
             IndexedSort.ExternalQSort(
                 length:  locs.Length,
                 compare: (i, j) => {
