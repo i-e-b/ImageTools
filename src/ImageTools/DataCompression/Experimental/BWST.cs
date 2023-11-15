@@ -48,56 +48,93 @@ namespace ImageTools.DataCompression.Experimental
         /// <summary>
         /// Compute the inverse of the Burrows-Wheeler-Scott transform of 's'. This is done out-of-place.
         /// </summary>
-        public static byte[] ReverseTransform(byte[] s)
+        public static byte[] ReverseTransform(byte[] b)
         {
-            var sorted = s.ToList(); // make a copy
+            var sorted = b.ToList(); // make a copy
             sorted.Sort();
             
-            var used = new bool[s.Length+1]; // big array of false. In the Go code, this is a BigInt -- which we might want to do here
-            used[s.Length] = true;
-            var links = new int[s.Length];
-            //....
+            var used = new bool[b.Length+1]; // big array of false. In the Go code, this is a BigInt -- which we might want to do here
+            used[b.Length] = true;
+            var links = new int[b.Length];
             
-            for i, c := range sorted {
+            // TODO: use binary search in sorted instead of linear search in b
+            for (int i = 0; i < sorted.Count; i++){//for i, c := range sorted {
+                var c = sorted[i];
                 // find the first unused index in b of c
-                for j, c2 := range b {
-                    if c == c2 && used.Bit(j) == 0 {
-                        links[i] = j
-                        used.SetBit(used, j, 1)
-                        break
+                for (int j=0; j<b.Length; j++){//for j, c2 := range b {
+                    var c2 = b[j];
+                    if (c == c2 && !used[j]) {
+                        links[i] = j;
+                        used[j] = true;//used.SetBit(used, j, 1)
+                        break;
                     }
                 }
             }
-            
+            int x;
             // We need to know once again whether each byte is used, so instead of
             // resetting the bitset or using more memory, we can just ask whether it's
             // unused.
-            unused := used
-            words := multibytesorter{}
-            for i := range sorted {
-                if unused.Bit(i) == 1 {
-                    word := []byte{}
-                    x := i
-                    for unused.Bit(x) == 1 {
-                        word = append(word, sorted[x])
-                        unused.SetBit(unused, x, 0)
-                        x = links[x]
+            var unused = used;
+            var words = new List<byte[]>();//words := multibytesorter{}
+            for (int i = 0; i < sorted.Count; i++){//for i := range sorted {
+                if (unused[i]) {
+                    var word = new List<byte>();
+                    x = i;
+                    while (unused[x]) {//for unused.Bit(x) == 1 {
+                        word.Add(sorted[x]);//word = append(word, sorted[x])
+                        unused[x] = false; //unused.SetBit(unused, x, 0)
+                        x = links[x];
                     }
-                    words = append(words, nil)
-                    copy(words[1:], words)
-                    words[0] = word
+                    /*words = append(words, nil) // add null at end of list
+                    copy(words[1:], words) // <- copy everything down one position (overwriting the null)
+                    words[0] = word // put new set at front */
+                    words.Insert(0, word.ToArray());
                 }
             }
-            if !sort.IsSorted(words) {
-                sort.Sort(words)
+            //if !sort.IsSorted(words) {
+            //    sort.Sort(words)
+            //}
+            words.Sort(LexicographicByteSort);
+            x = b.Length;//x := len(b)
+            
+            var s = new byte[b.Length];
+            foreach (var word in words)
+            {
+                x -= word.Length;
+                CopyOver(s, x, word);
             }
-            x := len(b)
-            s := make([]byte, len(b))
+            return s;
+
+            /*s := make([]byte, len(b))
             for _, word := range words {
                 x -= len(word)
                 copy(s[x:], word)
             }
-            return s
+            return s;*/
+        }
+
+        private static void CopyOver(byte[] bytes, int offset, byte[] word)
+        {
+            foreach (var v in word)
+            {
+                bytes[offset++] = v;
+                if (offset >= bytes.Length) return;
+            }
+        }
+
+        private static int LexicographicByteSort(byte[] x, byte[] y)
+        {
+            var min = Math.Min(x.Length, y.Length);
+            var i = 0;
+            for (; i < min; i++)
+            {
+                if (x[i] < y[i]) return -1;
+                if (x[i] > y[i]) return 1;
+            }
+            // same up to this point
+            if (x.Length == y.Length) return 0; // identical
+            if (x.Length < y.Length) return -1;
+            return 1;
         }
 
         // Compute the Lyndon factorization of s. Includes both endpoints.
@@ -155,8 +192,8 @@ namespace ImageTools.DataCompression.Experimental
                     var y = loc2.Idx;
                     var n = lcm(w1.Length, w2.Length);
                     for (var count = 0; count < n; count++) {
-                        var a = LookUp(w1,x);
-                        var b = LookUp(w2,y);
+                        var a = (int)w1[x];
+                        var b = (int)w2[y];
                         if (a < b) { return -1; }
                         if (a > b) { return 1; }
                         
@@ -170,14 +207,6 @@ namespace ImageTools.DataCompression.Experimental
                     return 0;
                 },
                 swap: (i, j) => { (locs[i], locs[j]) = (locs[j], locs[i]); });
-        }
-
-        private static int LookUp(byte[] list, int idx)
-        {
-            var i = idx;
-            //if (i < 0) i += list.Length;
-            if (i < 0 || i >= list.Length) return -1; // IEB: ???
-            return list[i];
         }
 
         private static int gcd(int m, int n ) {
