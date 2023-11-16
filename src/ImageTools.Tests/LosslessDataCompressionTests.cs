@@ -1445,46 +1445,15 @@ to be there when you fall.""";
         {
             var input = Encoding.UTF8.GetBytes(Moby.Replace("\r\n","\n"));
             
-            var output = Bwst.ForwardTransform(input); // IEB: I'm getting some inversions in here.
-            
-            //Console.WriteLine(string.Join(" ", output));
+            var output = Bwst.ForwardTransform(input);
             
             Console.WriteLine(Encoding.UTF8.GetString(output));
-            
-			/* `Moby` should come out like:
-			
-#waydyaontygpf;h,srryl;,t.g.y.....hstsslmIst,hl,#,,nendgdyI,eearmf,dfeIIleeysogfrsItsndyyrngogfttsetrttawtetfhIldrogernnsdrdseterdgseeerygygrglyIedtdeode,syeyeaygs,tsyofoenfnIoeheertesgfnhnea;yneIe######.;l###enetsterpeeyof---sdlpnnlehdlt#                   e        m strcr Cbci sd ec     h  elwwteepp 
-hrwllChphhw  miaa u ii aou en eo cirnnnnnnnnnnlnlr   o  rlhrmtmrmhhvmlmhhhhhemlmkhhmlrsemmscrnyprsrflrmbdrrhasssdetsvemhhhhhvptrvvpbvvvhnbhthvvtrs rggeemirnnnnn nhnooollofIlf ooof    e  nnnnnnnnnnnnn  iunae  nestctgst t  -ttttttttttttwWwwtTctp p ttsT tstste tg clhdtuhahrrtth    frfmftvswspvhkhgrl   thcecu  h  hhcrrrp   
-Wwlltrrac 
-aioalaleluuuuurttpppeeeee 
-aaaaaa ifoltzierleiohea   ioio        l ai     
-oeooeiiiiaiaeaoiiaaaiaiaaaa
-ueee-ekoiiiiiioiiioiiii k  ueuiiitttnttttg nh      ctvrsS opimrlsse  fmwfhwplm nnhswclhbbmNhtrrumi   s po
-p iosuyue 
- r  eeeieeeeeoaooaeeoeioaoeo pgt a iepagpbuepddoaftghuauaaeeeaieiro'wiiitaidgei  r  yymiuii I
-ui  o e oe bi   
-  ehusiiInaunsriueiee
-nuasnaiiu 
-  
-     
- -o oo e  r  aastte     nas ssaiiissoqqocgcofol   ospoaobotoaoeeeeee eaineoo    
- o s  olrlalermerlmmlmlll hmmzi
-
-			
-			*/
-			
-			
-            // Check all the characters are the same
-            //Array.Sort(input);
-            //Array.Sort(output);
-            //Assert.That(output, Is.EqualTo(input).AsCollection);
             
             Console.WriteLine("\r\n------------------------------\r\n");
             
             var result = Bwst.ReverseTransform(output);
-            //Console.WriteLine(string.Join(" ", result));
             Console.WriteLine(Encoding.UTF8.GetString(result));
-            
+            Assert.That(result, Is.EqualTo(input));
         }
     }
 

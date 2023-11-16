@@ -24,12 +24,16 @@ namespace ImageTools.DataCompression.Experimental
             var locs = Locate(s, words);
             var b = new List<byte>();
             
-            foreach (var charLocs in locs) {
+            Console.WriteLine();
+
+            for (var i = 0; i < locs.Length; i++)
+            {
+                var charLocs = locs[i];
                 if (charLocs is null) continue;
-                
+
                 SortRotations(s, words, charLocs);
             }
-            
+
             foreach (var charLocs in locs) {
                 if (charLocs is null) continue;
                 
@@ -54,7 +58,7 @@ namespace ImageTools.DataCompression.Experimental
             sorted.Sort();
             
             var used = new bool[b.Length+1]; // big array of false. In the Go code, this is a BigInt -- which we might want to do here
-            used[b.Length] = true;
+            //used[b.Length] = true;
             var links = new int[b.Length];
             
             // TODO: use binary search in sorted instead of linear search in b
@@ -76,20 +80,20 @@ namespace ImageTools.DataCompression.Experimental
             // unused.
             var unused = used;
             var words = new List<byte[]>();//words := multibytesorter{}
-            for (int i = 0; i < sorted.Count; i++){//for i := range sorted {
-                if (unused[i]) {
-                    var word = new List<byte>();
-                    x = i;
-                    while (unused[x]) {//for unused.Bit(x) == 1 {
-                        word.Add(sorted[x]);//word = append(word, sorted[x])
-                        unused[x] = false; //unused.SetBit(unused, x, 0)
-                        x = links[x];
-                    }
-                    /*words = append(words, nil) // add null at end of list
+            for (int i = 0; i < sorted.Count; i++) { //for i := range sorted {
+                if (!unused[i]) continue;
+                
+                var word = new List<byte>();
+                x = i;
+                while (unused[x]) {//for unused.Bit(x) == 1 {
+                    word.Add(sorted[x]);//word = append(word, sorted[x])
+                    unused[x] = false; //unused.SetBit(unused, x, 0)
+                    x = links[x];
+                }
+                /*words = append(words, nil) // add null at end of list
                     copy(words[1:], words) // <- copy everything down one position (overwriting the null)
                     words[0] = word // put new set at front */
-                    words.Insert(0, word.ToArray());
-                }
+                words.Insert(0, word.ToArray());
             }
             //if !sort.IsSorted(words) {
             //    sort.Sort(words)
@@ -117,8 +121,8 @@ namespace ImageTools.DataCompression.Experimental
         {
             foreach (var v in word)
             {
-                bytes[offset++] = v;
                 if (offset >= bytes.Length) return;
+                bytes[offset++] = v;
             }
         }
 
@@ -132,9 +136,9 @@ namespace ImageTools.DataCompression.Experimental
                 if (x[i] > y[i]) return 1;
             }
             // same up to this point
-            if (x.Length == y.Length) return 0; // identical
             if (x.Length < y.Length) return -1;
-            return 1;
+            if (x.Length > y.Length) return 1;
+            return 0; // identical
         }
 
         // Compute the Lyndon factorization of s. Includes both endpoints.
@@ -179,34 +183,29 @@ namespace ImageTools.DataCompression.Experimental
         // in order already, we only need to sort the occurrences of each char
         // separately to sort the entire thing.
         private static void SortRotations(byte[] s, int[] words, LocList locs) {
-            IndexedSort.ExternalQSort(
-                length:  locs.Length,
-                compare: (i, j) => {
-                    // Cyclic order - AXYA < AXY here because AXYAAXYA < AXYAXY
-                    var loc1 = locs[i];
-                    var loc2 = locs[j];
-                    // get the actual sequences
-                    var w1 = Slice(s,words[loc1.Word],words[loc1.Word + 1]);
-                    var w2 = Slice(s,words[loc2.Word],words[loc2.Word + 1]);
-                    var x = loc1.Idx;
-                    var y = loc2.Idx;
-                    var n = lcm(w1.Length, w2.Length);
-                    for (var count = 0; count < n; count++) {
-                        var a = (int)w1[x];
-                        var b = (int)w2[y];
-                        if (a < b) { return -1; }
-                        if (a > b) { return 1; }
+            locs.Sort((i, j) => {// Cyclic order - AXYA < AXY here because AXYAAXYA < AXYAXY
+                var loc1 = i;//locs[i];
+                var loc2 = j;//locs[j];
+                // get the actual sequences
+                var w1 = Slice(s,words[loc1.Word],words[loc1.Word + 1]);
+                var w2 = Slice(s,words[loc2.Word],words[loc2.Word + 1]);
+                var x = loc1.Idx;
+                var y = loc2.Idx;
+                var n = lcm(w1.Length, w2.Length);
+                for (var count = 0; count < n; count++) {
+                    var a = (int)w1[x];
+                    var b = (int)w2[y];
+                    if (a < b) { return -1; }
+                    if (a > b) { return 1; }
                         
-                        x++;
-                        if (x >= w1.Length) { x = 0; }
+                    x++;
+                    if (x >= w1.Length) { x = 0; }
                         
-                        y++;
-                        if (y >= w2.Length) { y = 0; }
-                    }
-                    // words are equal
-                    return 0;
-                },
-                swap: (i, j) => { (locs[i], locs[j]) = (locs[j], locs[i]); });
+                    y++;
+                    if (y >= w2.Length) { y = 0; }
+                }
+                // words are equal
+                return 0;});
         }
 
         private static int gcd(int m, int n ) {
@@ -261,6 +260,11 @@ namespace ImageTools.DataCompression.Experimental
             {
                 get => _list[i];
                 set => _list[i] = value;
+            }
+
+            public void Sort(Comparison<Loc> comparison)
+            {
+                _list.Sort(comparison);
             }
         }
 
