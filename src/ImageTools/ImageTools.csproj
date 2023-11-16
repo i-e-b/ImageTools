@@ -60,6 +60,7 @@
     <Compile Include="DataCompression\Experimental\SplitTree.cs" />
     <Compile Include="DataCompression\Experimental\SumTree.cs" />
     <Compile Include="DataCompression\Experimental\TruncatableEncoder.cs" />
+    <Compile Include="DataCompression\Huffman\Huffman.cs" />
     <Compile Include="DataCompression\LzType\Lzjb.cs" />
     <Compile Include="DataCompression\LzType\LZMWPack.cs" />
     <Compile Include="DataCompression\LzType\LZSSPack.cs" />

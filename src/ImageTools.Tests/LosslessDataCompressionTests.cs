@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -11,6 +12,7 @@ using System.Text;
 using ImageTools.DataCompression;
 using ImageTools.DataCompression.Encoding;
 using ImageTools.DataCompression.Experimental;
+using ImageTools.DataCompression.Huffman;
 using ImageTools.DataCompression.PPM;
 using ImageTools.Utilities;
 using ImageTools.WaveletTransforms;
@@ -1191,7 +1193,8 @@ to be there when you fall.""";
         [Test]
         public void compress_firmware_image_lzma()
         {
-            // Original: 503.48kb; Encoded: 291.35kb (57.9%)
+            // Original: 503.48kb; Encoded: 291.35kb (57.9%)  <-- bin v1
+            // Original: 499.23kb; Encoded: 277.37kb (55.6%)  <-- bin v2
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
             
@@ -1256,8 +1259,8 @@ to be there when you fall.""";
             }
             var percentDeflate = (100.0 * test.Length) / src.Length;
             Console.WriteLine($"Equivalent deflate: {Bin.Human(test.Length)} ({percentDeflate:0.0}%)");
-            
-            // LearningMarkov_2D:     Encoded: 377.64kb (75.3%)
+            // Equivalent deflate:             307.28kb (61.6%)
+            // LearningMarkov_2D:     Encoded: 377.64kb (75.3%) bin v2 -> Original: 499.23kb; Encoded: 367.67kb (73.6%)
             // LearningMarkov_2DHn=2: Encoded: 377.64kb (75.3%)
             // LearningMarkov_3D:     Encoded: 392.41kb (78.3%)
             // LearningMarkov_2DHn=4: Encoded: 432.58kb (86.3%)
@@ -1278,9 +1281,9 @@ to be there when you fall.""";
             src.Seek(0, SeekOrigin.Begin);
             //var model = new ProbabilityModels.PushToFrontModel(3);
             //var model = new ProbabilityModels.SimpleLearningModel(32);
-            //var model = new ProbabilityModels.LearningMarkov_2D(0, 2);
+            var model = new ProbabilityModels.LearningMarkov_2D(0, 2);
             //var model = new ProbabilityModels.BraindeadModel();
-            var model = new ProbabilityModels.MixShiftModel();
+            //var model = new ProbabilityModels.MixShiftModel();
             //var model = new ProbabilityModels.LearningMarkov_3D();
             //var model = new ProbabilityModels.LearningMarkov_2DHn(0, 3,16);
             
@@ -1300,7 +1303,7 @@ to be there when you fall.""";
 
             dst.Seek(0, SeekOrigin.Begin);
             var result = dst.ToArray();
-
+            
             //Console.WriteLine("\r\n--------RESULT----------");
             //Console.WriteLine(result);
 
@@ -1309,7 +1312,9 @@ to be there when you fall.""";
         
         [Test]
         public void compress_firmware_image_truncatable_encoder () {
-            // Original: 503.48kb; Encoded: 383.31kb (76.1%)
+            // Equivalent deflate:          307.28kb (61.6%)
+            // Original: 503.48kb; Encoded: 383.31kb (76.1%) <-- bin v1
+            // Original: 499.23kb; Encoded: 371.55kb (74.4%) <-- bin v2
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
 
@@ -1330,6 +1335,26 @@ to be there when you fall.""";
             var result = dst.ToArray();
 
             Assert.That(result, Is.EqualTo(expected).AsCollection);
+        }
+
+        [Test]
+        public void info__histogram_of_file()
+        {
+            var hist = new int[256];
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var data = File.ReadAllBytes(path);
+
+            foreach (var b in data)
+            {
+                hist[b]++;
+            }
+
+            for (var index = 0; index < hist.Length; index++)
+            {
+                var count = hist[index];
+                var bar = new string('#', (int)Math.Log(count));
+                Console.WriteLine($"{index:X2} : {bar} {count}");
+            }
         }
 
         [Test]
@@ -1421,6 +1446,41 @@ to be there when you fall.""";
             BinaryFolding.Encode(data);
             
             File.WriteAllBytes(@"C:\temp\_Haar1.bin", data);
+        }
+
+        [Test]
+        public void huffman_encoding_string()
+        {
+            var expected = Moby;
+
+            // Equivalent deflate: 645b
+            // Original: 1.11kb; Encoded: 639b (56.2%) <-- This does not include outputting probability preamble
+            
+            
+            var huffmanTree = new HuffmanTree();
+
+            // Build the Huffman tree
+            huffmanTree.Build(expected);
+
+            // Encode
+            var encoded = huffmanTree.Encode(expected);
+            
+            var encodedLength = encoded.Length / 8;
+            var percent = (100.0 * encodedLength) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encodedLength)} ({percent:0.0}%)");
+
+            /*Console.Write("Encoded: ");
+            foreach (bool bit in encoded)
+            {
+                Console.Write((bit ? 1 : 0) + "");
+            }
+            Console.WriteLine();*/
+
+            // Decode
+            var decoded = huffmanTree.Decode(encoded);
+            Console.WriteLine("Decoded: " + decoded);
+            
+            Assert.That(decoded, Is.EqualTo(Moby));
         }
 
         [Test]
