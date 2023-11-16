@@ -1441,7 +1441,7 @@ to be there when you fall.""";
         }
 
         [Test]
-        public void initial_BWST_checks()
+        public void BWST_transform_on_strings()
         {
             var input = Encoding.UTF8.GetBytes(Moby.Replace("\r\n","\n"));
             
@@ -1453,6 +1453,22 @@ to be there when you fall.""";
             
             var result = Bwst.ReverseTransform(output);
             Console.WriteLine(Encoding.UTF8.GetString(result));
+            Assert.That(result, Is.EqualTo(input));
+        }
+        
+        [Test, Explicit("incredibly slow. Not O(n log(n)) by a long shot.")]
+        public void BWST_transform_on_binary_data()
+        {
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var input = File.ReadAllBytes(path);
+            
+            var output = Bwst.ForwardTransform(input);
+            
+            Console.WriteLine(Encoding.UTF8.GetString(output));
+            
+            Console.WriteLine("\r\n------------------------------\r\n");
+            
+            var result = Bwst.ReverseTransform(output);
             Assert.That(result, Is.EqualTo(input));
         }
     }
