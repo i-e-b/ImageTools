@@ -1455,15 +1455,21 @@ to be there when you fall.""";
 
             // Equivalent deflate: 645b
             // Original: 1.11kb; Encoded: 639b (56.2%) <-- This does not include outputting probability preamble
-            
+            var sw = new Stopwatch();
             
             var huffmanTree = new HuffmanTree();
 
             // Build the Huffman tree
+            sw.Restart();
             huffmanTree.Build(expected);
+            sw.Stop();
+            Console.WriteLine($"Initialisation took {sw.Elapsed}");
 
             // Encode
+            sw.Restart();
             var encoded = huffmanTree.Encode(expected);
+            sw.Stop();
+            Console.WriteLine($"Encode took {sw.Elapsed}");
             
             var encodedLength = encoded.Length / 8;
             var percent = (100.0 * encodedLength) / expected.Length;
@@ -1477,7 +1483,10 @@ to be there when you fall.""";
             Console.WriteLine();*/
 
             // Decode
+            sw.Restart();
             var decoded = huffmanTree.Decode(encoded);
+            sw.Stop();
+            Console.WriteLine($"Decode took {sw.Elapsed}");
             Console.WriteLine("Decoded: " + decoded);
             
             Assert.That(decoded, Is.EqualTo(Moby));
@@ -1503,15 +1512,23 @@ to be there when you fall.""";
         [Test]
         public void BWST_transform_on_strings()
         {
+            var sw = new Stopwatch();
             var input = Encoding.UTF8.GetBytes(Moby.Replace("\r\n","\n"));
             
+            sw.Restart();
             var output = Bwst.ForwardTransform(input);
+            sw.Stop();
+            Console.WriteLine($"Bwst.ForwardTransform took {sw.Elapsed}");
             
             Console.WriteLine(Encoding.UTF8.GetString(output));
             
             Console.WriteLine("\r\n------------------------------\r\n");
             
+            sw.Restart();
             var result = Bwst.ReverseTransform(output);
+            sw.Stop();
+            Console.WriteLine($"Bwst.ReverseTransform took {sw.Elapsed}");
+            
             Console.WriteLine(Encoding.UTF8.GetString(result));
             Assert.That(result, Is.EqualTo(input));
         }
@@ -1519,16 +1536,25 @@ to be there when you fall.""";
         [Test, Explicit("incredibly slow. Not O(n log(n)) by a long shot.")]
         public void BWST_transform_on_binary_data()
         {
-            var path = @"C:\temp\LargeEspIdf.bin";
+            var sw = new Stopwatch();
+            //var path = @"C:\temp\LargeEspIdf.bin";
+            var path = @"C:\temp\BothAppAndService-Apps_storage.png";
             var input = File.ReadAllBytes(path);
             
-            var output = Bwst.ForwardTransform(input);
+            sw.Restart();
+            var output = Bwst.ForwardTransform(input); // nearly 14 minutes; Profile and fix this.
+            sw.Stop();
+            Console.WriteLine($"Bwst.ForwardTransform took {sw.Elapsed}");
             
             Console.WriteLine(Encoding.UTF8.GetString(output));
             
             Console.WriteLine("\r\n------------------------------\r\n");
             
-            var result = Bwst.ReverseTransform(output);
+            sw.Restart();
+            var result = Bwst.ReverseTransform(output); // about 3 seconds
+            sw.Stop();
+            Console.WriteLine($"Bwst.ReverseTransform took {sw.Elapsed}");
+
             Assert.That(result, Is.EqualTo(input));
         }
     }
