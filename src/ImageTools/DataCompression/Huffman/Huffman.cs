@@ -7,42 +7,42 @@ namespace ImageTools.DataCompression.Huffman
     public class HuffmanTree
     {
         private readonly List<Node> _nodes = new();
-        public Node Root { get; set; }
-        public Dictionary<char, int> Frequencies = new Dictionary<char, int>();
+        public Node? Root { get; set; }
+        public readonly Dictionary<char, int> Frequencies = new();
 
         public void Build(string source)
         {
-            for (int i = 0; i < source.Length; i++)
+            foreach (var c in source)
             {
-                if (!Frequencies.ContainsKey(source[i]))
+                if (!Frequencies.ContainsKey(c))
                 {
-                    Frequencies.Add(source[i], 0);
+                    Frequencies.Add(c, 0);
                 }
 
-                Frequencies[source[i]]++;
+                Frequencies[c]++;
             }
 
-            foreach (KeyValuePair<char, int> symbol in Frequencies)
+            foreach (var symbol in Frequencies)
             {
-                _nodes.Add(new Node() { Symbol = symbol.Key, Frequency = symbol.Value });
+                _nodes.Add(new Node { Symbol = symbol.Key, Frequency = symbol.Value });
             }
 
             while (_nodes.Count > 1)
             {
-                List<Node> orderedNodes = _nodes.OrderBy(node => node.Frequency).ToList<Node>();
+                var orderedNodes = _nodes.OrderBy(node => node.Frequency).ToList();
 
                 if (orderedNodes.Count >= 2)
                 {
                     // Take first two items
-                    List<Node> taken = orderedNodes.Take(2).ToList<Node>();
+                    var taken = orderedNodes.Take(2).ToList();
 
                     // Create a parent node by combining the frequencies
-                    Node parent = new Node()
+                    var parent = new Node
                     {
                         Symbol = '*',
-                        Frequency = taken[0].Frequency + taken[1].Frequency,
-                        Left = taken[0],
-                        Right = taken[1]
+                        Frequency = taken[0]!.Frequency + taken[1]!.Frequency,
+                        Left = taken[0]!,
+                        Right = taken[1]!
                     };
 
                     _nodes.Remove(taken[0]);
@@ -50,29 +50,30 @@ namespace ImageTools.DataCompression.Huffman
                     _nodes.Add(parent);
                 }
 
-                this.Root = _nodes.FirstOrDefault();
+                Root = _nodes.FirstOrDefault();
             }
         }
 
         public BitArray Encode(string source)
         {
-            List<bool> encodedSource = new List<bool>();
+            var encodedSource = new List<bool>();
 
-            for (int i = 0; i < source.Length; i++)
+            if (Root is null) return new BitArray(encodedSource.ToArray());
+            
+            foreach (var c in source)
             {
-                List<bool> encodedSymbol = this.Root.Traverse(source[i], new List<bool>());
-                encodedSource.AddRange(encodedSymbol);
+                var encodedSymbol = Root.Traverse(c, new List<bool>());
+                if (encodedSymbol is not null) encodedSource.AddRange(encodedSymbol);
             }
 
-            BitArray bits = new BitArray(encodedSource.ToArray());
-
-            return bits;
+            return new BitArray(encodedSource.ToArray());
         }
 
         public string Decode(BitArray bits)
         {
-            Node current = this.Root;
-            string decoded = "";
+            var decoded = "";
+            if (Root is null) return decoded;
+            var current = Root;
 
             foreach (bool bit in bits)
             {
@@ -94,16 +95,16 @@ namespace ImageTools.DataCompression.Huffman
                 if (IsLeaf(current))
                 {
                     decoded += current.Symbol;
-                    current = this.Root;
+                    current = Root;
                 }
             }
 
             return decoded;
         }
 
-        public bool IsLeaf(Node node)
+        public static bool IsLeaf(Node node)
         {
-            return (node.Left == null && node.Right == null);
+            return node.Left is null && node.Right is null;
         }
     }
 
@@ -111,54 +112,48 @@ namespace ImageTools.DataCompression.Huffman
     {
         public char Symbol { get; set; }
         public int Frequency { get; set; }
-        public Node Right { get; set; }
-        public Node Left { get; set; }
+        public Node? Right { get; set; }
+        public Node? Left { get; set; }
 
-        public List<bool> Traverse(char symbol, List<bool> data)
+        public List<bool>? Traverse(char symbol, List<bool> data)
         {
             // Leaf
             if (Right == null && Left == null)
             {
-                if (symbol.Equals(this.Symbol))
+                if (symbol.Equals(Symbol))
                 {
                     return data;
                 }
-                else
-                {
-                    return null;
-                }
+
+                return null;
             }
-            else
+
+            List<bool>? left = null;
+            List<bool>? right = null;
+
+            if (Left != null)
             {
-                List<bool> left = null;
-                List<bool> right = null;
+                var leftPath = new List<bool>();
+                leftPath.AddRange(data);
+                leftPath.Add(false);
 
-                if (Left != null)
-                {
-                    List<bool> leftPath = new List<bool>();
-                    leftPath.AddRange(data);
-                    leftPath.Add(false);
-
-                    left = Left.Traverse(symbol, leftPath);
-                }
-
-                if (Right != null)
-                {
-                    List<bool> rightPath = new List<bool>();
-                    rightPath.AddRange(data);
-                    rightPath.Add(true);
-                    right = Right.Traverse(symbol, rightPath);
-                }
-
-                if (left != null)
-                {
-                    return left;
-                }
-                else
-                {
-                    return right;
-                }
+                left = Left.Traverse(symbol, leftPath);
             }
+
+            if (Right != null)
+            {
+                var rightPath = new List<bool>();
+                rightPath.AddRange(data);
+                rightPath.Add(true);
+                right = Right.Traverse(symbol, rightPath);
+            }
+
+            if (left != null)
+            {
+                return left;
+            }
+
+            return right;
         }
     }
 }

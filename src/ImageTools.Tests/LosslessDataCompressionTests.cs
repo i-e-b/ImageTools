@@ -1391,8 +1391,8 @@ to be there when you fall.""";
         public void compress_firmware_lzjb()
         {
             // Equivalent deflate: 321.13kb (64.0%)
-            // Original: 503.48kb; Encoded: 438.68kb (87.1%)    <-- just the LZJB
-            // Original: 503.48kb; Encoded+AC: 383.31kb (76.1%) <-- plus basic AC
+            // Original: 499.23kb; Encoded: 424.56kb (85.0%)
+            // Original: 499.23kb; Encoded+AC: 371.55kb (74.4%)
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
             var encoded = new byte[expected.Length];
@@ -1419,7 +1419,8 @@ to be there when you fall.""";
         [Test]
         public void compress_firmware_hash_match()
         {
-            // Original: 503.48kb; Encoded: 455.64kb (90.5%)
+            // Equivalent deflate: 321.13kb (64.0%)
+            // Original: 499.23kb; Encoded: 441.91kb (88.5%)
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
             
@@ -1435,6 +1436,101 @@ to be there when you fall.""";
             var result = dst.ToArray();
 
             Assert.That(result, Is.EqualTo(expected).AsCollection);
+        }
+
+        [Test]
+        public void compress_firmware_rle()
+        {
+            // Equivalent deflate: 321.13kb (64.0%)
+            // Original: 499.23kb; Encoded: 483.22kb (96.8%)
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+            
+            var encoded = SimpleRle.Compress(expected);
+            var dst = SimpleRle.Decompress(encoded);
+            
+            var percent = (100.0 * encoded.Length) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            
+            var result = dst.ToArray();
+
+            Assert.That(result, Is.EqualTo(expected).AsCollection);
+        }
+        
+        [Test]
+        public void arithmetic_encoder_2_compress_firmware()
+        {
+            // Equivalent deflate: 321.13kb (64.0%)
+            // Original: 499.23kb; Encoded: 370.85kb (74.3%) <-- with checksums, Markov2D_v2(256, 4)
+            var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 4));
+            
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(expected);
+            
+            subject.CompressStream(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            var ok = subject.DecompressStream(encoded, dst);
+            
+            dst.Seek(0, SeekOrigin.Begin);
+            var actual = dst.ToArray();
+            
+            var percent = (100.0 * encoded.Length) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            
+            Assert.That(actual, Is.EqualTo(expected).AsCollection);
+            Assert.That(ok, "Stream was truncated, but should not have been");
+        }
+        
+        [Test]
+        public void arithmetic_encoder_2_round_trip()
+        {
+            var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 4));
+            
+            var expected = Moby;
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
+            
+            subject.CompressStream(src, encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            var ok = subject.DecompressStream(encoded, dst);
+            
+            dst.Seek(0, SeekOrigin.Begin);
+            var actual = Encoding.UTF8.GetString(dst.ToArray());
+            
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Compressed: {Bin.Human(encoded.Length)}; Expanded: {Bin.Human(dst.Length)}");
+            Console.WriteLine(actual);
+            
+            Assert.That(actual, Is.EqualTo(expected));
+            Assert.That(ok, "Stream was truncated, but should not have been");
+        }
+
+        [Test]
+        public void firmware_histogram_check()
+        {
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+            
+            var histogram = new int[16];
+            var total = 0.0;
+            foreach (var b in expected)
+            {
+                var upper = (b >> 4) & 0x0F;
+                var lower = b & 0x0F;
+                total += 2.0;
+                
+                histogram[upper]++;
+                histogram[lower]++;
+            }
+
+            for (int i = 0; i < histogram.Length; i++)
+            {
+                var percent = (histogram[i]*100.0) / total;
+                Console.WriteLine($" {i:X}: {histogram[i]} ({percent}%)");
+            }
         }
 
         [Test]

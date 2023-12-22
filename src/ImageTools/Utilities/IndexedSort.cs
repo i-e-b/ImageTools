@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace ImageTools.DataCompression.Experimental
+namespace ImageTools.Utilities
 {
     public class IndexedSort
     {

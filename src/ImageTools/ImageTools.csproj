@@ -49,14 +49,15 @@
     <Compile Include="CubicScale.cs" />
     <Compile Include="DataCompression\ArithmeticEncoding\ArithmeticEncode.cs" />
     <Compile Include="DataCompression\ArithmeticEncoding\ProbabilityModels.cs" />
+    <Compile Include="DataCompression\Experimental\ArithmeticEncoder2.cs" />
     <Compile Include="DataCompression\Experimental\BinaryFolding.cs" />
     <Compile Include="DataCompression\Experimental\BWST.cs" />
     <Compile Include="DataCompression\Experimental\DumbTree.cs" />
     <Compile Include="DataCompression\Experimental\FenwickTree.cs" />
-    <Compile Include="DataCompression\Experimental\IndexedSort.cs" />
     <Compile Include="DataCompression\Experimental\LZAC.cs" />
     <Compile Include="DataCompression\Experimental\NybbleEncoder.cs" />
     <Compile Include="DataCompression\Experimental\PushToFrontEncoder.cs" />
+    <Compile Include="DataCompression\Experimental\SimpleRLE.cs" />
     <Compile Include="DataCompression\Experimental\SplitTree.cs" />
     <Compile Include="DataCompression\Experimental\SumTree.cs" />
     <Compile Include="DataCompression\Experimental\TruncatableEncoder.cs" />
@@ -92,6 +93,7 @@
     <Compile Include="TextureRendering\PerspectiveScanline.cs" />
     <Compile Include="Utilities\BitmapTools.cs" />
     <Compile Include="Blur.cs" />
+    <Compile Include="Utilities\IndexedSort.cs" />
     <Compile Include="WaveletTransforms\CDF.cs" />
     <Compile Include="ColorCellEncoding.cs" />
     <Compile Include="WaveletCompress.cs" />
