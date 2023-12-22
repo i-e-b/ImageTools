@@ -1460,9 +1460,13 @@ to be there when you fall.""";
         [Test]
         public void arithmetic_encoder_2_compress_firmware()
         {
-            // Equivalent deflate: 321.13kb (64.0%)
-            // Original: 499.23kb; Encoded: 370.85kb (74.3%) <-- with checksums, Markov2D_v2(256, 4)
-            var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 4));
+            // Equivalent deflate: 321.13kb (64.0%) <-- old
+            // Equivalent deflate: 307.28kb (61.6%) <-- new
+            //
+            // Original: 499.23kb; Encoded: 369.79kb (74.1%) <-- Markov2D_v2(256, 1)
+            // Original: 499.23kb; Encoded: 367.72kb (73.7%) <-- Markov2D_v2(256, 2)
+            // Original: 499.23kb; Encoded: 367.89kb (73.7%) <-- Markov2D_v2(256, 4)
+            // Original: 499.23kb; Encoded: 437.15kb (87.6%) <-- BytePreScanModel
             
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
@@ -1470,9 +1474,41 @@ to be there when you fall.""";
             var dst = new MemoryStream();
             var src = new MemoryStream(expected);
             
-            subject.CompressStream(src, encoded);
+            var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
+            
+            subject.CompressStream(new ByteSymbolStream(src), encoded);
             encoded.Seek(0, SeekOrigin.Begin);
-            var ok = subject.DecompressStream(encoded, dst);
+            var ok = subject.DecompressStream(encoded, new ByteSymbolStream(dst));
+            
+            dst.Seek(0, SeekOrigin.Begin);
+            var actual = dst.ToArray();
+            
+            var percent = (100.0 * encoded.Length) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            
+            Assert.That(actual, Is.EqualTo(expected).AsCollection);
+            Assert.That(ok, "Stream was truncated, but should not have been");
+        }
+        
+        [Test]
+        public void arithmetic_encoder_2_compress_firmware_nybble_pre_scan()
+        {
+            // Equivalent deflate: 321.13kb (64.0%)
+            // Original: 499.23kb; Encoded: 456.93kb (91.5%) <-- NybblePreScanModel
+            // Original: 499.23kb; Encoded: 438.92kb (87.9%) <-- Markov2D_v2(16, 2)
+            // Original: 499.23kb; Encoded: 438.92kb (87.9%) <-- Markov2D_v2(16, 4)
+            // Original: 499.23kb; Encoded: 438.94kb (87.9%) <-- Markov2D_v2(16, 8)
+            
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(expected);
+            
+            var subject = new ArithmeticEncoder2(new Markov2D_v2(16, 2));
+            subject.CompressStream(new NybbleSymbolStream(src), encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            var ok = subject.DecompressStream(encoded, new NybbleSymbolStream(dst));
             
             dst.Seek(0, SeekOrigin.Begin);
             var actual = dst.ToArray();
@@ -1494,9 +1530,9 @@ to be there when you fall.""";
             var dst = new MemoryStream();
             var src = new MemoryStream(Encoding.UTF8.GetBytes(expected));
             
-            subject.CompressStream(src, encoded);
+            subject.CompressStream(new ByteSymbolStream(src), encoded);
             encoded.Seek(0, SeekOrigin.Begin);
-            var ok = subject.DecompressStream(encoded, dst);
+            var ok = subject.DecompressStream(encoded, new ByteSymbolStream(dst));
             
             dst.Seek(0, SeekOrigin.Begin);
             var actual = Encoding.UTF8.GetString(dst.ToArray());

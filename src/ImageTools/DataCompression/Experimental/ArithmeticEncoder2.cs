@@ -13,17 +13,14 @@ namespace ImageTools.DataCompression.Experimental
     public class ArithmeticEncoder2
     {
         // Arithmetic encoder values
-        public const int BIT_SIZE = sizeof(long) * 8;
-        public const int CODE_VALUE_BITS = BIT_SIZE / 2;
-        public const int FREQUENCY_BITS = BIT_SIZE - CODE_VALUE_BITS;
-        public const ulong MAX_CODE = (1ul << CODE_VALUE_BITS) - 1;
-        public const ulong MAX_FREQ = (1ul << FREQUENCY_BITS) - 1;
-        public const ulong ONE_QUARTER = 1ul << (CODE_VALUE_BITS - 2);
-        public const ulong ONE_HALF = 2 * ONE_QUARTER;
-        public const ulong THREE_QUARTERS = 3 * ONE_QUARTER;
-
-        // Checksum block values
-        private const int CHECKSUM_BLOCK_SIZE = 256; // insert a checksum symbol after this many symbols
+        private const int BIT_SIZE = sizeof(long) * 8;
+        private const int CODE_VALUE_BITS = BIT_SIZE / 2;
+        private const int FREQUENCY_BITS = BIT_SIZE - CODE_VALUE_BITS;
+        private const ulong MAX_CODE = (1ul << CODE_VALUE_BITS) - 1;
+        private const ulong MAX_FREQ = (1ul << FREQUENCY_BITS) - 1;
+        private const ulong ONE_QUARTER = 1ul << (CODE_VALUE_BITS - 2);
+        private const ulong ONE_HALF = 2 * ONE_QUARTER;
+        private const ulong THREE_QUARTERS = 3 * ONE_QUARTER;
 
         // 2nd order probability model:
         private readonly IProbabilityModel2 _model;
@@ -41,20 +38,16 @@ namespace ImageTools.DataCompression.Experimental
         /// <summary>
         /// Decode a stream to a target. Returns true if the end symbol was found, false if the stream was truncated
         /// </summary>
-        public bool DecompressStream(Stream source, Stream destination) {
+        public bool DecompressStream(Stream source, ISymbolStream destination) {
             if (source == null || source.CanRead == false) throw new Exception("Invalid input stream passed to encoder");
-            if (destination == null || destination.CanWrite == false) throw new Exception("Invalid output stream passed to encoder");
+            if (destination == null) throw new Exception("Invalid output stream passed to encoder");
             ResetModel();
 
             var src = new BitwiseStreamWrapper(source, BIT_SIZE * 2);
-            var buffer = new byte[CHECKSUM_BLOCK_SIZE + 2];
 
             ulong high = MAX_CODE;
             ulong low = 0;
             ulong value = 0;
-            var blockCount = 0;
-            var checksum = 0;
-            var ready = 0;
 
             // prime probability
             for ( int i = 0 ; i < CODE_VALUE_BITS ; i++ ) {
@@ -72,24 +65,7 @@ namespace ImageTools.DataCompression.Experimental
                 if (p.terminates) break;
                 var symbol = p.symbol;
 
-                // Do check-block work
-                blockCount++;
-                if (blockCount > CHECKSUM_BLOCK_SIZE) { // this is a checksum
-                    var expected = checksum & 0xff;
-                    if (symbol == expected) { // checksum is OK. Write buffer out
-                        destination.Write(buffer, 0, ready);
-                    } else { // truncation (we shouldn't write buffer)
-                        return false;
-                    }
-
-                    // reset counts
-                    blockCount = 0; checksum = 0; ready = 0;
-                } else {
-                    // this is a data symbol
-                    buffer[ready++] = (byte)symbol; // delay writing until checksum
-                    checksum += symbol;
-                }
-
+                destination.WriteSymbol(symbol);
 
                 // Decode next symbol probability
                 high = low + (range * p.high) / p.count - 1;
@@ -119,12 +95,11 @@ namespace ImageTools.DataCompression.Experimental
                 } // end of symbol decoding loop
             } // end of data loop
             
-            destination.Write(buffer, 0, ready); // this didn't get check-summed, but we hit the end-symbol ok.
             destination.Flush();
             return true;
         }
 
-        public void CompressStream(Stream source, Stream destination)
+        public void CompressStream(ISymbolStream source, Stream destination)
         {
             if (source == null) throw new Exception("Invalid input stream passed to encoder");
             if (destination == null || destination.CanWrite == false) throw new Exception("Invalid output stream passed to encoder");
@@ -135,35 +110,22 @@ namespace ImageTools.DataCompression.Experimental
             ulong high = MAX_CODE;
             ulong low = 0;
             int pending_bits = 0;
-            var blockCount = 0;
-            var checksum = 0;
             var moreData = true;
 
             while (moreData) // data loop
             {
-                int c;
-
                 SymbolProbability p;
-                if (blockCount >= CHECKSUM_BLOCK_SIZE) {
-                    // encode a check symbol
-                    blockCount = 0;
-                    c = checksum & 0xff;
-                    checksum = 0;
+                
+                // encode an input symbol
+                var c = source.ReadSymbol();
+                if (c < 0) // end of data, write termination
+                {
+                    moreData = false;
+                    p = EncodeSymbol(_model.EndSymbol());
+                }
+                else // normal data
+                {
                     p = EncodeSymbol(c);
-                } else {
-                    // encode an input symbol
-                    c = source.ReadByte();
-                    if (c < 0) // end of data, write termination
-                    {
-                        moreData = false;
-                        p = EncodeSymbol(_model.EndSymbol());
-                    }
-                    else // normal data
-                    {
-                        p = EncodeSymbol(c);
-                        checksum += c;
-                        blockCount++;
-                    }
                 }
 
                 // convert symbol to probability
@@ -252,6 +214,110 @@ namespace ImageTools.DataCompression.Experimental
     }
 
     /// <summary>
+    /// Interface for receiving or providing uncompressed symbols
+    /// </summary>
+    public interface ISymbolStream
+    {
+        /// <summary>
+        /// Write a decoded symbol into the stream
+        /// </summary>
+        void WriteSymbol(int symbol);
+        
+        /// <summary>
+        /// Decoding is complete
+        /// </summary>
+        void Flush();
+        
+        /// <summary>
+        /// Read a symbol from the stream.
+        /// Valid symbols must be zero or positive.
+        /// Negative values are interpreted as end-of-stream
+        /// </summary>
+        int ReadSymbol();
+    }
+
+    /// <summary>
+    /// Byte-symbol access over a dotnet Stream
+    /// </summary>
+    public class ByteSymbolStream : ISymbolStream
+    {
+        private readonly Stream _stream;
+
+        public ByteSymbolStream(Stream stream)
+        {
+            _stream = stream;
+        }
+        
+        public void WriteSymbol(int symbol)
+        {
+            _stream.WriteByte((byte)symbol);
+        }
+
+        public void Flush()
+        {
+            _stream.Flush();
+        }
+
+        public int ReadSymbol()
+        {
+            return _stream.ReadByte();
+        }
+    }
+    
+    /// <summary>
+    /// 4-bit access over a dotnet Stream
+    /// </summary>
+    public class  NybbleSymbolStream : ISymbolStream
+    {
+        private readonly Stream _stream;
+        private byte _half;
+        private bool _flick;
+
+        public NybbleSymbolStream(Stream stream)
+        {
+            _flick = false;
+            _stream = stream;
+        }
+        
+        public void WriteSymbol(int symbol)
+        {
+            if (_flick)
+            {
+                var v = (_half & 0x0F) | ((symbol & 0x0F) << 4);
+                _stream.WriteByte((byte)v);
+                _flick = false;
+            }
+            else
+            {
+                _half = (byte)(symbol & 0x0F);
+                _flick = true;
+            }
+        }
+
+        public void Flush()
+        {
+            _stream.Flush();
+        }
+
+        public int ReadSymbol()
+        {
+            if (_flick)
+            {
+                _flick = false;
+                return _half;
+            }
+            else
+            {
+                var v = _stream.ReadByte();
+                if (v < 0) return -1;
+                _half = (byte)(v >> 4);
+                _flick = true;
+                return (v & 0x0F);
+            }
+        }
+    }
+
+    /// <summary>
     /// Model for ArithmeticEncoder2
     /// </summary>
     public interface IProbabilityModel2
@@ -277,6 +343,116 @@ namespace ImageTools.DataCompression.Experimental
         int EndSymbol();
     }
 
+    /// <summary>
+    /// 4-bit symbol model, with prefix probability table
+    /// </summary>
+    public class NybblePreScanModel : IProbabilityModel2
+    {
+        private FenwickTree _tree;
+        private readonly int[] _histogram;
+
+        /// <summary>
+        /// Scan source data, and output probability tables to the destination stream.
+        /// Probabilities add 16 bytes
+        /// </summary>
+        public NybblePreScanModel(byte[] src, MemoryStream dst)
+        {
+            _tree = new FenwickTree(18, 17);
+            _histogram = new int[16];
+            foreach (var b in src)
+            {
+                var upper = (b >> 4) & 0x0F;
+                var lower = b & 0x0F;
+                
+                _histogram[upper]++;
+                _histogram[lower]++;
+            }
+            
+            // TODO: actual stuff
+        }
+
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            // Nothing. Is a fixed model
+        }
+
+        public ISumTree SymbolProbability(int symbol)
+        {
+            return _tree;
+        }
+
+        public void Reset()
+        {
+            _tree = new FenwickTree(18, 17);
+            for (int i = 0; i < _histogram.Length; i++)
+            {
+                var val = _histogram[i];
+                if (val < 1) val = 1;
+                _tree.IncrementSymbol(i, (ulong)val );
+            }
+        }
+
+        public int EndSymbol()
+        {
+            return 17;
+        }
+    }
+
+    
+    /// <summary>
+    /// 4-bit symbol model, with prefix probability table
+    /// </summary>
+    public class BytePreScanModel : IProbabilityModel2
+    {
+        private FenwickTree _tree;
+        private readonly int[] _histogram;
+
+        /// <summary>
+        /// Scan source data, and output probability tables to the destination stream.
+        /// Probabilities add 16 bytes
+        /// </summary>
+        public BytePreScanModel(byte[] src, MemoryStream dst)
+        {
+            _tree = new FenwickTree(258, 257);
+            _histogram = new int[256];
+            foreach (var b in src)
+            {
+                _histogram[b]++;
+            }
+            
+            // TODO: actual stuff
+        }
+
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            // Nothing. Is a fixed model
+        }
+
+        public ISumTree SymbolProbability(int symbol)
+        {
+            return _tree;
+        }
+
+        public void Reset()
+        {
+            _tree = new FenwickTree(258, 257);
+            for (int i = 0; i < _histogram.Length; i++)
+            {
+                var val = _histogram[i];
+                if (val < 1) val = 1;
+                _tree.IncrementSymbol(i, (ulong)val );
+            }
+        }
+
+        public int EndSymbol()
+        {
+            return 257;
+        }
+    }
+    
+    /// <summary>
+    /// 2-stage byte-wise Markov chain
+    /// </summary>
     public class Markov2D_v2: IProbabilityModel2
     {
         private readonly int _aggressiveness;
@@ -324,8 +500,6 @@ namespace ImageTools.DataCompression.Experimental
                 _map[i] = new FenwickTree(_countEntry, _endSymbol);
 
             }
-            // Assume runs of zeros
-            _map[0].IncrementSymbol(0, 1000);
         }
 
         public int EndSymbol()
@@ -333,4 +507,5 @@ namespace ImageTools.DataCompression.Experimental
             return _endSymbol;
         }
     }
+    
 }

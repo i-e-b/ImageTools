@@ -27,7 +27,6 @@ namespace ImageTools.DataCompression.Experimental
             }
         }
 
-
         public SymbolProbability FindSymbol(ulong scaledValue)
         {
             // Check range
