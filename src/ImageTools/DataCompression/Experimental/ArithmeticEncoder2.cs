@@ -356,7 +356,7 @@ namespace ImageTools.DataCompression.Experimental
 
         public FlatModel_v2(int symbolCount)
         {
-            _endSymbol = symbolCount + 1;
+            _endSymbol = symbolCount;
             _countEntry = _endSymbol + 1;
             
             _map = new FenwickTree(_countEntry, _endSymbol);
@@ -396,7 +396,7 @@ namespace ImageTools.DataCompression.Experimental
 
         public SimpleLearningModel_v2(int symbolCount, int aggressiveness)
         {
-            _endSymbol = symbolCount + 1;
+            _endSymbol = symbolCount;
             _countEntry = _endSymbol + 1;
             
             _frozen = false;
@@ -503,7 +503,7 @@ namespace ImageTools.DataCompression.Experimental
         /// </summary>
         public BytePreScanModel(byte[] src, MemoryStream dst)
         {
-            _tree = new FenwickTree(258, 257);
+            _tree = new FenwickTree(257, 256);
             _histogram = new int[256];
             foreach (var b in src)
             {
@@ -525,7 +525,7 @@ namespace ImageTools.DataCompression.Experimental
 
         public void Reset()
         {
-            _tree = new FenwickTree(258, 257);
+            _tree = new FenwickTree(257, 256);
             for (int i = 0; i < _histogram.Length; i++)
             {
                 var val = _histogram[i];
@@ -536,7 +536,7 @@ namespace ImageTools.DataCompression.Experimental
 
         public int EndSymbol()
         {
-            return 257;
+            return 256;
         }
     }
     
@@ -555,7 +555,7 @@ namespace ImageTools.DataCompression.Experimental
 
         public Markov2D_v2(int symbolCount, int aggressiveness)
         {
-            _endSymbol = symbolCount + 1;
+            _endSymbol = symbolCount; // assuming symbols are dense, and start at zero
             _countEntry = _endSymbol + 1;
             _mapSize = _countEntry + 1;
             
@@ -570,6 +570,7 @@ namespace ImageTools.DataCompression.Experimental
 
             var prob = _map[prev];
             if (prob.Total() > max) {
+                Console.WriteLine($"Saturated leading symbol {prev:X2}");
                 _frozen[prev] = true;
                 return;
             }

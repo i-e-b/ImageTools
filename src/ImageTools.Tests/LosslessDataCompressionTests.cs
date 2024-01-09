@@ -1392,7 +1392,7 @@ to be there when you fall.""";
         {
             // Equivalent deflate: 307.28kb (61.6%)
             // Original: 499.23kb; Encoded: 424.56kb (85.0%)
-            // Original: 499.23kb; Encoded+AC: 361.01kb (72.3%)
+            // Original: 499.23kb; Encoded+AC: 360.96kb (72.3%)
             
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
@@ -1468,12 +1468,12 @@ to be there when you fall.""";
             // Equivalent deflate: 321.13kb (64.0%) <-- old
             // Equivalent deflate: 307.28kb (61.6%) <-- new
             //
-            // Original: 499.23kb; Encoded: 369.79kb (74.1%)  <-- Markov2D_v2(256, 1)
-            // Original: 499.23kb; Encoded: 367.72kb (73.7%)  <-- Markov2D_v2(256, 2)
-            // Original: 499.23kb; Encoded: 367.89kb (73.7%)  <-- Markov2D_v2(256, 4)
+            // Original: 499.23kb; Encoded: 369.71kb (74.1%)  <-- Markov2D_v2(256, 1)
+            // Original: 499.23kb; Encoded: 367.67kb (73.6%)  <-- Markov2D_v2(256, 2)
+            // Original: 499.23kb; Encoded: 367.86kb (73.7%)  <-- Markov2D_v2(256, 4)
             // Original: 499.23kb; Encoded: 437.15kb (87.6%)  <-- BytePreScanModel, no preamble
             // Original: 499.23kb; Encoded: 437.35kb (87.6%)  <-- SimpleLearningModel_v2(256,2)
-            // Original: 499.23kb; Encoded: 499.94kb (100.1%) <-- FlatModel_v2(256)
+            // Original: 499.23kb; Encoded: 499.59kb (100.1%) <-- FlatModel_v2(256)
             
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
@@ -1501,11 +1501,83 @@ to be there when you fall.""";
         }
         
         [Test]
+        public void arithmetic_encoder_2_compress_firmware_with_index_push_to_front()
+        {
+            // Equivalent deflate: 307.28kb (61.6%)
+            // Original: 499.23kb; Encoded: 422.78kb (84.7%) <-- Markov2D_v2(256, 2)
+            // Original: 499.23kb; Encoded: 421.16kb (84.4%) <-- SimpleLearningModel_v2(256, 2)
+            // Original: 499.23kb; Encoded: 420.97kb (84.3%) <-- BytePreScanModel
+            
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            
+            
+            var ptf = IndexPushToFront.Transform(expected);
+            var src = new MemoryStream(ptf);
+            
+            //var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
+            //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(256, 2));
+            var subject = new ArithmeticEncoder2(new BytePreScanModel(ptf, dst));
+            
+            subject.CompressStream(new ByteSymbolStream(src), encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            var ok = subject.DecompressStream(encoded, new ByteSymbolStream(dst));
+            
+            dst.Seek(0, SeekOrigin.Begin);
+            var actual = dst.ToArray();
+            
+            var percent = (100.0 * encoded.Length) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            
+            Assert.That(actual, Is.EqualTo(expected).AsCollection);
+            Assert.That(ok, "Stream was truncated, but should not have been");
+        }
+        
+        [Test]
+        public void arithmetic_encoder_2_compress_firmware_with_fibonacci_push_to_front()
+        {
+            // Equivalent deflate: 307.28kb (61.6%)
+            // Original: 499.23kb; Encoded: 425.95kb (85.3%) <-- Markov2D_v2(256, 2)
+            // Original: 499.23kb; Encoded: 445.11kb (89.2%) <-- SimpleLearningModel_v2(256, 2)
+            
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+            var src = new MemoryStream(expected);
+            var encoded = new MemoryStream();
+            var ptf = new MemoryStream();
+            var dst = new MemoryStream();
+            var final = new MemoryStream();
+
+            PushToFrontEncoder.Compress(src, ptf);
+            ptf.Seek(0, SeekOrigin.Begin);
+            
+            var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
+            //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(256, 2));
+            
+            subject.CompressStream(new ByteSymbolStream(ptf), encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            var ok = subject.DecompressStream(encoded, new ByteSymbolStream(dst));
+            
+            dst.Seek(0, SeekOrigin.Begin);
+            PushToFrontEncoder.Decompress(dst, final);
+            final.Seek(0, SeekOrigin.Begin);
+            var actual = final.ToArray();
+            
+            var percent = (100.0 * encoded.Length) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            
+            Assert.That(actual, Is.EqualTo(expected).AsCollection);
+            Assert.That(ok, "Stream was truncated, but should not have been");
+        }
+        
+        [Test]
         public void arithmetic_encoder_2_compress_firmware_nybble_pre_scan()
         {
             // Equivalent deflate: 321.13kb (64.0%)
             // Original: 499.23kb; Encoded: 456.93kb (91.5%) <-- NybblePreScanModel
-            // Original: 499.23kb; Encoded: 438.92kb (87.9%) <-- Markov2D_v2(16, 2)
+            // Original: 499.23kb; Encoded: 438.90kb (87.9%) <-- Markov2D_v2(16, 2)
             // Original: 499.23kb; Encoded: 438.92kb (87.9%) <-- Markov2D_v2(16, 4)
             // Original: 499.23kb; Encoded: 438.94kb (87.9%) <-- Markov2D_v2(16, 8)
             

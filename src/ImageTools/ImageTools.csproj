@@ -56,6 +56,7 @@
     <Compile Include="DataCompression\Experimental\FenwickTree.cs" />
     <Compile Include="DataCompression\Experimental\LZAC.cs" />
     <Compile Include="DataCompression\Experimental\NybbleEncoder.cs" />
+    <Compile Include="DataCompression\Experimental\IndexPushToFront.cs" />
     <Compile Include="DataCompression\Experimental\PushToFrontEncoder.cs" />
     <Compile Include="DataCompression\Experimental\SimpleRLE.cs" />
     <Compile Include="DataCompression\Experimental\SplitTree.cs" />
