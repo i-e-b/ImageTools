@@ -1017,7 +1017,6 @@ to be there when you fall.""";
             }
         }
 
-        
         [Test, Explicit("This is currently impractically slow, and faulty")]
         public void compress_wavelet_image_with_LZW_and_AC () {
             // playing with simple dictionary coding
@@ -1243,22 +1242,6 @@ to be there when you fall.""";
         
         [Test]
         public void compress_firmware_image_ac () {
-            var path = @"C:\temp\LargeEspIdf.bin";
-            var expected = File.ReadAllBytes(path);
-
-            var encoded = new MemoryStream();
-            var dst = new MemoryStream();
-            var src = new MemoryStream(expected);
-
-            src.Seek(0, SeekOrigin.Begin);
-            var test = new MemoryStream();
-            using (var gz =  new DeflateStream(test, CompressionLevel.Optimal, true)) {
-                var bytes = expected;
-                gz.Write(bytes,0,bytes.Length);
-                gz.Flush();
-            }
-            var percentDeflate = (100.0 * test.Length) / src.Length;
-            Console.WriteLine($"Equivalent deflate: {Bin.Human(test.Length)} ({percentDeflate:0.0}%)");
             // Equivalent deflate:             307.28kb (61.6%)
             // LearningMarkov_2D:     Encoded: 377.64kb (75.3%) bin v2 -> Original: 499.23kb; Encoded: 367.67kb (73.6%)
             // LearningMarkov_2DHn=2: Encoded: 377.64kb (75.3%)
@@ -1277,6 +1260,23 @@ to be there when you fall.""";
             
             // Simple (gain)
             // 1=(88.4%); 2=(88.4%); 4=(88.4%); 8=(88.4%); 16=(88.4%); 32=(88.4%)
+            
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(expected);
+
+            src.Seek(0, SeekOrigin.Begin);
+            var test = new MemoryStream();
+            using (var gz =  new DeflateStream(test, CompressionLevel.Optimal, true)) {
+                var bytes = expected;
+                gz.Write(bytes,0,bytes.Length);
+                gz.Flush();
+            }
+            var percentDeflate = (100.0 * test.Length) / src.Length;
+            Console.WriteLine($"Equivalent deflate: {Bin.Human(test.Length)} ({percentDeflate:0.0}%)");
             
             src.Seek(0, SeekOrigin.Begin);
             //var model = new ProbabilityModels.PushToFrontModel(3);
@@ -1390,9 +1390,10 @@ to be there when you fall.""";
         [Test]
         public void compress_firmware_lzjb()
         {
-            // Equivalent deflate: 321.13kb (64.0%)
+            // Equivalent deflate: 307.28kb (61.6%)
             // Original: 499.23kb; Encoded: 424.56kb (85.0%)
-            // Original: 499.23kb; Encoded+AC: 371.55kb (74.4%)
+            // Original: 499.23kb; Encoded+AC: 361.01kb (72.3%)
+            
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
             var encoded = new byte[expected.Length];
@@ -1404,9 +1405,13 @@ to be there when you fall.""";
             Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(compressLength)} ({percent:0.0}%)");
             
             
-            var acSrc = new MemoryStream(expected);
+            var acSrc = new MemoryStream(encoded, 0, compressLength);
             var acDst = new MemoryStream();
-            new TruncatableEncoder().CompressStream(acSrc, acDst);
+            
+            var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
+            
+            subject.CompressStream(new ByteSymbolStream(acSrc), acDst);
+            
             percent = (100.0 * acDst.Length) / expected.Length;
             Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded+AC: {Bin.Human(acDst.Length)} ({percent:0.0}%)");
 
@@ -1463,10 +1468,12 @@ to be there when you fall.""";
             // Equivalent deflate: 321.13kb (64.0%) <-- old
             // Equivalent deflate: 307.28kb (61.6%) <-- new
             //
-            // Original: 499.23kb; Encoded: 369.79kb (74.1%) <-- Markov2D_v2(256, 1)
-            // Original: 499.23kb; Encoded: 367.72kb (73.7%) <-- Markov2D_v2(256, 2)
-            // Original: 499.23kb; Encoded: 367.89kb (73.7%) <-- Markov2D_v2(256, 4)
-            // Original: 499.23kb; Encoded: 437.15kb (87.6%) <-- BytePreScanModel
+            // Original: 499.23kb; Encoded: 369.79kb (74.1%)  <-- Markov2D_v2(256, 1)
+            // Original: 499.23kb; Encoded: 367.72kb (73.7%)  <-- Markov2D_v2(256, 2)
+            // Original: 499.23kb; Encoded: 367.89kb (73.7%)  <-- Markov2D_v2(256, 4)
+            // Original: 499.23kb; Encoded: 437.15kb (87.6%)  <-- BytePreScanModel, no preamble
+            // Original: 499.23kb; Encoded: 437.35kb (87.6%)  <-- SimpleLearningModel_v2(256,2)
+            // Original: 499.23kb; Encoded: 499.94kb (100.1%) <-- FlatModel_v2(256)
             
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
@@ -1475,6 +1482,9 @@ to be there when you fall.""";
             var src = new MemoryStream(expected);
             
             var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
+            //var subject = new ArithmeticEncoder2(new FlatModel_v2(256));
+            //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(256, 2));
+            //var subject = new ArithmeticEncoder2(new BytePreScanModel(expected, dst));
             
             subject.CompressStream(new ByteSymbolStream(src), encoded);
             encoded.Seek(0, SeekOrigin.Begin);
@@ -1589,7 +1599,7 @@ to be there when you fall.""";
             // Original: 1.11kb; Encoded: 639b (56.2%) <-- This does not include outputting probability preamble
             var sw = new Stopwatch();
             
-            var huffmanTree = new HuffmanTree();
+            var huffmanTree = new StringHuffmanTree();
 
             // Build the Huffman tree
             sw.Restart();
@@ -1622,6 +1632,44 @@ to be there when you fall.""";
             Console.WriteLine("Decoded: " + decoded);
             
             Assert.That(decoded, Is.EqualTo(Moby));
+        }
+        
+        [Test]
+        public void huffman_encoding_firmware()
+        {
+            // Equivalent deflate: 307.28kb (61.6%)
+            // Original: 499.23kb; Encoded: 438.68kb (87.9%) <-- and it's also slow to encode
+            
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+
+            var sw = new Stopwatch();
+            
+            var huffmanTree = new ByteHuffmanTree();
+
+            // Build the Huffman tree
+            sw.Restart();
+            huffmanTree.Build(expected);
+            sw.Stop();
+            Console.WriteLine($"Initialisation took {sw.Elapsed}");
+
+            // Encode
+            sw.Restart();
+            var encoded = huffmanTree.Encode(expected);
+            sw.Stop();
+            Console.WriteLine($"Encode took {sw.Elapsed}");
+            
+            var encodedLength = encoded.Length / 8;
+            var percent = (100.0 * encodedLength) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encodedLength)} ({percent:0.0}%)");
+
+            // Decode
+            sw.Restart();
+            var decoded = huffmanTree.Decode(encoded);
+            sw.Stop();
+            Console.WriteLine($"Decode took {sw.Elapsed}");
+            
+            Assert.That(decoded, Is.EqualTo(expected).AsCollection);
         }
 
         [Test]

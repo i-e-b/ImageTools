@@ -4,22 +4,22 @@ using System.Linq;
 
 namespace ImageTools.DataCompression.Huffman
 {
-    public class HuffmanTree
+    public class ByteHuffmanTree
     {
         private readonly List<Node> _nodes = new();
         public Node? Root { get; set; }
-        public readonly Dictionary<char, int> Frequencies = new();
+        public readonly Dictionary<byte, int> Frequencies = new();
 
-        public void Build(string source)
+        public void Build(byte[] source)
         {
-            foreach (var c in source)
+            foreach (var b in source)
             {
-                if (!Frequencies.ContainsKey(c))
+                if (!Frequencies.ContainsKey(b))
                 {
-                    Frequencies.Add(c, 0);
+                    Frequencies.Add(b, 0);
                 }
 
-                Frequencies[c]++;
+                Frequencies[b]++;
             }
 
             foreach (var symbol in Frequencies)
@@ -39,7 +39,7 @@ namespace ImageTools.DataCompression.Huffman
                     // Create a parent node by combining the frequencies
                     var parent = new Node
                     {
-                        Symbol = '*',
+                        Symbol = 0x7F,
                         Frequency = taken[0]!.Frequency + taken[1]!.Frequency,
                         Left = taken[0]!,
                         Right = taken[1]!
@@ -54,7 +54,7 @@ namespace ImageTools.DataCompression.Huffman
             }
         }
 
-        public BitArray Encode(string source)
+        public BitArray Encode(byte[] source)
         {
             var encodedSource = new List<bool>();
 
@@ -69,10 +69,10 @@ namespace ImageTools.DataCompression.Huffman
             return new BitArray(encodedSource.ToArray());
         }
 
-        public string Decode(BitArray bits)
+        public byte[] Decode(BitArray bits)
         {
-            var decoded = "";
-            if (Root is null) return decoded;
+            var decoded = new List<byte>();
+            if (Root is null) return decoded.ToArray();
             var current = Root;
 
             foreach (bool bit in bits)
@@ -94,66 +94,66 @@ namespace ImageTools.DataCompression.Huffman
 
                 if (IsLeaf(current))
                 {
-                    decoded += current.Symbol;
+                    decoded.Add(current.Symbol);
                     current = Root;
                 }
             }
 
-            return decoded;
+            return decoded.ToArray();
         }
 
         public static bool IsLeaf(Node node)
         {
             return node.Left is null && node.Right is null;
         }
-    }
-
-    public class Node
-    {
-        public char Symbol { get; set; }
-        public int Frequency { get; set; }
-        public Node? Right { get; set; }
-        public Node? Left { get; set; }
-
-        public List<bool>? Traverse(char symbol, List<bool> data)
+        
+        public class Node
         {
-            // Leaf
-            if (Right == null && Left == null)
+            public byte Symbol { get; set; }
+            public int Frequency { get; set; }
+            public Node? Right { get; set; }
+            public Node? Left { get; set; }
+
+            public List<bool>? Traverse(byte symbol, List<bool> data)
             {
-                if (symbol.Equals(Symbol))
+                // Leaf
+                if (Right == null && Left == null)
                 {
-                    return data;
+                    if (symbol == Symbol)
+                    {
+                        return data;
+                    }
+
+                    return null;
                 }
 
-                return null;
+                List<bool>? left = null;
+                List<bool>? right = null;
+
+                if (Left != null)
+                {
+                    var leftPath = new List<bool>();
+                    leftPath.AddRange(data);
+                    leftPath.Add(false);
+
+                    left = Left.Traverse(symbol, leftPath);
+                }
+
+                if (Right != null)
+                {
+                    var rightPath = new List<bool>();
+                    rightPath.AddRange(data);
+                    rightPath.Add(true);
+                    right = Right.Traverse(symbol, rightPath);
+                }
+
+                if (left != null)
+                {
+                    return left;
+                }
+
+                return right;
             }
-
-            List<bool>? left = null;
-            List<bool>? right = null;
-
-            if (Left != null)
-            {
-                var leftPath = new List<bool>();
-                leftPath.AddRange(data);
-                leftPath.Add(false);
-
-                left = Left.Traverse(symbol, leftPath);
-            }
-
-            if (Right != null)
-            {
-                var rightPath = new List<bool>();
-                rightPath.AddRange(data);
-                rightPath.Add(true);
-                right = Right.Traverse(symbol, rightPath);
-            }
-
-            if (left != null)
-            {
-                return left;
-            }
-
-            return right;
         }
     }
 }

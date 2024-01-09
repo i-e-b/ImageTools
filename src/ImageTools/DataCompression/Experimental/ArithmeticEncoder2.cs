@@ -343,6 +343,97 @@ namespace ImageTools.DataCompression.Experimental
         int EndSymbol();
     }
 
+    
+    /// <summary>
+    /// Non-model, same probability for all symbols
+    /// </summary>
+    public class FlatModel_v2: IProbabilityModel2
+    {
+        private ISumTree _map;
+        
+        private readonly int _countEntry; // Entry index for max count
+        private readonly int _endSymbol; // Symbol for end-of-data
+
+        public FlatModel_v2(int symbolCount)
+        {
+            _endSymbol = symbolCount + 1;
+            _countEntry = _endSymbol + 1;
+            
+            _map = new FenwickTree(_countEntry, _endSymbol);
+        }
+        
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            // No updates
+        }
+
+        public ISumTree SymbolProbability(int symbol)
+        {
+            return _map;
+        }
+
+        public void Reset()
+        {
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
+    
+    /// <summary>
+    /// Single probability tree, learning from incoming data
+    /// </summary>
+    public class SimpleLearningModel_v2: IProbabilityModel2
+    {
+        private readonly int _aggressiveness;
+        private ISumTree _map;
+        private bool _frozen;
+        
+        private readonly int _countEntry; // Entry index for max count
+        private readonly int _endSymbol; // Symbol for end-of-data
+
+        public SimpleLearningModel_v2(int symbolCount, int aggressiveness)
+        {
+            _endSymbol = symbolCount + 1;
+            _countEntry = _endSymbol + 1;
+            
+            _frozen = false;
+            _map = new FenwickTree(_countEntry, _endSymbol);
+            _aggressiveness = aggressiveness;
+        }
+        
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            if (_frozen) return;
+
+            var prob = _map;
+            if (prob.Total() > max) {
+                _frozen = true;
+                return;
+            }
+
+            prob.IncrementSymbol(next, (ulong)_aggressiveness);
+        }
+
+        public ISumTree SymbolProbability(int symbol)
+        {
+            return _map;
+        }
+
+        public void Reset()
+        {
+            _frozen = false;
+            _map = new FenwickTree(_countEntry, _endSymbol);
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
+    
     /// <summary>
     /// 4-bit symbol model, with prefix probability table
     /// </summary>
@@ -397,7 +488,6 @@ namespace ImageTools.DataCompression.Experimental
             return 17;
         }
     }
-
     
     /// <summary>
     /// 4-bit symbol model, with prefix probability table
@@ -419,8 +509,8 @@ namespace ImageTools.DataCompression.Experimental
             {
                 _histogram[b]++;
             }
-            
-            // TODO: actual stuff
+            Reset();
+            // TODO: write histogram to dst
         }
 
         public void UpdateModel(int prev, int next, ulong max)
