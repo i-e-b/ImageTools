@@ -662,7 +662,48 @@ called love,
 life, and 1685 miles
 of ""I can't wait
 to be there when you fall.""";
+
+        [Test, Description("From the Bluetooth LE spec")]
+        public void data_whitener_test()
+        {
+            void btLeWhiten(byte[] data, byte whitenCoeff){
+                byte  m;
+	
+                int idx = 0;
+                var len = data.Length;
+                while(len-->0){
+	
+                    for(m = 1; m != 0; m <<= 1){
 		
+                        if((whitenCoeff & 0x80) != 0){
+				
+                            whitenCoeff ^= 0x11;
+                            data[idx] ^= m;
+                        }
+                        whitenCoeff <<= 1;
+                    }
+                    idx++;
+                }
+            }
+            
+            var input = Encoding.ASCII.GetBytes("Hello,      world!");
+            Console.WriteLine(Bin.HexString(input));
+            Console.WriteLine(Bin.BinString(input));
+            Console.WriteLine();
+
+            // "Whiten" input (try to reduce bit-level correlations)
+            btLeWhiten(input, 0x88);
+            Console.WriteLine(Bin.HexString(input));
+            Console.WriteLine(Bin.BinString(input));
+            Console.WriteLine();
+            
+            // Re-apply transform to get original data
+            btLeWhiten(input, 0x88);
+            Console.WriteLine(Bin.HexString(input));
+            Console.WriteLine(Bin.BinString(input));
+            Console.WriteLine(Encoding.ASCII.GetString(input));
+        }
+
         [Test]
         public void ac_round_trip () {
             var expected = Moby;
@@ -1766,6 +1807,10 @@ to be there when you fall.""";
         {
             var sw = new Stopwatch();
             var input = Encoding.UTF8.GetBytes(Moby.Replace("\r\n","\n"));
+            
+            // Deflate test
+            // Without BWT: 634b
+            // After BWT:   656b
             
             sw.Restart();
             var output = Bwst.ForwardTransform(input);

@@ -1,14 +1,19 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Text;
 
 namespace ImageTools.Utilities
 {
-    public static class Bin {
-        
+    public static class Bin
+    {
+
         /// <summary>
         /// Return the smalles number that is a power-of-two
         /// greater than or equal to the input
         /// </summary>
-        public static uint NextPow2(uint c) {
+        public static uint NextPow2(uint c)
+        {
             c--;
             c |= c >> 1;
             c |= c >> 2;
@@ -17,12 +22,13 @@ namespace ImageTools.Utilities
             c |= c >> 16;
             return ++c;
         }
-        
+
         /// <summary>
         /// Return the smalles number that is a power-of-two
         /// greater than or equal to the input
         /// </summary>
-        public static int NextPow2(int c) {
+        public static int NextPow2(int c)
+        {
             return (int)NextPow2((uint)c);
         }
 
@@ -34,13 +40,14 @@ namespace ImageTools.Utilities
         public static string Human(long byteLength)
         {
             double size = byteLength;
-            var prefix = new []{ "b", "kb", "mb", "gb", "tb", "pb" };
+            var prefix = new[] { "b", "kb", "mb", "gb", "tb", "pb" };
             int i;
             for (i = 0; i < prefix.Length; i++)
             {
                 if (size < 1024) break;
                 size /= 1024;
             }
+
             return size.ToString("#0.##") + prefix[i];
         }
 
@@ -53,7 +60,7 @@ namespace ImageTools.Utilities
             if (v > upper) return upper;
             return v;
         }
-        
+
         /// <summary>
         /// Pin number to range, with exclusive upper bound
         /// </summary>
@@ -63,7 +70,7 @@ namespace ImageTools.Utilities
             if (v >= exclusiveUpper) return exclusiveUpper - 1;
             return v;
         }
-        
+
         /// <summary>
         /// Approximate Math.Pow using bitwise tricks
         /// </summary>
@@ -81,6 +88,44 @@ namespace ImageTools.Utilities
             final long tmp2 = (long)(b * (tmp - 4606921280493453312L)) + 4606921280493453312L;
             return Double.longBitsToDouble(tmp2);
         }*/
+
+        /// <summary>
+        /// Output hex string from byte array
+        /// </summary>
+        public static string HexString(IEnumerable<byte> input)
+        {
+            var sb = new StringBuilder();
+            foreach (var b in input)
+            {
+                var u = (b & 0xF0) >> 4;
+                var l = b & 0x0F;
+                
+                if (u < 0x0A) sb.Append('0'+u);
+                else sb.Append('A'+(u-0x0A));
+                if (l < 0x0A) sb.Append('0'+l);
+                else sb.Append('A'+(l-0x0A));
+            }
+            return sb.ToString();
+        }
+        
+        /// <summary>
+        /// Output binary string from byte array
+        /// </summary>
+        public static string BinString(IEnumerable<byte> input)
+        {
+            var sb = new StringBuilder();
+            foreach (var b in input)
+            {
+                var m = 0b1000_0000u;
+                for (int i = 0; i < 8; i++)
+                {
+                    if ((b&m) > 0) sb.Append('1');
+                    else sb.Append('0');
+                    m >>= 1;
+                }
+            }
+            return sb.ToString();
+        }
     }
 
 }
