@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using ImageTools.DataCompression.Encoding;
 using ImageTools.ImageDataFormats;
@@ -185,7 +186,7 @@ namespace ImageTools.DataCompression.Experimental
         
         private SymbolProbability EncodeSymbol(int symbol)
         {
-            var point = _model.SymbolProbability(_lastSymbol); //map[lastSymbol];
+            var point = _model.SymbolProbability(_lastSymbol);
             
             var prob = point.EncodeSymbol(symbol);
             UpdateModel(_lastSymbol,symbol);
@@ -599,4 +600,130 @@ namespace ImageTools.DataCompression.Experimental
         }
     }
     
+    /// <summary>
+    /// 3-stage byte-wise Markov chain
+    /// </summary>
+    public class Markov3D_v2: IProbabilityModel2
+    {
+        private readonly int _aggressiveness;
+        private readonly ISumTree[,] _map; // 2 back, 1 back => predicted next
+        private readonly bool[] _frozen;
+        
+        private readonly int _mapSize; // Size of 'map' array
+        private readonly int _countEntry; // Entry index for max count
+        private readonly int _endSymbol; // Symbol for end-of-data
+        
+        private int _doublePrev;
+
+        public Markov3D_v2(int symbolCount, int aggressiveness)
+        {
+            _endSymbol = symbolCount; // assuming symbols are dense, and start at zero
+            _countEntry = _endSymbol + 1;
+            _mapSize = _countEntry + 1;
+            
+            _map = new ISumTree[_mapSize,_mapSize];
+            _frozen = new bool[_mapSize];
+            _aggressiveness = aggressiveness;
+        }
+        
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            if (_frozen[prev]) return;
+
+            var prob = _map[_doublePrev, prev];
+            if (prob.Total() > max) {
+                Console.WriteLine($"Saturated leading symbol {prev:X2}");
+                _frozen[prev] = true;
+                return;
+            }
+
+            _doublePrev = prev;
+            prob.IncrementSymbol(next, (ulong)_aggressiveness);
+        }
+
+        public ISumTree SymbolProbability(int symbol)
+        {
+            return _map[_doublePrev, symbol];
+        }
+
+        public void Reset()
+        {
+            _doublePrev = 0;
+            for (int i = 0; i < _mapSize; i++)
+            {
+                for (int j = 0; j < _mapSize; j++)
+                {
+                    _frozen[i] = false;
+                    _map[i,j] = new FenwickTree(_countEntry, _endSymbol);
+                }
+            }
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
+    
+    /// <summary>
+    /// 4-stage byte-wise Markov chain
+    /// </summary>
+    public class Markov4D_v2: IProbabilityModel2
+    {
+        private readonly int _aggressiveness;
+        private readonly ISumTree[,,] _map; // 2 back, 1 back => predicted next
+        
+        private readonly int _mapSize; // Size of 'map' array
+        private readonly int _countEntry; // Entry index for max count
+        private readonly int _endSymbol; // Symbol for end-of-data
+        
+        private int _doublePrev;
+        private int _triplePrev;
+
+        public Markov4D_v2(int symbolCount, int aggressiveness)
+        {
+            _endSymbol = symbolCount; // assuming symbols are dense, and start at zero
+            _countEntry = _endSymbol + 1;
+            _mapSize = _countEntry + 1;
+            
+            _map = new ISumTree[_mapSize,_mapSize,_mapSize];
+            _aggressiveness = aggressiveness;
+        }
+        
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+
+            var prob = _map[_triplePrev, _doublePrev, prev];
+
+            _triplePrev = _doublePrev;
+            _doublePrev = prev;
+            prob.IncrementSymbol(next, (ulong)_aggressiveness);
+        }
+
+        public ISumTree SymbolProbability(int symbol)
+        {
+            return _map[_triplePrev, _doublePrev, symbol];
+        }
+
+        public void Reset()
+        {
+            _triplePrev = 0;
+            _doublePrev = 0;
+            for (int i = 0; i < _mapSize; i++)
+            {
+                for (int j = 0; j < _mapSize; j++)
+                {
+                    for (int k = 0; k < _mapSize; k++)
+                    {
+                        _map[i, j, k] = new FenwickTree(_countEntry, _endSymbol);
+                    }
+                }
+            }
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
 }

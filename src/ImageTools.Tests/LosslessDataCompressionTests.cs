@@ -666,39 +666,19 @@ to be there when you fall.""";
         [Test, Description("From the Bluetooth LE spec")]
         public void data_whitener_test()
         {
-            void btLeWhiten(byte[] data, byte whitenCoeff){
-                byte  m;
-	
-                int idx = 0;
-                var len = data.Length;
-                while(len-->0){
-	
-                    for(m = 1; m != 0; m <<= 1){
-		
-                        if((whitenCoeff & 0x80) != 0){
-				
-                            whitenCoeff ^= 0x11;
-                            data[idx] ^= m;
-                        }
-                        whitenCoeff <<= 1;
-                    }
-                    idx++;
-                }
-            }
-            
             var input = Encoding.ASCII.GetBytes("Hello,      world!");
             Console.WriteLine(Bin.HexString(input));
             Console.WriteLine(Bin.BinString(input));
             Console.WriteLine();
 
             // "Whiten" input (try to reduce bit-level correlations)
-            btLeWhiten(input, 0x88);
+            Whitener.BtLeWhiten(input, 0x88);
             Console.WriteLine(Bin.HexString(input));
             Console.WriteLine(Bin.BinString(input));
             Console.WriteLine();
             
             // Re-apply transform to get original data
-            btLeWhiten(input, 0x88);
+            Whitener.BtLeWhiten(input, 0x88);
             Console.WriteLine(Bin.HexString(input));
             Console.WriteLine(Bin.BinString(input));
             Console.WriteLine(Encoding.ASCII.GetString(input));
@@ -1233,8 +1213,12 @@ to be there when you fall.""";
         [Test]
         public void compress_firmware_image_lzma()
         {
+            // Equivalent deflate: 321.13kb (64.0%) <-- bin v1
+            // Equivalent deflate: 307.28kb (61.6%) <-- bin v2
+            //
             // Original: 503.48kb; Encoded: 291.35kb (57.9%)  <-- bin v1
             // Original: 499.23kb; Encoded: 277.37kb (55.6%)  <-- bin v2
+            
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
             
@@ -1433,7 +1417,9 @@ to be there when you fall.""";
         {
             // Equivalent deflate: 307.28kb (61.6%)
             // Original: 499.23kb; Encoded: 424.56kb (85.0%)
-            // Original: 499.23kb; Encoded+AC: 360.96kb (72.3%)
+            // Original: 499.23kb; Encoded+AC: 360.96kb (72.3%) <-- Markov2D_v2(256, 2)
+            // Original: 499.23kb; Encoded+AC: 387.62kb (77.6%) <-- Markov3D_v2(256, 4)
+            // Original: 499.23kb; Encoded+AC: 373.62kb (74.8%) <-- SimpleLearningModel_v2(256, 4)
             
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
@@ -1450,6 +1436,8 @@ to be there when you fall.""";
             var acDst = new MemoryStream();
             
             var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
+            //var subject = new ArithmeticEncoder2(new Markov3D_v2(256, 4));
+            //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(256, 4));
             
             subject.CompressStream(new ByteSymbolStream(acSrc), acDst);
             
@@ -1512,17 +1500,25 @@ to be there when you fall.""";
             // Original: 499.23kb; Encoded: 369.71kb (74.1%)  <-- Markov2D_v2(256, 1)
             // Original: 499.23kb; Encoded: 367.67kb (73.6%)  <-- Markov2D_v2(256, 2)
             // Original: 499.23kb; Encoded: 367.86kb (73.7%)  <-- Markov2D_v2(256, 4)
+            //
+            // Original: 499.23kb; Encoded: 354.88kb (71.1%)  <-- Markov3D_v2(256, 4)
+            // Original: 499.23kb; Encoded: 346.17kb (69.3%)  <-- Markov3D_v2(256, 8)
+            // Original: 499.23kb; Encoded: 341.95kb (68.5%)  <-- Markov3D_v2(256, 16)
+            // Original: 499.23kb; Encoded: 341.62kb (68.4%)  <-- Markov3D_v2(256, 20)
+            // 
             // Original: 499.23kb; Encoded: 437.15kb (87.6%)  <-- BytePreScanModel, no preamble
             // Original: 499.23kb; Encoded: 437.35kb (87.6%)  <-- SimpleLearningModel_v2(256,2)
             // Original: 499.23kb; Encoded: 499.59kb (100.1%) <-- FlatModel_v2(256)
             
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
+            
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
             var src = new MemoryStream(expected);
             
-            var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
+            //var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
+            var subject = new ArithmeticEncoder2(new Markov3D_v2(256, 20));
             //var subject = new ArithmeticEncoder2(new FlatModel_v2(256));
             //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(256, 2));
             //var subject = new ArithmeticEncoder2(new BytePreScanModel(expected, dst));
@@ -1617,18 +1613,31 @@ to be there when you fall.""";
         public void arithmetic_encoder_2_compress_firmware_nybble_pre_scan()
         {
             // Equivalent deflate: 321.13kb (64.0%)
+            //
             // Original: 499.23kb; Encoded: 456.93kb (91.5%) <-- NybblePreScanModel
+            //
             // Original: 499.23kb; Encoded: 438.90kb (87.9%) <-- Markov2D_v2(16, 2)
             // Original: 499.23kb; Encoded: 438.92kb (87.9%) <-- Markov2D_v2(16, 4)
             // Original: 499.23kb; Encoded: 438.94kb (87.9%) <-- Markov2D_v2(16, 8)
+            //
+            // Original: 499.23kb; Encoded: 408.87kb (81.9%) <-- Markov3D_v2(16, 1)
+            // Original: 499.23kb; Encoded: 408.94kb (81.9%) <-- Markov3D_v2(16, 2)
+            // Original: 499.23kb; Encoded: 409.14kb (82.0%) <-- Markov3D_v2(16, 4)
+            //
+            // Original: 499.23kb; Encoded: 375.37kb (75.2%) <-- Markov4D_v2(16, 1)
+            // Original: 499.23kb; Encoded: 375.60kb (75.2%) <-- Markov4D_v2(16, 2)
+            // Original: 499.23kb; Encoded: 377.77kb (75.7%) <-- Markov4D_v2(16, 4)
             
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
+            
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
             var src = new MemoryStream(expected);
             
-            var subject = new ArithmeticEncoder2(new Markov2D_v2(16, 2));
+            //var subject = new ArithmeticEncoder2(new Markov2D_v2(16, 2));
+            var subject = new ArithmeticEncoder2(new Markov3D_v2(16, 1));
+            //var subject = new ArithmeticEncoder2(new Markov4D_v2(16, 1)); // experimental
             subject.CompressStream(new NybbleSymbolStream(src), encoded);
             encoded.Seek(0, SeekOrigin.Begin);
             var ok = subject.DecompressStream(encoded, new NybbleSymbolStream(dst));
@@ -1830,25 +1839,39 @@ to be there when you fall.""";
             Assert.That(result, Is.EqualTo(input));
         }
         
-        [Test, Explicit("incredibly slow. Not O(n log(n)) by a long shot.")]
+        [Test]
         public void BWST_transform_on_binary_data()
         {
+            // Equivalent deflate: 307.28kb (61.6%) <-- new
+            // Original: 499.23kb; Encoded: 338.34kb (67.8%)
+            
             var sw = new Stopwatch();
-            //var path = @"C:\temp\LargeEspIdf.bin";
-            var path = @"C:\temp\BothAppAndService-Apps_storage.png";
+            var path = @"C:\temp\LargeEspIdf.bin"; // takes around 5 min on my machine
             var input = File.ReadAllBytes(path);
             
             sw.Restart();
-            var output = Bwst.ForwardTransform(input); // nearly 14 minutes; Profile and fix this.
+            var output = Bwst.ForwardTransform(input); // 6 seconds
             sw.Stop();
             Console.WriteLine($"Bwst.ForwardTransform took {sw.Elapsed}");
             
-            Console.WriteLine(Encoding.UTF8.GetString(output));
+            Console.WriteLine("\r\n------------------------------\r\n");
+            
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(output);
+            var aec = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
+            aec.CompressStream(new ByteSymbolStream(src), encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            aec.DecompressStream(encoded, new ByteSymbolStream(dst));
+            dst.Seek(0, SeekOrigin.Begin);
+            var actual = dst.ToArray();
+            var percent = (100.0 * encoded.Length) / input.Length;
+            Console.WriteLine($"Original: {Bin.Human(input.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
             
             Console.WriteLine("\r\n------------------------------\r\n");
             
             sw.Restart();
-            var result = Bwst.ReverseTransform(output); // about 3 seconds
+            var result = Bwst.ReverseTransform(actual); // 5 minutes
             sw.Stop();
             Console.WriteLine($"Bwst.ReverseTransform took {sw.Elapsed}");
 

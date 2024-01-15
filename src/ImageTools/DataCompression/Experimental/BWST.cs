@@ -25,20 +25,22 @@ namespace ImageTools.DataCompression.Experimental
             var b = new List<byte>();
             
             Console.WriteLine();
+            
+            var slice = Slice<byte>.FromArray(s);
 
             for (var i = 0; i < locs.Length; i++)
             {
                 var charLocs = locs[i];
                 if (charLocs is null) continue;
 
-                SortRotations(s, words, charLocs);
+                SortRotations(slice, words, charLocs);
             }
 
             foreach (var charLocs in locs) {
                 if (charLocs is null) continue;
                 
                 foreach (var l in charLocs) {
-                    var word = Slice(s, words[l.Word], words[l.Word+1]); //word := s[words[l.word]:words[l.word+1]] // inclusive start index : exclusive end index
+                    var word = slice.OuterSlice(words[l.Word], words[l.Word+1]);
                     var i = l.Idx - 1;
                     if (i < 0) {
                         i = word.Length - 1;
@@ -182,13 +184,13 @@ namespace ImageTools.DataCompression.Experimental
         // rotation of its word, so the locations can be sorted. Because each char is
         // in order already, we only need to sort the occurrences of each char
         // separately to sort the entire thing.
-        private static void SortRotations(byte[] s, int[] words, LocList locs) {
+        private static void SortRotations(Slice<byte> s, int[] words, LocList locs) {
             locs.Sort((i, j) => {// Cyclic order - AXYA < AXY here because AXYAAXYA < AXYAXY
                 var loc1 = i;//locs[i];
                 var loc2 = j;//locs[j];
                 // get the actual sequences
-                var w1 = Slice(s,words[loc1.Word],words[loc1.Word + 1]);
-                var w2 = Slice(s,words[loc2.Word],words[loc2.Word + 1]);
+                var w1 = s.OuterSlice(words[loc1.Word],words[loc1.Word + 1]);
+                var w2 = s.OuterSlice(words[loc2.Word],words[loc2.Word + 1]);
                 var x = loc1.Idx;
                 var y = loc2.Idx;
                 var n = lcm(w1.Length, w2.Length);
@@ -220,13 +222,13 @@ namespace ImageTools.DataCompression.Experimental
         private static int lcm(int m, int n) {
             return m / gcd(m, n) * n;
         }
-
-        private static byte[] Slice(byte[] src, int incStartIdx, int exclEndIdx)
+/*
+        private static Slice<byte> Slice(Slice<byte> src, int incStartIdx, int exclEndIdx)
         {
             var length = exclEndIdx - incStartIdx;
-            return length < 1 ? Array.Empty<byte>() : src.Skip(incStartIdx).Take(length).ToArray();
+            return length < 1 ? Slice<byte>.Empty() : src.OuterSlice(incStartIdx, length);
         }
-
+*/
         private static LocList?[] Locate(byte[] s, int[] words) {
             var locs = new LocList?[256];
             var w = 0;
@@ -273,5 +275,38 @@ namespace ImageTools.DataCompression.Experimental
             public int Word;
             public int Idx;
         }
+    }
+
+    internal class Slice<T>
+    {
+        private readonly T[] _source;
+        private int _offset;
+        private int _end;
+
+        private Slice(T[] source)
+        {
+            _source = source;
+            _offset = 0;
+            _end = source.Length;
+            Length = _source.Length;
+        }
+        
+
+        public Slice<T> OuterSlice(int startIdxIncl, int endIdxExcl)
+        {
+            return new Slice<T>(_source)
+            {
+                _offset = startIdxIncl,
+                _end = endIdxExcl,
+                Length = endIdxExcl - startIdxIncl
+            };
+        }
+
+        public T this[int i] => _source[i+_offset];
+
+        public int Length { get; private set; }
+
+        public static Slice<T> Empty() => new(Array.Empty<T>());
+        public static Slice<T> FromArray(T[] source) => new(source);
     }
 }

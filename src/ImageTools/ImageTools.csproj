@@ -62,6 +62,7 @@
     <Compile Include="DataCompression\Experimental\SplitTree.cs" />
     <Compile Include="DataCompression\Experimental\SumTree.cs" />
     <Compile Include="DataCompression\Experimental\TruncatableEncoder.cs" />
+    <Compile Include="DataCompression\Experimental\Whitener.cs" />
     <Compile Include="DataCompression\Huffman\ByteHuffmanTree.cs" />
     <Compile Include="DataCompression\Huffman\StringHuffmanTree.cs" />
     <Compile Include="DataCompression\LzType\Lzjb.cs" />
