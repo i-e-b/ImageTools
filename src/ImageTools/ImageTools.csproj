@@ -65,6 +65,24 @@
     <Compile Include="DataCompression\Experimental\Whitener.cs" />
     <Compile Include="DataCompression\Huffman\ByteHuffmanTree.cs" />
     <Compile Include="DataCompression\Huffman\StringHuffmanTree.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\ArithmeticCodec.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\Bitstream.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\CodecAttributes.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\CodecBase.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\CompressionChecker.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\Datastream.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\Filters.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\FixedSizeCodec.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\FrameOfReferenceCodec.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\GolombCodec.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\Header.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\HuffmanCodec.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\LZ77Codec.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\LZCLCodec.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\Output.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\RunLengthCodec.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\StatRecorder.cs" />
+    <Compile Include="DataCompression\LzType\Lomont\UniversalCodec.cs" />
     <Compile Include="DataCompression\LzType\Lzjb.cs" />
     <Compile Include="DataCompression\LzType\LZMWPack.cs" />
     <Compile Include="DataCompression\LzType\LZSSPack.cs" />
@@ -120,6 +138,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="DataCompression\LzType\Lomont\ReadMe.md" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

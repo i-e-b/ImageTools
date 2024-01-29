@@ -16,6 +16,7 @@ using ImageTools.DataCompression.Huffman;
 using ImageTools.DataCompression.PPM;
 using ImageTools.Utilities;
 using ImageTools.WaveletTransforms;
+using Lomont.Compression.Codec;
 using NUnit.Framework;
 // ReSharper disable AssignNullToNotNullAttribute
 
@@ -1210,7 +1211,30 @@ to be there when you fall.""";
             }
         }
 
-        [Test]
+        [Test, Description(@"Chris Lomont's LZ algorithm. Designed to be compact, not fast")]
+        public void compress_firmware_image_lzcl()
+        {
+            // Equivalent deflate: 307.28kb (61.6%)
+            //
+            // Original: 499.23kb; Encoded: 326.84kb (65.5%)
+            
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+
+            var codec = new LzclCodec();
+            var encoded = codec.Compress(expected);
+            
+            var percent = (100.0 * encoded.Length) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            
+            var result = codec.Decompress(encoded);
+            Console.WriteLine();
+            
+            Assert.That(result, Is.EqualTo(expected).AsCollection);
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+        }
+
+        [Test, Description("This is the 7zip algorithm. Beats deflate by a fair margin")]
         public void compress_firmware_image_lzma()
         {
             // Equivalent deflate: 321.13kb (64.0%) <-- bin v1
@@ -1238,6 +1262,7 @@ to be there when you fall.""";
             var result = dst.ToArray();
             
             Assert.That(result, Is.EqualTo(expected).AsCollection);
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
         }
         
         [Test]
@@ -1535,6 +1560,7 @@ to be there when you fall.""";
             
             Assert.That(actual, Is.EqualTo(expected).AsCollection);
             Assert.That(ok, "Stream was truncated, but should not have been");
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
         }
         
         [Test]
@@ -1607,6 +1633,7 @@ to be there when you fall.""";
             
             Assert.That(actual, Is.EqualTo(expected).AsCollection);
             Assert.That(ok, "Stream was truncated, but should not have been");
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
         }
         
         [Test]
@@ -1636,8 +1663,8 @@ to be there when you fall.""";
             var src = new MemoryStream(expected);
             
             //var subject = new ArithmeticEncoder2(new Markov2D_v2(16, 2));
-            var subject = new ArithmeticEncoder2(new Markov3D_v2(16, 1));
-            //var subject = new ArithmeticEncoder2(new Markov4D_v2(16, 1)); // experimental
+            //var subject = new ArithmeticEncoder2(new Markov3D_v2(16, 1));
+            var subject = new ArithmeticEncoder2(new Markov4D_v2(16, 1)); // experimental
             subject.CompressStream(new NybbleSymbolStream(src), encoded);
             encoded.Seek(0, SeekOrigin.Begin);
             var ok = subject.DecompressStream(encoded, new NybbleSymbolStream(dst));
@@ -1650,6 +1677,7 @@ to be there when you fall.""";
             
             Assert.That(actual, Is.EqualTo(expected).AsCollection);
             Assert.That(ok, "Stream was truncated, but should not have been");
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
         }
         
         [Test]
@@ -1674,6 +1702,8 @@ to be there when you fall.""";
             
             Assert.That(actual, Is.EqualTo(expected));
             Assert.That(ok, "Stream was truncated, but should not have been");
+            var percent = (100.0 * encoded.Length) / expected.Length;
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
         }
 
         [Test]
