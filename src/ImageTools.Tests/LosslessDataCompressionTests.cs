@@ -638,6 +638,52 @@ namespace ImageTools.Tests
             resultBmp.SaveBmp("./outputs/PPM_Hash_Encode_Custom_3.bmp");
         }
 
+        [Test]
+        public void xor_forward_filter()
+        {
+            var srcBytes = Encoding.UTF8.GetBytes(Moby);
+
+            Console.WriteLine("Before:");
+            //Console.WriteLine(Bin.HexString(srcBytes));
+            Console.WriteLine(Encoding.UTF8.GetString(srcBytes));
+            
+            var length = DeflateSize(srcBytes);
+            Console.WriteLine($"\r\nDeflate before transform: {Bin.Human(length)}");
+            
+            for (int i = 1; i < srcBytes.Length; i++)
+            {
+                srcBytes[i] = (byte)(srcBytes[i] ^ srcBytes[i-1]);
+            }
+            
+            length = DeflateSize(srcBytes);
+            Console.WriteLine($"Deflate after transform: {Bin.Human(length)}");
+            
+            Console.WriteLine("\r\n\r\nAfter:");
+            Console.WriteLine(Bin.HexString(srcBytes));
+            //Console.WriteLine(Encoding.UTF8.GetString(srcBytes));
+            
+            // Must go in reverse
+            for (int i = srcBytes.Length - 1; i > 0; i--)
+            {
+                srcBytes[i] = (byte)(srcBytes[i] ^ srcBytes[i-1]);
+            }
+            
+            Console.WriteLine("\r\n\r\nUn-applied:");
+            //Console.WriteLine(Bin.HexString(srcBytes));
+            Console.WriteLine(Encoding.UTF8.GetString(srcBytes));
+        }
+
+        private static long DeflateSize(byte[] srcBytes)
+        {
+            var test = new MemoryStream();
+            using (var gz =  new DeflateStream(test, CompressionLevel.Optimal, true)) {
+                gz.Write(srcBytes,0,srcBytes.Length);
+                gz.Flush();
+            }
+            var length = test.Length;
+            return length;
+        }
+
         public const string Moby = @"####Call me Ishmael. Some years ago--never mind how long precisely--having
 little or no money in my purse, and nothing particular to interest me on
 shore, I thought I would sail about a little and see the watery part of
@@ -683,6 +729,13 @@ to be there when you fall.""";
             Console.WriteLine(Bin.HexString(input));
             Console.WriteLine(Bin.BinString(input));
             Console.WriteLine(Encoding.ASCII.GetString(input));
+            
+            
+            var large = Encoding.ASCII.GetBytes(Moby);
+            var beforeSz = DeflateSize(large);
+            Whitener.BtLeWhiten(large, 50);
+            var afterSz = DeflateSize(large);
+            Console.WriteLine($"Before: {Bin.Human(beforeSz)}; After: {Bin.Human(afterSz)}");
         }
 
         [Test]
@@ -799,6 +852,7 @@ to be there when you fall.""";
 
             // failing at size limit. Are we deleting the dictionary entries out of order?
             Assert.That(result, Is.EqualTo(expected));
+            Assert.Pass($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
         }
 
         [Test]
@@ -827,6 +881,7 @@ to be there when you fall.""";
 
             // failing at size limit. Are we deleting the dictionary entries out of order?
             Assert.That(result, Is.EqualTo(expected));
+            Assert.Pass($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
         }
 
         [Test]
@@ -851,6 +906,7 @@ to be there when you fall.""";
 
             // failing at size limit. Are we deleting the dictionary entries out of order?
             Assert.That(result, Is.EqualTo(expected));
+            Assert.Pass($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
         }
 
         [Test]
@@ -875,6 +931,7 @@ to be there when you fall.""";
             Console.WriteLine(result);
 
             Assert.That(result, Is.EqualTo(expected));
+            Assert.Pass($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
         }
         
         [Test]
@@ -905,6 +962,7 @@ to be there when you fall.""";
             Console.WriteLine(result);
 
             Assert.That(result, Is.EqualTo(expected));
+            Assert.Pass($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
         }
         
         [Test]
@@ -913,26 +971,17 @@ to be there when you fall.""";
 
             var src = Encoding.UTF8.GetBytes(expected);
             var encoded = new MemoryStream();
+            
+            var beforeSz = DeflateSize(src);
 
             SplitTree.Compress(src, encoded);
+            var afterBytes = encoded.ToArray();
+            
+            var afterSz = DeflateSize(afterBytes);
             
             var percent = (100.0 * encoded.Length) / src.Length;
             Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
-
-            /*for (int i = 0; i < compressLength; i++)
-            {
-                if (encoded[i] > 30 && encoded[i] < 120) Console.Write((char)encoded[i]);
-                else Console.Write($"_{encoded[i]}");
-            }*/
-            
-            /*var decompressLength = Lzjb.Decompress(encoded, compressLength, dst);
-            Console.WriteLine();
-
-            var result = Encoding.UTF8.GetString(dst, 0, decompressLength);
-            
-            Console.WriteLine(result);
-
-            Assert.That(result, Is.EqualTo(expected));*/
+            Console.WriteLine($"Deflate before: {Bin.Human(beforeSz)}; after: {Bin.Human(afterSz)}");
         }
         
         [Test]
@@ -952,6 +1001,7 @@ to be there when you fall.""";
             Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
             
             Assert.That(actual, Is.EqualTo(expected));
+            Assert.Pass($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
         }
 
         [Test]
@@ -1514,6 +1564,7 @@ to be there when you fall.""";
             var result = dst.ToArray();
 
             Assert.That(result, Is.EqualTo(expected).AsCollection);
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
         }
         
         [Test]
@@ -1617,6 +1668,7 @@ to be there when you fall.""";
             ptf.Seek(0, SeekOrigin.Begin);
             
             var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
+            //var subject = new ArithmeticEncoder2(new Markov3D_v2(256, 2));
             //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(256, 2));
             
             subject.CompressStream(new ByteSymbolStream(ptf), encoded);
@@ -1784,6 +1836,7 @@ to be there when you fall.""";
             Console.WriteLine("Decoded: " + decoded);
             
             Assert.That(decoded, Is.EqualTo(Moby));
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encodedLength)} ({percent:0.0}%)");
         }
         
         [Test]

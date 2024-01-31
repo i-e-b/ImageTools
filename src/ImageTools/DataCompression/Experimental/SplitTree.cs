@@ -41,20 +41,20 @@ namespace ImageTools.DataCompression.Experimental
             // Write the median, then try to move lower. If nothing, go back up and do next higher.
             while (true)
             {
-                if (bracketStack.Count < 1){ Console.WriteLine("STACK DEAD"); break; }
-                if (bracketStack.Peek()!.Empty()){ Console.WriteLine("DEAD END"); break; }
+                if (bracketStack.Count < 1){ /*Console.WriteLine("STACK DEAD");*/ break; }
+                if (bracketStack.Peek()!.Empty()){ /*Console.WriteLine("DEAD END");*/ break; }
 
-                if (safetyStop++ > 100) { Console.WriteLine("OVERRUN"); break; }
+                if (safetyStop++ > 100) { /*Console.WriteLine("OVERRUN");*/ break; }
 
                 // Get the range
                 var range = bracketStack.Peek();
                 if (range is null)
                 {
-                    Console.WriteLine("NULL");
+                    //Console.WriteLine("NULL");
                     break;
                 }
 
-                Console.WriteLine(range.ToString());
+                //Console.WriteLine(range.ToString());
                 
                 // Write the split point
                 output.WriteByteUnaligned((byte)range.Split);
@@ -89,32 +89,32 @@ namespace ImageTools.DataCompression.Experimental
                 var nextLower = new Bracket(range.Lower, range.Split, src);
                 if (nextLower.SplitCount > 0) // Try to split on lower side
                 {
-                    Console.WriteLine("LEFT");
+                    //Console.WriteLine("LEFT");
                     bracketStack.Push(nextLower);
                 }
                 else // otherwise try to switch to right side
                 {
                     bracketStack.Pop();
-                    if (bracketStack.Count < 1) { Console.WriteLine("EMPTY"); break; }
+                    if (bracketStack.Count < 1) { /*Console.WriteLine("EMPTY");*/ break; }
 
                     var prev = bracketStack.Peek();
                     if (prev is not null && range.Split < prev.Upper)
                     {
-                        Console.WriteLine("RIGHT");
+                        //Console.WriteLine("RIGHT");
                         var next = new Bracket(prev.Split, prev.Upper, src);
                         bracketStack.Pop(); // lower side is complete
                         bracketStack.Push(next);
                     }
                     else // nothing left
                     {
-                        Console.WriteLine("END");
+                        //Console.WriteLine("END");
                         break;
                     }
                 }
             }
 
             output.Flush();
-            Console.WriteLine($"\r\nSplit bits = {splitBitsWritten} ({splitBitsWritten/8}b)\r\n{diag}");
+            //Console.WriteLine($"\r\nSplit bits = {splitBitsWritten} ({splitBitsWritten/8}b)\r\n{diag}");
         }
     }
 

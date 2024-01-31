@@ -100,10 +100,10 @@ namespace ImageTools.Utilities
                 var u = (b & 0xF0) >> 4;
                 var l = b & 0x0F;
                 
-                if (u < 0x0A) sb.Append('0'+u);
-                else sb.Append('A'+(u-0x0A));
-                if (l < 0x0A) sb.Append('0'+l);
-                else sb.Append('A'+(l-0x0A));
+                if (u < 0x0A) sb.Append((char)('0'+u));
+                else sb.Append((char)('A'+(u-0x0A)));
+                if (l < 0x0A) sb.Append((char)('0'+l));
+                else sb.Append((char)('A'+(l-0x0A)));
             }
             return sb.ToString();
         }
