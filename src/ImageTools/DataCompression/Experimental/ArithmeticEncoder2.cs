@@ -1,10 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using ImageTools.DataCompression.Encoding;
 using ImageTools.ImageDataFormats;
 // ReSharper disable InconsistentNaming
 // ReSharper disable PossibleNullReferenceException
+// ReSharper disable UnusedType.Global
 
 namespace ImageTools.DataCompression.Experimental
 {
@@ -344,7 +344,6 @@ namespace ImageTools.DataCompression.Experimental
         int EndSymbol();
     }
 
-    
     /// <summary>
     /// Non-model, same probability for all symbols
     /// </summary>

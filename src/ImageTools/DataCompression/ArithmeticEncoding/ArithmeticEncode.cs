@@ -244,10 +244,25 @@ namespace ImageTools.DataCompression.Encoding
     }
 
     public struct SymbolProbability { 
+        /// <summary>
+        /// True if this symbol indicates the end of data
+        /// </summary>
         public bool terminates;
+        /// <summary>
+        /// The symbol being referenced
+        /// </summary>
         public int symbol;
+        /// <summary>
+        /// Lower probability bound
+        /// </summary>
         public ulong low;
-        public ulong high; 
+        /// <summary>
+        /// Upper probability bound
+        /// </summary>
+        public ulong high;
+        /// <summary>
+        /// Count of symbols (total probability scale)
+        /// </summary>
         public ulong count;
     }
 
