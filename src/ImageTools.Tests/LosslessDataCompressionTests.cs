@@ -1335,14 +1335,16 @@ to be there when you fall.""";
         [Test]
         public void compress_firmware_image_push_to_front()
         {
-            // Original: 503.48kb; Encoded: 471.83kb (93.7%)
+            // Original: 503.48kb; Encoded: 471.83kb (93.7%) <-- plain
+            // Original: 499.24kb; Encoded: 418.63kb (83.9%) <-- with STX
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
             
+            var stxIn = Stx.ForwardTransform(expected);
 
             var encoded = new MemoryStream();
             var dst = new MemoryStream();
-            var src = new MemoryStream(expected);
+            var src = new MemoryStream(stxIn);
 
             PushToFrontEncoder.Compress(src, encoded);
             encoded.Seek(0, SeekOrigin.Begin);
@@ -1352,7 +1354,8 @@ to be there when you fall.""";
             Console.WriteLine();
 
             dst.Seek(0, SeekOrigin.Begin);
-            var result = dst.ToArray();
+            var stxOut = dst.ToArray();
+            var result = Stx.ReverseTransform(stxOut);
             
             Assert.That(result, Is.EqualTo(expected).AsCollection);
         }
