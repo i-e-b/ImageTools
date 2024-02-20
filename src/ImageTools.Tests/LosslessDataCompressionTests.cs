@@ -1932,10 +1932,6 @@ to be there when you fall.""";
             var sw = new Stopwatch();
             var input = Encoding.UTF8.GetBytes(Moby.Replace("\r\n","\n"));
             
-            // Deflate test
-            // Without BWT: 634b
-            // After BWT:   656b
-            
             sw.Restart();
             var output = Stx.ForwardTransform(input);
             sw.Stop();
@@ -1951,6 +1947,44 @@ to be there when you fall.""";
             Console.WriteLine($"Stx.ReverseTransform took {sw.Elapsed}");
             
             Console.WriteLine(Encoding.UTF8.GetString(result));
+            Assert.That(result, Is.EqualTo(input));
+        }
+        [Test]
+        public void STX_transform_on_binary_data()
+        {
+            // Equivalent deflate: 307.28kb (61.6%) <-- new
+            // Original: 499.23kb; Encoded: 348.32kb (69.8%)
+            
+            var sw = new Stopwatch();
+            var path = @"C:\temp\LargeEspIdf.bin"; // takes 890ms on my machine
+            var input = File.ReadAllBytes(path);
+            
+            sw.Restart();
+            var output = Stx.ForwardTransform(input); // 00:00:00.0051616
+            sw.Stop();
+            Console.WriteLine($"Stx.ForwardTransform took {sw.Elapsed}");
+            
+            Console.WriteLine("\r\n------------------------------\r\n");
+            
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(output);
+            var aec = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
+            aec.CompressStream(new ByteSymbolStream(src), encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            aec.DecompressStream(encoded, new ByteSymbolStream(dst));
+            dst.Seek(0, SeekOrigin.Begin);
+            var actual = dst.ToArray();
+            var percent = (100.0 * encoded.Length) / input.Length;
+            Console.WriteLine($"Original: {Bin.Human(input.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            
+            Console.WriteLine("\r\n------------------------------\r\n");
+            
+            sw.Restart();
+            var result = Stx.ReverseTransform(actual); // 00:00:00.0081399
+            sw.Stop();
+            Console.WriteLine($"Stx.ReverseTransform took {sw.Elapsed}");
+
             Assert.That(result, Is.EqualTo(input));
         }
 
