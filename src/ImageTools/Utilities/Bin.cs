@@ -126,6 +126,21 @@ namespace ImageTools.Utilities
             }
             return sb.ToString();
         }
+
+        /// <summary>
+        /// Long int to byte array
+        /// </summary>
+        public static byte[] BigEndianBytes(long l)
+        {
+            var result = new byte[8];
+            var s = 56;
+            for (int i = 0; i < 8; i++)
+            {
+                result[i] = (byte)((l >> s) & 0xFF);
+                s -= 8;
+            }
+            return result;
+        }
     }
 
 }
