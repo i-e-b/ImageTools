@@ -109,6 +109,74 @@ namespace ImageTools.Tests
 
             Assert.That(Load.FileExists("./outputs/3_convolve_laplace.jpg"));
         }
+        
+        [Test]
+        public void kernel_blur_an_image () {
+            double[,] kernel = {{0.05,0.1,0.05},{0.1, 0.4, 0.1}, {0.05, 0.1, 0.05}};
+            
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                using (var bmp2 = Blur.Convolve(bmp, ColorSpace.Identity, ColorSpace.Identity, kernel))
+                {
+                    bmp2.SaveJpeg("./outputs/3_convolve_blur.jpg");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/3_convolve_blur.jpg"));
+        }
+        
+        [Test]
+        public void kernel_sharpen_an_image () {
+            double[,] kernel = {{0.0,-1.0,0.0},{-1.0, 5, -1.0}, {0.0, -1.0, 0.0}};
+            
+            using (var bmp = Load.FromFile("./inputs/3.png"))
+            {
+                using (var bmp2 = Blur.Convolve(bmp, ColorSpace.Identity, ColorSpace.Identity, kernel))
+                {
+                    bmp2.SaveJpeg("./outputs/3_convolve_sharp.jpg");
+                }
+            }
+
+            Assert.That(Load.FileExists("./outputs/3_convolve_sharp.jpg"));
+        }
+
+        [Test] // this gives a neat effect on noise
+        public void kernel_cycling()
+        {
+            double bf = 1.0 / 256.0;
+            double[,] blur = {
+                {bf*1, bf*4,  bf*6,  bf*4,  bf*1},
+                {bf*4, bf*16, bf*24, bf*16, bf*4},
+                {bf*6, bf*24, bf*36, bf*24, bf*6},
+                {bf*4, bf*16, bf*24, bf*16, bf*4},
+                {bf*1, bf*4,  bf*6,  bf*4,  bf*1}
+            };/*
+            double sf = -1.0 / 256.0;
+            double[,] unSharpMask = {
+                {sf*1, sf*4,  sf*6,    sf*4,  sf*1},
+                {sf*4, sf*16, sf*24,   sf*16, sf*4},
+                {sf*6, sf*24, sf*-476, sf*24, sf*6},
+                {sf*4, sf*16, sf*24,   sf*16, sf*4},
+                {sf*1, sf*4,  sf*6,    sf*4,  sf*1}
+            };*/
+            double[,] sharpen = {{0.0,-1.0,0.0},{-1.0, 5, -1.0}, {0.0, -1.0, 0.0}};
+
+            using var original = Load.FromFile("./inputs/6.png");
+            var next = original;
+            for (int i = 0; i < 30; i++)
+            {
+                var tmp1 = Blur.Convolve(next, ColorSpace.Identity, ColorSpace.Identity, blur);
+                var tmp2 = Blur.Convolve(tmp1, ColorSpace.Identity, ColorSpace.Identity, sharpen);
+                next.Dispose();
+                tmp1.Dispose();
+                next = tmp2;
+            }
+            
+            next.SaveJpeg("./outputs/6_convolve_loop.jpg");
+            next.Dispose();
+
+            Assert.That(Load.FileExists("./outputs/6_convolve_loop.jpg"));
+        }
 
         [Test]
         public void kernel_offsets()
