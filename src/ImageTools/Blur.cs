@@ -368,18 +368,16 @@ namespace ImageTools
         }
         
         /// <summary>
-        /// Apply a soft-focus effect into a new bitmap (original is unchanged).
+        /// Apply a hard-focus effect into a new bitmap (original is unchanged).
         /// NOTE: This currently assumes a square power-of-two sized source image
         /// <para></para>
-        /// This is done by a wavelet transform where the high-frequency coefficients
+        /// This is done by a wavelet transform where the low-frequency coefficients
         /// are reduced but not removed
         /// </summary>
         public static Bitmap Sharpen(Bitmap sourceImage)
         {
             // These are the parameters of the transform:
             var factors = new[] { 1, 2, 3, 2, 1 };
-
-
 
             if (sourceImage == null) return null;
             BitmapTools.ArgbImageToYUVPlanes_f(sourceImage, out var Y, out var U, out var V);
@@ -462,6 +460,109 @@ namespace ImageTools
             var dest = new Bitmap(sourceImage.Width, sourceImage.Height, PixelFormat.Format32bppArgb);
             BitmapTools.YUVPlanes_To_ArgbImage(dest, 0, Y, U, V);
             return dest;
+        }
+
+
+        /// <summary>
+        /// Apply a matrix kernel to a bitmap, output into a new bitmap (original is unchanged).
+        /// Edges are handled by reflection
+        /// </summary>
+        /// <param name="sourceImage">Source bitmap</param>
+        /// <param name="srcColorSpace">Color space for calculation</param>
+        /// <param name="dstColorSpace">Color space for output</param>
+        /// <param name="kernel">convolution kernel</param>
+        public static Bitmap Convolve(Bitmap sourceImage, BitmapTools.TripleToTripleSpace srcColorSpace, BitmapTools.TripleToTripleSpace dstColorSpace, double[,] kernel)
+        {
+	        var kWidth = kernel.GetLength(0);
+	        var kHeight = kernel.GetLength(1);
+	        if (kWidth < 1 || kHeight < 1) throw new Exception("Invalid kernel");
+	        
+	        BitmapTools.ImageToPlanes(sourceImage, srcColorSpace, out var srcX, out var srcY, out var srcZ);
+	        var width = sourceImage.Width;
+	        var height = sourceImage.Height;
+	        
+	        var dstX = new double[srcX.Length];
+	        var dstY = new double[srcY.Length];
+	        var dstZ = new double[srcZ.Length];
+	        
+	        var sourcePlanes = new []{srcX,srcY,srcZ};
+	        var destPlanes = new []{dstX,dstY,dstZ};
+	        
+	        var kXOffsets = KernelSampleOffsets(kWidth);
+	        var kYOffsets = KernelSampleOffsets(kHeight);
+	        
+	        var wLimit = width - 1;
+	        var hLimit = height - 1;
+	        
+	        for (int planeNum = 0; planeNum < sourcePlanes.Length; planeNum++)
+	        {
+		        var src = sourcePlanes[planeNum];
+		        var dst = destPlanes[planeNum];
+
+		        for (int y = 0; y < height; y++)
+		        for (int x = 0; x < width; x++)
+		        {
+			        var idx = y*width + x;
+			        var sum = 0.0;
+			        
+			        // x,y is the source and dest position
+			        // need to scan the kernel reading the values
+
+					for (int kY = 0; kY < kHeight; kY++)
+			        for (int kX = 0; kX < kWidth; kX++)
+			        {
+				        var sx = x - kXOffsets[kX];
+				        var sy = y - kYOffsets[kY];
+				        
+				        // reflect if sample off edge
+				        if (sx < 0) sx = -sx;
+				        else if (sx > wLimit) sx = wLimit - (sx - wLimit); // w=256, x=256->254;  256 - 255=1; 255-1=254
+				        if (sy < 0) sy = -sy;
+				        else if (sy > hLimit) sy = hLimit - (sy - hLimit);
+				        
+				        sum += kernel[kX,kY] * src[sy*width + sx];
+			        }
+			        
+			        dst[idx] = sum;
+		        }
+	        }
+	        
+	        var destImage = new Bitmap(sourceImage.Width, sourceImage.Height, PixelFormat.Format32bppArgb);
+	        BitmapTools.PlanesToImage(destImage, dstColorSpace, 0, dstX, dstY, dstZ);
+	        return destImage;
+        }
+
+        /// <summary>
+        /// Calculate source sample offsets for kernel
+        /// </summary>
+        public static int[] KernelSampleOffsets(int size)
+        {
+	        // For odd-widths:
+	        //   -1    idx    +1    <- src
+	        //  s[0]  s[1]   s[2]
+	        //         idx          <- dst
+	        // For even-widths:
+	        //   -1           +1    <- src
+	        //  s[0]         s[1]
+	        //         idx          <- dst
+			        
+			        
+	        // 5-wide:  0=-2; 1=-1; 2= 0; 3= 1; 4= 2;    (4/2 -> 2) Half=2.5
+	        // 4-wide:  0=-2; 1=-1; 2= 1; 3= 2;          (3/2 -> 1) Half=2
+	        // 3-wide:  0=-1; 1= 0; 2=+1;   Half = 1.5;; 1 (2/2)
+	        // 2-wide:  0=-1; 1= 1;         Half = 1.0;; 0 (1/2)
+	        
+	        var half = size / 2;
+	        var end = size - 1;
+	        var offsets = new int[size];
+
+	        for (int i = 0; i < half; i++)
+	        {
+		        offsets[i] = -half + i;
+		        offsets[end - i] = half - i;
+	        }
+	        
+	        return offsets;
         }
 
         private static int clip(int v)

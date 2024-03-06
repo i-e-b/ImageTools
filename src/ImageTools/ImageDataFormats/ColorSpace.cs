@@ -139,6 +139,16 @@ namespace ImageTools.ImageDataFormats
             R   = B + Co;
         }
         
+        
+        /// <summary>
+        /// No change to color space
+        /// </summary>
+        public static void Identity(double R, double G, double B, out double X, out double Y, out double Z) {
+            X=R;
+            Y=G;
+            Z=B;
+        }
+        
         /// <summary>
         /// Lossy conversion from RGB to YCoCg
         /// This is a (luma + blue/orange + purple/green) space
