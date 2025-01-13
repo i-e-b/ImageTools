@@ -46,9 +46,10 @@ namespace ImageTools.DataCompression.Experimental
 
             var src = new BitwiseStreamWrapper(source, BIT_SIZE * 2);
 
-            ulong high = MAX_CODE;
-            ulong low = 0;
+            ulong high  = MAX_CODE;
+            ulong low   = 0;
             ulong value = 0;
+            int   index = 0;
 
             // prime probability
             for ( int i = 0 ; i < CODE_VALUE_BITS ; i++ ) {
@@ -59,18 +60,20 @@ namespace ImageTools.DataCompression.Experimental
             while (src.CanRead()) { // data loop
 
                 // Decode probability to symbol
-                var range = high - low + 1;
-                var scale = _model.SymbolProbability(_lastSymbol).Total(); //map[lastSymbol].Total();
+                var range        = high - low + 1;
+                var scale        = _model.SymbolProbability(_lastSymbol, index).Total();
                 var scaled_value = ((value - low + 1) * scale - 1) / range;
-                var p = DecodeSymbol(scaled_value);
+
+                var p = DecodeSymbol(scaled_value, index);
                 if (p.terminates) break;
                 var symbol = p.symbol;
 
                 destination.WriteSymbol(symbol);
+                index++;
 
                 // Decode next symbol probability
                 high = low + (range * p.high) / p.count - 1;
-                low = low + (range * p.low) / p.count;
+                low += (range * p.low) / p.count;
 
                 while (src.CanRead()) { // symbol decoding loop
                     if ( high < ONE_HALF ) {
@@ -108,10 +111,11 @@ namespace ImageTools.DataCompression.Experimental
 
             var target = new BitwiseStreamWrapper(destination, BIT_SIZE);
 
-            ulong high = MAX_CODE;
-            ulong low = 0;
-            int pending_bits = 0;
-            var moreData = true;
+            ulong high         = MAX_CODE;
+            ulong low          = 0;
+            int   pending_bits = 0;
+            int   index        = 0;
+            var   moreData     = true;
 
             while (moreData) // data loop
             {
@@ -122,17 +126,19 @@ namespace ImageTools.DataCompression.Experimental
                 if (c < 0) // end of data, write termination
                 {
                     moreData = false;
-                    p = EncodeSymbol(_model.EndSymbol());
+                    p = EncodeSymbol(_model.EndSymbol(), index);
                 }
                 else // normal data
                 {
-                    p = EncodeSymbol(c);
+                    p = EncodeSymbol(c, index);
                 }
+
+                index++;
 
                 // convert symbol to probability
                 var range = high - low + 1;
                 high = low + (range * p.high / p.count) - 1;
-                low = low + (range * p.low / p.count);
+                low += (range * p.low / p.count);
 
                 while (true) // symbol encoding loop
                 {
@@ -184,9 +190,9 @@ namespace ImageTools.DataCompression.Experimental
             _model.Reset();
         }
         
-        private SymbolProbability EncodeSymbol(int symbol)
+        private SymbolProbability EncodeSymbol(int symbol, int position)
         {
-            var point = _model.SymbolProbability(_lastSymbol);
+            var point = _model.SymbolProbability(_lastSymbol, position);
             
             var prob = point.EncodeSymbol(symbol);
             UpdateModel(_lastSymbol,symbol);
@@ -201,9 +207,9 @@ namespace ImageTools.DataCompression.Experimental
             _model.UpdateModel(prev, next, max);
         }
 
-        private SymbolProbability DecodeSymbol(ulong scaledValue)
+        private SymbolProbability DecodeSymbol(ulong scaledValue, int position)
         {
-            var prob = _model.SymbolProbability(_lastSymbol);//map[lastSymbol];
+            var prob = _model.SymbolProbability(_lastSymbol, position);
             
             if (scaledValue > prob.Total()) return new SymbolProbability { terminates = true };
             
@@ -327,11 +333,13 @@ namespace ImageTools.DataCompression.Experimental
         /// Feed incoming data. Symbol 'next' has followed symbol 'prev'
         /// </summary>
         public void UpdateModel(int prev, int next, ulong max);
-        
+
         /// <summary>
         /// Return a probability tree appropriate for the given previous symbol
         /// </summary>
-        public ISumTree SymbolProbability(int symbol);
+        /// <param name="symbol">Previous symbol</param>
+        /// <param name="position">Position of new symbol</param>
+        public ISumTree SymbolProbability(int symbol, int position);
         
         /// <summary>
         /// Create, or reset, internal settings
@@ -367,7 +375,7 @@ namespace ImageTools.DataCompression.Experimental
             // No updates
         }
 
-        public ISumTree SymbolProbability(int symbol)
+        public ISumTree SymbolProbability(int symbol, int position)
         {
             return _map;
         }
@@ -417,7 +425,7 @@ namespace ImageTools.DataCompression.Experimental
             prob.IncrementSymbol(next, (ulong)_aggressiveness);
         }
 
-        public ISumTree SymbolProbability(int symbol)
+        public ISumTree SymbolProbability(int symbol, int position)
         {
             return _map;
         }
@@ -467,7 +475,7 @@ namespace ImageTools.DataCompression.Experimental
             // Nothing. Is a fixed model
         }
 
-        public ISumTree SymbolProbability(int symbol)
+        public ISumTree SymbolProbability(int symbol, int position)
         {
             return _tree;
         }
@@ -518,7 +526,7 @@ namespace ImageTools.DataCompression.Experimental
             // Nothing. Is a fixed model
         }
 
-        public ISumTree SymbolProbability(int symbol)
+        public ISumTree SymbolProbability(int symbol, int position)
         {
             return _tree;
         }
@@ -545,9 +553,9 @@ namespace ImageTools.DataCompression.Experimental
     /// </summary>
     public class Markov2D_v2: IProbabilityModel2
     {
-        private readonly int _aggressiveness;
-        private readonly ISumTree[] _map;
-        private readonly bool[] _frozen;
+        private readonly int        _aggressiveness;
+        private readonly ISumTree[] _map; // 1 back => predicted next
+        private readonly bool[]     _frozen;
         
         private readonly int _mapSize; // Size of 'map' array
         private readonly int _countEntry; // Entry index for max count
@@ -578,7 +586,7 @@ namespace ImageTools.DataCompression.Experimental
             prob.IncrementSymbol(next, (ulong)_aggressiveness);
         }
 
-        public ISumTree SymbolProbability(int symbol)
+        public ISumTree SymbolProbability(int symbol, int position)
         {
             return _map[symbol];
         }
@@ -640,7 +648,7 @@ namespace ImageTools.DataCompression.Experimental
             prob.IncrementSymbol(next, (ulong)_aggressiveness);
         }
 
-        public ISumTree SymbolProbability(int symbol)
+        public ISumTree SymbolProbability(int symbol, int position)
         {
             return _map[_doublePrev, symbol];
         }
@@ -663,6 +671,136 @@ namespace ImageTools.DataCompression.Experimental
             return _endSymbol;
         }
     }
+
+    /// <summary>
+    /// 2-stage Markov chain with byte index in context
+    /// </summary>
+    public class MarkovPos_v2: IProbabilityModel2
+    {
+        private readonly int _aggressiveness;
+        private readonly ISumTree[,] _map; // Index, 1 back => predicted next
+        private readonly bool[] _frozen;
+
+        private readonly int _mapSize; // Size of 'map' array
+        private readonly int _countEntry; // Entry index for max count
+        private readonly int _endSymbol; // Symbol for end-of-data
+
+        private int _lastIndex;
+
+        public MarkovPos_v2(int symbolCount, int aggressiveness)
+        {
+            _endSymbol = symbolCount; // assuming symbols are dense, and start at zero
+            _countEntry = _endSymbol + 1;
+            _mapSize = _countEntry + 1;
+
+            _map = new ISumTree[_mapSize,_mapSize];
+            _frozen = new bool[_mapSize];
+            _aggressiveness = aggressiveness;
+        }
+
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            if (_frozen[prev]) return;
+
+            var prob = _map[_lastIndex, prev];
+            if (prob.Total() > max) {
+                Console.WriteLine($"Saturated leading symbol {prev:X2}");
+                _frozen[prev] = true;
+                return;
+            }
+
+            prob.IncrementSymbol(next, (ulong)_aggressiveness);
+        }
+
+        public ISumTree SymbolProbability(int symbol, int position)
+        {
+            _lastIndex = position & 0x0F;
+            return _map[_lastIndex, symbol];
+        }
+
+        public void Reset()
+        {
+            _lastIndex = 0;
+            for (int i = 0; i < _mapSize; i++)
+            {
+                for (int j = 0; j < _mapSize; j++)
+                {
+                    _frozen[i] = false;
+                    _map[i,j] = new FenwickTree(_countEntry, _endSymbol);
+                }
+            }
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
+
+    /// <summary>
+    /// 2-stage Markov chain with byte index in context, and context folding
+    /// </summary>
+    public class MarkovFoldPos_v2: IProbabilityModel2
+    {
+        private readonly int         _aggressiveness;
+        private readonly ISumTree[,] _map; // Index, 1 back => predicted next
+        private readonly bool[]      _frozen;
+
+        private readonly int _countEntry; // Entry index for max count
+        private readonly int _endSymbol; // Symbol for end-of-data
+
+        private       int _lastIndex;
+        private const int fold = 0x0F;
+
+        public MarkovFoldPos_v2(int symbolCount, int aggressiveness)
+        {
+            _endSymbol = symbolCount; // assuming symbols are dense, and start at zero
+            _countEntry = _endSymbol + 1;
+
+            // all context is folded to 0x7F
+            _map = new ISumTree[fold+1, fold+1];
+            _frozen = new bool[fold+1];
+            _aggressiveness = aggressiveness;
+        }
+
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            if (_frozen[prev&fold]) return;
+
+            var prob = _map[_lastIndex&fold, prev&fold];
+            if (prob.Total() > max) {
+                Console.WriteLine($"Saturated leading symbol {prev:X2}");
+                _frozen[prev] = true;
+                return;
+            }
+
+            prob.IncrementSymbol(next, (ulong)_aggressiveness);
+        }
+
+        public ISumTree SymbolProbability(int symbol, int position)
+        {
+            _lastIndex = position;
+            return _map[_lastIndex&fold, symbol&fold];
+        }
+
+        public void Reset()
+        {
+            _lastIndex = 0;
+            for (int i = 0; i <= fold; i++)
+            {
+                for (int j = 0; j <= fold; j++)
+                {
+                    _frozen[i] = false;
+                    _map[i,j] = new FenwickTree(_countEntry, _endSymbol);
+                }
+            }
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
     
     /// <summary>
     /// 4-stage byte-wise Markov chain
@@ -670,7 +808,7 @@ namespace ImageTools.DataCompression.Experimental
     public class Markov4D_v2: IProbabilityModel2
     {
         private readonly int _aggressiveness;
-        private readonly ISumTree[,,] _map; // 2 back, 1 back => predicted next
+        private readonly ISumTree[,,] _map; // 3, 2, 1 back => predicted next
         
         private readonly int _mapSize; // Size of 'map' array
         private readonly int _countEntry; // Entry index for max count
@@ -699,7 +837,7 @@ namespace ImageTools.DataCompression.Experimental
             prob.IncrementSymbol(next, (ulong)_aggressiveness);
         }
 
-        public ISumTree SymbolProbability(int symbol)
+        public ISumTree SymbolProbability(int symbol, int position)
         {
             return _map[_triplePrev, _doublePrev, symbol];
         }
@@ -713,6 +851,68 @@ namespace ImageTools.DataCompression.Experimental
                 for (int j = 0; j < _mapSize; j++)
                 {
                     for (int k = 0; k < _mapSize; k++)
+                    {
+                        _map[i, j, k] = new FenwickTree(_countEntry, _endSymbol);
+                    }
+                }
+            }
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
+
+
+    /// <summary>
+    /// 4-stage byte-wise Markov chain with context folding
+    /// </summary>
+    public class Markov4DFold_v2: IProbabilityModel2
+    {
+        private readonly int          _aggressiveness;
+        private readonly ISumTree[,,] _map; // 3, 2, 1 back => predicted next
+
+        private readonly int _countEntry; // Entry index for max count
+        private readonly int _endSymbol; // Symbol for end-of-data
+
+        private int _doublePrev;
+        private int _triplePrev;
+
+        private const int fold = 0x0F;
+
+        public Markov4DFold_v2(int symbolCount, int aggressiveness)
+        {
+            _endSymbol = symbolCount; // assuming symbols are dense, and start at zero
+            _countEntry = _endSymbol + 1;
+
+            _map = new ISumTree[fold+1,fold+1,fold+1];
+            _aggressiveness = aggressiveness;
+        }
+
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            var prob = _map[_triplePrev & fold, _doublePrev & fold, prev & fold];
+
+            _triplePrev = _doublePrev;
+            _doublePrev = prev;
+            prob.IncrementSymbol(next, (ulong)_aggressiveness);
+        }
+
+        public ISumTree SymbolProbability(int symbol, int position)
+        {
+            return _map[_triplePrev & fold, _doublePrev & fold, symbol & fold];
+        }
+
+        public void Reset()
+        {
+            _triplePrev = 0;
+            _doublePrev = 0;
+            for (int i = 0; i <= fold; i++)
+            {
+                for (int j = 0; j <= fold; j++)
+                {
+                    for (int k = 0; k <= fold; k++)
                     {
                         _map[i, j, k] = new FenwickTree(_countEntry, _endSymbol);
                     }

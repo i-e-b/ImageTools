@@ -113,7 +113,7 @@ namespace ImageTools.Tests
             using var dst = new Bitmap(bmp);
             using var dstSmall = new Bitmap(bmp, new Size(bmp.Width / 4, bmp.Height / 4));
             
-            BitmapTools.ImageToPlanes(bmp, ColorSpace.RGBToYUV, out var Y, out var U, out var V);
+            BitmapTools.ImageToPlanes(bmp, ColorSpace.RGBToYUV, out var Y, out _, out _);
             BitmapTools.ImageToPlanes(bmp, ColorSpace.Native, out var R, out var G, out var B);
 
             ReduceBy4ToRange(R, bmp.Width, bmp.Height, out var Rmin, out var Rmax);

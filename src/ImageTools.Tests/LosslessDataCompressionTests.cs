@@ -1620,6 +1620,10 @@ to be there when you fall.""";
             // Original: 499.23kb; Encoded: 437.15kb (87.6%)  <-- BytePreScanModel, no preamble
             // Original: 499.23kb; Encoded: 437.35kb (87.6%)  <-- SimpleLearningModel_v2(256,2)
             // Original: 499.23kb; Encoded: 499.59kb (100.1%) <-- FlatModel_v2(256)
+            // Original: 492.34kb; Encoded: 391.16kb (79.4%)  <-- MarkovPos_v2(256, 4)
+            // Original: 492.34kb; Encoded: 414.77kb (84.2%)  <-- MarkovFoldPos_v2(256, 2)
+            // Original: 492.34kb; Encoded: 370.74kb (75.3%)  <-- Markov4DFold_v2(256, 8)
+
             
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
@@ -1629,14 +1633,26 @@ to be there when you fall.""";
             var src = new MemoryStream(expected);
             
             //var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
-            var subject = new ArithmeticEncoder2(new Markov3D_v2(256, 20));
+            var subject = new ArithmeticEncoder2(new Markov3D_v2(256, 16));
+            //var subject = new ArithmeticEncoder2(new MarkovPos_v2(256, 4));
+            //var subject = new ArithmeticEncoder2(new MarkovFoldPos_v2(256, 2));
+            //var subject = new ArithmeticEncoder2(new Markov4D_v2(256, 8)); // bogs down?
+            //var subject = new ArithmeticEncoder2(new Markov4DFold_v2(256, 8));
             //var subject = new ArithmeticEncoder2(new FlatModel_v2(256));
             //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(256, 2));
             //var subject = new ArithmeticEncoder2(new BytePreScanModel(expected, dst));
-            
+
+            var sw = Stopwatch.StartNew();
             subject.CompressStream(new ByteSymbolStream(src), encoded);
+            sw.Stop();
+            Console.WriteLine($"Compression took {sw.Elapsed}");
+
             encoded.Seek(0, SeekOrigin.Begin);
+
+            sw.Restart();
             var ok = subject.DecompressStream(encoded, new ByteSymbolStream(dst));
+            sw.Stop();
+            Console.WriteLine($"Decompress took {sw.Elapsed}");
             
             dst.Seek(0, SeekOrigin.Begin);
             var actual = dst.ToArray();
@@ -1646,7 +1662,7 @@ to be there when you fall.""";
             
             Assert.That(actual, Is.EqualTo(expected).AsCollection);
             Assert.That(ok, "Stream was truncated, but should not have been");
-            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
         }
         
         [Test]
@@ -1724,7 +1740,7 @@ to be there when you fall.""";
         }
         
         [Test]
-        public void arithmetic_encoder_2_compress_firmware_nybble_pre_scan()
+        public void arithmetic_encoder_2_compress_firmware_nybble()
         {
             // Equivalent deflate: 321.13kb (64.0%)
             //
@@ -1751,7 +1767,7 @@ to be there when you fall.""";
             
             //var subject = new ArithmeticEncoder2(new Markov2D_v2(16, 2));
             //var subject = new ArithmeticEncoder2(new Markov3D_v2(16, 1));
-            var subject = new ArithmeticEncoder2(new Markov4D_v2(16, 1)); // experimental
+            var subject = new ArithmeticEncoder2(new Markov4DFold_v2(16, 4));
             subject.CompressStream(new NybbleSymbolStream(src), encoded);
             encoded.Seek(0, SeekOrigin.Begin);
             var ok = subject.DecompressStream(encoded, new NybbleSymbolStream(dst));
@@ -1764,7 +1780,7 @@ to be there when you fall.""";
             
             Assert.That(actual, Is.EqualTo(expected).AsCollection);
             Assert.That(ok, "Stream was truncated, but should not have been");
-            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
         }
         
         [Test]
