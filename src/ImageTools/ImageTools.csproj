@@ -52,7 +52,6 @@
     <Compile Include="DataCompression\Experimental\ArithmeticEncoder2.cs" />
     <Compile Include="DataCompression\Experimental\BinaryFolding.cs" />
     <Compile Include="DataCompression\Experimental\BWST.cs" />
-    <Compile Include="DataCompression\Experimental\DumbTree.cs" />
     <Compile Include="DataCompression\Experimental\FenwickTree.cs" />
     <Compile Include="DataCompression\Experimental\LZAC.cs" />
     <Compile Include="DataCompression\Experimental\NGrams.cs" />
@@ -62,7 +61,7 @@
     <Compile Include="DataCompression\Experimental\SimpleRLE.cs" />
     <Compile Include="DataCompression\Experimental\SplitTree.cs" />
     <Compile Include="DataCompression\Experimental\Stx.cs" />
-    <Compile Include="DataCompression\Experimental\SumTree.cs" />
+    <Compile Include="DataCompression\Experimental\ISumTree.cs" />
     <Compile Include="DataCompression\Experimental\TruncatableEncoder.cs" />
     <Compile Include="DataCompression\Experimental\Whitener.cs" />
     <Compile Include="DataCompression\Huffman\ByteHuffmanTree.cs" />

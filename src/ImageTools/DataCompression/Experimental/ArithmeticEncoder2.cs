@@ -337,9 +337,9 @@ namespace ImageTools.DataCompression.Experimental
         /// <summary>
         /// Return a probability tree appropriate for the given previous symbol
         /// </summary>
-        /// <param name="symbol">Previous symbol</param>
+        /// <param name="prevSymbol">Previous symbol</param>
         /// <param name="position">Position of new symbol</param>
-        public ISumTree SymbolProbability(int symbol, int position);
+        public ISumTree SymbolProbability(int prevSymbol, int position);
         
         /// <summary>
         /// Create, or reset, internal settings
@@ -434,6 +434,75 @@ namespace ImageTools.DataCompression.Experimental
         {
             _frozen = false;
             _map = new FenwickTree(_countEntry, _endSymbol);
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
+
+
+    /// <summary>
+    /// Single probability tree, learning from incoming data
+    /// </summary>
+    public class SimpleLearningModel_Preset_v2: IProbabilityModel2
+    {
+        private readonly int      _aggressiveness;
+        private readonly byte[]   _presets;
+        private          ISumTree _map;
+        private          bool     _frozen;
+
+        private readonly int _countEntry; // Entry index for max count
+        private readonly int _endSymbol; // Symbol for end-of-data
+
+        public SimpleLearningModel_Preset_v2(int symbolCount, int aggressiveness, params byte[] presets)
+        {
+            _endSymbol = symbolCount;
+            _countEntry = _endSymbol + 1;
+
+            _frozen = false;
+            _map = new FenwickTree(_countEntry, _endSymbol);
+
+            _aggressiveness = aggressiveness;
+            _presets = presets;
+
+            Populate();
+        }
+
+        private void Populate()
+        {
+            var pwr = 1UL << _presets.Length;
+            foreach (var val in _presets)
+            {
+                _map.IncrementSymbol(val, pwr);
+                pwr >>= 1;
+            }
+        }
+
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            if (_frozen) return;
+
+            var prob = _map;
+            if (prob.Total() > max) {
+                _frozen = true;
+                return;
+            }
+
+            prob.IncrementSymbol(next, (ulong)_aggressiveness);
+        }
+
+        public ISumTree SymbolProbability(int symbol, int position)
+        {
+            return _map;
+        }
+
+        public void Reset()
+        {
+            _frozen = false;
+            _map = new FenwickTree(_countEntry, _endSymbol);
+            Populate();
         }
 
         public int EndSymbol()
@@ -801,7 +870,74 @@ namespace ImageTools.DataCompression.Experimental
             return _endSymbol;
         }
     }
-    
+
+    /// <summary>
+    /// Rolling hash Markov chain
+    /// </summary>
+    public class MarkovRH_v2: IProbabilityModel2
+    {
+        private readonly int        _aggressiveness;
+        private readonly ISumTree[] _map; // hash => predicted next
+        private readonly bool[]     _frozen;
+
+        private readonly int _mapSize; // Size of 'map' array
+        private readonly int _countEntry; // Entry index for max count
+        private readonly int _endSymbol; // Symbol for end-of-data
+
+        private int _rollingHash;
+
+        private const int hashMask = 0xFF;
+
+        public MarkovRH_v2(int symbolCount, int aggressiveness)
+        {
+            _endSymbol = symbolCount; // assuming symbols are dense, and start at zero
+            _countEntry = _endSymbol + 1;
+            _mapSize = _countEntry + 1;
+            _rollingHash = 0;
+
+            _map = new ISumTree[hashMask+1];
+            _frozen = new bool[hashMask+1];
+            _aggressiveness = aggressiveness;
+        }
+
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            _rollingHash *= prev;
+            if (_frozen[_rollingHash & hashMask]) return;
+
+            var prob = _map[_rollingHash & hashMask];
+            if (prob.Total() > max) {
+                Console.WriteLine($"Saturated leading symbol {prev:X2}");
+                _frozen[_rollingHash & hashMask] = true;
+                return;
+            }
+
+            prob.IncrementSymbol(next, (ulong)_aggressiveness);
+        }
+
+        public ISumTree SymbolProbability(int prevSymbol, int position)
+        {
+            var hm = _rollingHash & hashMask;
+            return _map[hm];
+        }
+
+        public void Reset()
+        {
+            _rollingHash = 0;
+            for (int i = 0; i <= hashMask; i++)
+            {
+                _frozen[i] = false;
+                _map[i] = new FenwickTree(_countEntry, _endSymbol);
+
+            }
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
+
     /// <summary>
     /// 4-stage byte-wise Markov chain
     /// </summary>
@@ -863,7 +999,6 @@ namespace ImageTools.DataCompression.Experimental
             return _endSymbol;
         }
     }
-
 
     /// <summary>
     /// 4-stage byte-wise Markov chain with context folding

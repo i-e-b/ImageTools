@@ -3,7 +3,7 @@
     /// <summary>
     /// Transforms that try to change the data correlation.
     /// </summary>
-    public class Whitener
+    public static class Whitener
     {
         /// <summary>
         /// Bluetooth LE transform

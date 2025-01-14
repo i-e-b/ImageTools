@@ -77,33 +77,6 @@ namespace ImageTools.Tests
         }
 
         [Test]
-        public void sum_tree_tests()
-        {
-            ISumTree subject = new SumTree(16);
-            ISumTree comparison = new DumbTree(16, 0);
-            
-            Assert.That(subject.Total(), Is.EqualTo(comparison.Total()), "Totals did not match");
-            Assert.That(subject.Total(), Is.EqualTo(16), "Wrong total");
-            
-            subject.IncrementSymbol(5, 1);
-            comparison.IncrementSymbol(5, 1);
-            
-            Assert.That(subject.Total(), Is.EqualTo(comparison.Total()), "Totals did not match");
-            Assert.That(subject.Total(), Is.EqualTo(16), "Wrong total");
-            
-            var fourSubject = subject.EncodeSymbol(4);
-            var fourComparison = comparison.EncodeSymbol(4);
-            var fiveSubject = subject.EncodeSymbol(5);
-            var fiveComparison = comparison.EncodeSymbol(5);
-            var sixSubject = subject.EncodeSymbol(6);
-            var sixComparison = comparison.EncodeSymbol(6);
-            
-            Assert.That(fourSubject.high, Is.EqualTo(fourComparison.high));
-            Assert.That(fiveSubject.high, Is.EqualTo(fiveComparison.high));
-            Assert.That(sixSubject.high, Is.EqualTo(sixComparison.high));
-        }
-
-        [Test]
         public void fenwick_tree_tests()
         {
             // Just some basic coverage:
@@ -701,6 +674,18 @@ namespace ImageTools.Tests
             return length;
         }
 
+        private static long DeflateSize(byte[] srcBytes, int offset, int length)
+        {
+            using var test = new MemoryStream();
+            using (var gz = new DeflateStream(test, CompressionLevel.Optimal, true))
+            {
+                gz.Write(srcBytes, offset, length);
+                gz.Flush();
+            }
+
+            return test.Length;
+        }
+
         public const string Moby = @"####Call me Ishmael. Some years ago--never mind how long precisely--having
 little or no money in my purse, and nothing particular to interest me on
 shore, I thought I would sail about a little and see the watery part of
@@ -1288,17 +1273,21 @@ to be there when you fall.""";
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
 
-            var codec = new LzclCodec();
+            var codec   = new LzclCodec();
+            var sw      = Stopwatch.StartNew();
             var encoded = codec.Compress(expected);
+            sw.Stop();
             
             var percent = (100.0 * encoded.Length) / expected.Length;
-            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
-            
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%) Took {sw.Elapsed}");
+
+            sw.Restart();
             var result = codec.Decompress(encoded);
-            Console.WriteLine();
+            sw.Stop();
+            Console.WriteLine($"Decompress took {sw.Elapsed}");
             
             Assert.That(result, Is.EqualTo(expected).AsCollection);
-            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
         }
 
         [Test, Description("This is the 7zip algorithm. Beats deflate by a fair margin")]
@@ -1481,7 +1470,7 @@ to be there when you fall.""";
         public void info__n_grams_of_file()
         {
             var data = File.ReadAllBytes(@"C:\temp\LargeEspIdf.bin");
-            NGrams.TestNGramsOfData(6, 32, data);
+            NGrams.TestNGramsOfData(8, 32, data);
         }
         
         [Test]
@@ -1490,7 +1479,6 @@ to be there when you fall.""";
             var data = Encoding.UTF8.GetBytes(Moby);
             NGrams.TestNGramsOfData(3, 32, data);
         }
-
 
         [Test]
         public void compress_firmware_experimental_lzac()
@@ -1598,8 +1586,12 @@ to be there when you fall.""";
             
             var result = dst.ToArray();
 
+            var before = DeflateSize(expected);
+            var after = DeflateSize(encoded);
+            Console.WriteLine($"Deflate before={Bin.Human(before)}; after={Bin.Human(after)};");
+
             Assert.That(result, Is.EqualTo(expected).AsCollection);
-            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
         }
         
         [Test]
@@ -1616,7 +1608,8 @@ to be there when you fall.""";
             // Original: 499.23kb; Encoded: 346.17kb (69.3%)  <-- Markov3D_v2(256, 8)
             // Original: 499.23kb; Encoded: 341.95kb (68.5%)  <-- Markov3D_v2(256, 16)
             // Original: 499.23kb; Encoded: 341.62kb (68.4%)  <-- Markov3D_v2(256, 20)
-            // 
+            //
+            // Original: 492.34kb; Encoded: 435.62kb (88.5%)  <-- SimpleLearningModel_Preset_v2(...0x00, 0x20, 0x0C, 0xFF));
             // Original: 499.23kb; Encoded: 437.15kb (87.6%)  <-- BytePreScanModel, no preamble
             // Original: 499.23kb; Encoded: 437.35kb (87.6%)  <-- SimpleLearningModel_v2(256,2)
             // Original: 499.23kb; Encoded: 499.59kb (100.1%) <-- FlatModel_v2(256)
@@ -1632,11 +1625,12 @@ to be there when you fall.""";
             var dst = new MemoryStream();
             var src = new MemoryStream(expected);
             
+            //var subject = new ArithmeticEncoder2(new SimpleLearningModel_Preset_v2(256, 1, 0x00));
             //var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
-            var subject = new ArithmeticEncoder2(new Markov3D_v2(256, 16));
+            //var subject = new ArithmeticEncoder2(new MarkovRH_v2(256, 1));
+            var subject = new ArithmeticEncoder2(new Markov3D_v2(256, 20));
             //var subject = new ArithmeticEncoder2(new MarkovPos_v2(256, 4));
             //var subject = new ArithmeticEncoder2(new MarkovFoldPos_v2(256, 2));
-            //var subject = new ArithmeticEncoder2(new Markov4D_v2(256, 8)); // bogs down?
             //var subject = new ArithmeticEncoder2(new Markov4DFold_v2(256, 8));
             //var subject = new ArithmeticEncoder2(new FlatModel_v2(256));
             //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(256, 2));
@@ -1647,6 +1641,8 @@ to be there when you fall.""";
             sw.Stop();
             Console.WriteLine($"Compression took {sw.Elapsed}");
 
+            encoded.Seek(0, SeekOrigin.Begin);
+            var encodedBytes = encoded.ToArray();
             encoded.Seek(0, SeekOrigin.Begin);
 
             sw.Restart();
@@ -1659,7 +1655,18 @@ to be there when you fall.""";
             
             var percent = (100.0 * encoded.Length) / expected.Length;
             Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
-            
+
+            int zCount = expected.Count(b => b == 0x00);
+            int qCount = expected.Count(b => b == 0xF0);
+            int eCount = expected.Count(b => b == 0x3D);
+
+            Console.WriteLine($"Original data: zero bytes={zCount}; '?' bytes={qCount}; '=' bytes={eCount};");
+
+            zCount = encodedBytes.Count(b => b == 0x00);
+            qCount = encodedBytes.Count(b => b == 0xF0);
+            eCount = encodedBytes.Count(b => b == 0x3D);
+            Console.WriteLine($"Compressed data: zero bytes={zCount}; '?' bytes={qCount}; '=' bytes={eCount};");
+
             Assert.That(actual, Is.EqualTo(expected).AsCollection);
             Assert.That(ok, "Stream was truncated, but should not have been");
             Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
@@ -1757,6 +1764,8 @@ to be there when you fall.""";
             // Original: 499.23kb; Encoded: 375.37kb (75.2%) <-- Markov4D_v2(16, 1)
             // Original: 499.23kb; Encoded: 375.60kb (75.2%) <-- Markov4D_v2(16, 2)
             // Original: 499.23kb; Encoded: 377.77kb (75.7%) <-- Markov4D_v2(16, 4)
+            //
+            // Original: 492.34kb; Encoded: 377.47kb (76.7%) <-- Markov4DFold_v2(16, 4)
             
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
@@ -1767,7 +1776,8 @@ to be there when you fall.""";
             
             //var subject = new ArithmeticEncoder2(new Markov2D_v2(16, 2));
             //var subject = new ArithmeticEncoder2(new Markov3D_v2(16, 1));
-            var subject = new ArithmeticEncoder2(new Markov4DFold_v2(16, 4));
+            //var subject = new ArithmeticEncoder2(new Markov4DFold_v2(16, 4));
+            var subject = new ArithmeticEncoder2(new Markov4D_v2(16, 2));
             subject.CompressStream(new NybbleSymbolStream(src), encoded);
             encoded.Seek(0, SeekOrigin.Begin);
             var ok = subject.DecompressStream(encoded, new NybbleSymbolStream(dst));
@@ -1807,6 +1817,118 @@ to be there when you fall.""";
             Assert.That(ok, "Stream was truncated, but should not have been");
             var percent = (100.0 * encoded.Length) / expected.Length;
             Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+        }
+
+        [Test]
+        public void arithmetic_encoder_2_compress_1400s()
+        {
+            // Equivalent deflate: 321.13kb (64.0%)
+            // Equivalent deflate in blocks: 352.27kb (71.5%)
+            //
+            // Original: 492.34kb; Encoded: 381.66kb (77.5%) <-- Markov2D_v2(256,  8)
+            // Original: 492.34kb; Encoded: 373.57kb (75.9%) <-- Markov2D_v2(256, 16)
+            // Original: 492.34kb; Encoded: 371.20kb (75.4%) <-- Markov2D_v2(256, 30)
+            // Original: 492.34kb; Encoded: 375.24kb (76.2%) <-- Markov2D_v2(256, 64)
+
+            var path     = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+
+            var smallest  = 1400;
+            var largest   = 0;
+            var totalSize = 0;
+            var deflateSize = 0;
+
+            var c = 0;
+            for (int i = 0; i < expected.Length; i+= 1400)
+            {
+                c++;
+                var len = expected.Length - i;
+                if (len > 1400) len = 1400;
+
+                deflateSize += (int)DeflateSize(expected, i, len);
+                var src     = new MemoryStream(expected, i, len);
+                //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(256, 4));
+                var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 28));
+
+                using var encoded = new MemoryStream();
+                subject.CompressStream(new ByteSymbolStream(src), encoded);
+
+                //Console.WriteLine($"    b{c}: {len}->{encoded.Length}");
+                var result = (int)encoded.Length;
+                totalSize += result;
+                if (result > largest) largest = result;
+                if (result < smallest) smallest = result;
+            }
+
+            var percent = (100.0 * totalSize) / expected.Length;
+            var defPercent = (100.0 * deflateSize) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(totalSize)} ({percent:0.0}%)");
+            Console.WriteLine($"Min block: {smallest}; Max block: {largest}; Block count: {c};");
+            Console.WriteLine($"Sum of deflate blocks: {Bin.Human(deflateSize)} ({defPercent:0.0}%)");
+
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(totalSize)} ({percent:0.0}%)\r\n");
+        }
+
+        [Test]
+        public void arithmetic_encoder_2_nybble_compress_1400s()
+        {
+            // Equivalent deflate: 321.13kb (64.0%)
+            // Equivalent deflate in blocks: ??kb (??%)
+            //
+            // Original: 492.34kb; Encoded: 411.79kb (83.6%) <-- Markov2D_v2(16,  1)
+            // Original: 492.34kb; Encoded: 411.96kb (83.7%) <-- Markov2D_v2(16,  2)
+            // Original: 492.34kb; Encoded: 414.86kb (84.3%) <-- Markov2D_v2(16,  4)
+            // Original: 492.34kb; Encoded: 419.92kb (85.3%) <-- Markov2D_v2(16,  8)
+            // Original: 492.34kb; Encoded: 426.53kb (86.6%) <-- Markov2D_v2(16, 16)
+            //
+            // Original: 492.34kb; Encoded: 399.46kb (81.1%) <-- Markov3D_v2(16, 1)
+            // Original: 492.34kb; Encoded: 390.41kb (79.3%) <-- Markov3D_v2(16, 2)
+            // Original: 492.34kb; Encoded: 389.05kb (79.0%) <-- Markov3D_v2(16, 4)
+            // Original: 492.34kb; Encoded: 396.28kb (80.5%) <-- Markov3D_v2(16, 8)
+            //
+            // Original: 492.34kb; Encoded: 413.19kb (83.9%) <-- Markov4D_v2(16, 1)
+            // Original: 492.34kb; Encoded: 397.02kb (80.6%) <-- Markov4D_v2(16, 2)
+            // Original: 492.34kb; Encoded: 385.36kb (78.3%) <-- Markov4D_v2(16, 4)
+            // Original: 492.34kb; Encoded: 380.63kb (77.3%) <-- Markov4D_v2(16, 8)
+            // Original: 492.34kb; Encoded: 383.83kb (78.0%) <-- Markov4D_v2(16, 16)
+
+            var path     = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+
+            var smallest  = 1400;
+            var largest   = 0;
+            var totalSize = 0;
+            var deflateSize = 0;
+
+            var c = 0;
+            for (int i = 0; i < expected.Length; i+= 1400)
+            {
+                c++;
+                var len = expected.Length - i;
+                if (len > 1400) len = 1400;
+
+                deflateSize += (int)DeflateSize(expected, i, len);
+                var src     = new MemoryStream(expected, i, len);
+                //var subject = new ArithmeticEncoder2(new Markov2D_v2(16, 1));
+                //var subject = new ArithmeticEncoder2(new Markov3D_v2(16, 8));
+                var subject = new ArithmeticEncoder2(new Markov4D_v2(16, 8));
+
+                using var encoded = new MemoryStream();
+                subject.CompressStream(new NybbleSymbolStream(src), encoded);
+
+                var result = (int)encoded.Length;
+                totalSize += result;
+                if (result > largest) largest = result;
+                if (result < smallest) smallest = result;
+            }
+
+            var percent = (100.0 * totalSize) / expected.Length;
+            var defPercent = (100.0 * deflateSize) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(totalSize)} ({percent:0.0}%)");
+            Console.WriteLine($"Min block: {smallest}; Max block: {largest}; Block count: {c};");
+            Console.WriteLine($"Sum of deflate blocks: {Bin.Human(deflateSize)} ({defPercent:0.0}%)");
+
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(totalSize)} ({percent:0.0}%)\r\n");
         }
 
         [Test]
