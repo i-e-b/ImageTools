@@ -189,8 +189,6 @@ Heavily modified for speed
 * /
 
 var jslzjb = (function() {
-    // TODO:
-    //"use asm";
 
     // Constants was used for compress/decompress function.
     var

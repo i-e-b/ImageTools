@@ -1347,6 +1347,7 @@ to be there when you fall.""";
             var result = Stx.ReverseTransform(stxOut);
             
             Assert.That(result, Is.EqualTo(expected).AsCollection);
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
         }
         
         [Test]
@@ -1444,6 +1445,7 @@ to be there when you fall.""";
             var result = dst.ToArray();
 
             Assert.That(result, Is.EqualTo(expected).AsCollection);
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
         }
 
         [Test]
@@ -1546,6 +1548,7 @@ to be there when you fall.""";
             result = result.Take(resultLength).ToArray();
             
             Assert.That(result, Is.EqualTo(expected).AsCollection);
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(acDst.Length)} ({percent:0.0}%)\r\n");
         }
 
         [Test]
@@ -1568,6 +1571,7 @@ to be there when you fall.""";
             var result = dst.ToArray();
 
             Assert.That(result, Is.EqualTo(expected).AsCollection);
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
         }
 
         [Test]
