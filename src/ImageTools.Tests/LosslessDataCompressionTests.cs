@@ -1796,6 +1796,46 @@ to be there when you fall.""";
             Assert.That(ok, "Stream was truncated, but should not have been");
             Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
         }
+
+        [Test]
+        public void arithmetic_encoder_2_compress_firmware_bitwise()
+        {
+            // Equivalent deflate: 321.13kb (64.0%)
+            //
+            // Original: 492.34kb; Encoded: 460.88kb (93.6%) <-- new Markov2D_v2(2, 2) -- this is guessing one bit based on previous bit
+            // Original: 492.34kb; Encoded: 433.24kb (88.0%) <-- BitChain16(1)
+            // Original: 492.34kb; Encoded: 424.29kb (86.2%) <-- BitChain16(3)
+            // Original: 492.34kb; Encoded: 423.99kb (86.1%) <-- BitChain16(4)
+            // Original: 492.34kb; Encoded: 424.22kb (86.2%) <-- BitChain16(5)
+            // Original: 492.34kb; Encoded: 425.79kb (86.5%) <-- BitChain16(8)
+            //
+            // Original: 492.34kb; Encoded: 482.37kb (98.0%) <-- BC32 with 250/200
+            // Original: 492.34kb; Encoded: 481.57kb (97.8%) <-- BC32 with 500/400
+
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(expected);
+
+            //var subject = new ArithmeticEncoder2(new Markov2D_v2(2, 2));
+            //var subject = new ArithmeticEncoder2(new BitChain16(4));
+            var subject = new ArithmeticEncoder2(new BitChain32());
+            subject.CompressStream(new BitSymbolStream(src), encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            var ok = subject.DecompressStream(encoded, new BitSymbolStream(dst));
+
+            dst.Seek(0, SeekOrigin.Begin);
+            var actual = dst.ToArray();
+
+            var percent = (100.0 * encoded.Length) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+
+            Assert.That(actual, Is.EqualTo(expected).AsCollection);
+            Assert.That(ok, "Stream was truncated, but should not have been");
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
+        }
         
         [Test]
         public void arithmetic_encoder_2_round_trip()

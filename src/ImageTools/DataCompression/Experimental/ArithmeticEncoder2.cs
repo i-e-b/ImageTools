@@ -2,6 +2,7 @@
 using System.IO;
 using ImageTools.DataCompression.Encoding;
 using ImageTools.ImageDataFormats;
+
 // ReSharper disable InconsistentNaming
 // ReSharper disable PossibleNullReferenceException
 // ReSharper disable UnusedType.Global
@@ -14,18 +15,18 @@ namespace ImageTools.DataCompression.Experimental
     public class ArithmeticEncoder2
     {
         // Arithmetic encoder values
-        private const int BIT_SIZE = sizeof(long) * 8;
-        private const int CODE_VALUE_BITS = BIT_SIZE / 2;
-        private const int FREQUENCY_BITS = BIT_SIZE - CODE_VALUE_BITS;
-        private const ulong MAX_CODE = (1ul << CODE_VALUE_BITS) - 1;
-        private const ulong MAX_FREQ = (1ul << FREQUENCY_BITS) - 1;
-        private const ulong ONE_QUARTER = 1ul << (CODE_VALUE_BITS - 2);
-        private const ulong ONE_HALF = 2 * ONE_QUARTER;
-        private const ulong THREE_QUARTERS = 3 * ONE_QUARTER;
+        private const int   BIT_SIZE        = sizeof(long) * 8;
+        private const int   CODE_VALUE_BITS = BIT_SIZE / 2;
+        private const int   FREQUENCY_BITS  = BIT_SIZE - CODE_VALUE_BITS;
+        private const ulong MAX_CODE        = (1ul << CODE_VALUE_BITS) - 1;
+        private const ulong MAX_FREQ        = (1ul << FREQUENCY_BITS) - 1;
+        private const ulong ONE_QUARTER     = 1ul << (CODE_VALUE_BITS - 2);
+        private const ulong ONE_HALF        = 2 * ONE_QUARTER;
+        private const ulong THREE_QUARTERS  = 3 * ONE_QUARTER;
 
         // 2nd order probability model:
         private readonly IProbabilityModel2 _model;
-        private int _lastSymbol;
+        private          int                _lastSymbol;
 
         /// <summary>
         /// Start a new AE2 transcoder.
@@ -35,11 +36,12 @@ namespace ImageTools.DataCompression.Experimental
         {
             _model = model;
         }
-        
+
         /// <summary>
         /// Decode a stream to a target. Returns true if the end symbol was found, false if the stream was truncated
         /// </summary>
-        public bool DecompressStream(Stream source, ISymbolStream destination) {
+        public bool DecompressStream(Stream source, ISymbolStream destination)
+        {
             if (source == null || source.CanRead == false) throw new Exception("Invalid input stream passed to encoder");
             if (destination == null) throw new Exception("Invalid output stream passed to encoder");
             ResetModel();
@@ -52,12 +54,15 @@ namespace ImageTools.DataCompression.Experimental
             int   index = 0;
 
             // prime probability
-            for ( int i = 0 ; i < CODE_VALUE_BITS ; i++ ) {
+            for (int i = 0; i < CODE_VALUE_BITS; i++)
+            {
                 value <<= 1;
                 value += (ulong)src.ReadBit();
             }
 
-            while (src.CanRead()) { // data loop
+            while (src.CanRead())
+            {
+                // data loop
 
                 // Decode probability to symbol
                 var range        = high - low + 1;
@@ -75,18 +80,27 @@ namespace ImageTools.DataCompression.Experimental
                 high = low + (range * p.high) / p.count - 1;
                 low += (range * p.low) / p.count;
 
-                while (src.CanRead()) { // symbol decoding loop
-                    if ( high < ONE_HALF ) {
+                while (src.CanRead())
+                {
+                    // symbol decoding loop
+                    if (high < ONE_HALF)
+                    {
                         //do nothing, bit is a zero
-                    } else if ( low >= ONE_HALF ) {
-                        value -= ONE_HALF;  //subtract one half from all three code values
+                    }
+                    else if (low >= ONE_HALF)
+                    {
+                        value -= ONE_HALF; //subtract one half from all three code values
                         low -= ONE_HALF;
                         high -= ONE_HALF;
-                    } else if ( low >= ONE_QUARTER && high < THREE_QUARTERS ) {
+                    }
+                    else if (low >= ONE_QUARTER && high < THREE_QUARTERS)
+                    {
                         value -= ONE_QUARTER;
                         low -= ONE_QUARTER;
                         high -= ONE_QUARTER;
-                    } else {
+                    }
+                    else
+                    {
                         break;
                     }
 
@@ -95,10 +109,9 @@ namespace ImageTools.DataCompression.Experimental
                     high++;
                     value <<= 1;
                     value += (ulong)src.ReadBit();
-
                 } // end of symbol decoding loop
             } // end of data loop
-            
+
             destination.Flush();
             return true;
         }
@@ -120,7 +133,7 @@ namespace ImageTools.DataCompression.Experimental
             while (moreData) // data loop
             {
                 SymbolProbability p;
-                
+
                 // encode an input symbol
                 var c = source.ReadSymbol();
                 if (c < 0) // end of data, write termination
@@ -143,23 +156,28 @@ namespace ImageTools.DataCompression.Experimental
                 while (true) // symbol encoding loop
                 {
                     if (high < ONE_HALF)
-                    { // Converging
+                    {
+                        // Converging
                         output_bit_plus_pending(target, 0, ref pending_bits);
                     }
                     else if (low >= ONE_HALF)
-                    { // Converging
+                    {
+                        // Converging
                         output_bit_plus_pending(target, 1, ref pending_bits);
                     }
                     else if (low >= ONE_QUARTER && high < THREE_QUARTERS)
-                    { // Near converging
+                    {
+                        // Near converging
                         pending_bits++;
                         low -= ONE_QUARTER;
                         high -= ONE_QUARTER;
                     }
                     else
-                    { // Not converging. Move to next input
+                    {
+                        // Not converging. Move to next input
                         break;
                     }
+
                     high <<= 1;
                     high++;
                     low <<= 1;
@@ -179,23 +197,23 @@ namespace ImageTools.DataCompression.Experimental
 
         private static void output_bit_plus_pending(BitwiseStreamWrapper target, int bit, ref int pending_bits)
         {
-            target.WriteBit( bit == 1 );
-            while ( pending_bits-- > 0 ) target.WriteBit( bit == 0 );
+            target.WriteBit(bit == 1);
+            while (pending_bits-- > 0) target.WriteBit(bit == 0);
             pending_bits = 0;
         }
-        
+
         private void ResetModel()
         {
             _lastSymbol = 0;
             _model.Reset();
         }
-        
+
         private SymbolProbability EncodeSymbol(int symbol, int position)
         {
             var point = _model.SymbolProbability(_lastSymbol, position);
-            
+
             var prob = point.EncodeSymbol(symbol);
-            UpdateModel(_lastSymbol,symbol);
+            UpdateModel(_lastSymbol, symbol);
             _lastSymbol = symbol;
             return prob;
         }
@@ -203,16 +221,16 @@ namespace ImageTools.DataCompression.Experimental
         private void UpdateModel(int prev, int next)
         {
             const ulong max = MAX_FREQ / 3;
-            
+
             _model.UpdateModel(prev, next, max);
         }
 
         private SymbolProbability DecodeSymbol(ulong scaledValue, int position)
         {
             var prob = _model.SymbolProbability(_lastSymbol, position);
-            
+
             if (scaledValue > prob.Total()) return new SymbolProbability { terminates = true };
-            
+
             var sym = prob.FindSymbol(scaledValue);
             UpdateModel(_lastSymbol, sym.symbol);
             _lastSymbol = sym.symbol;
@@ -229,12 +247,12 @@ namespace ImageTools.DataCompression.Experimental
         /// Write a decoded symbol into the stream
         /// </summary>
         void WriteSymbol(int symbol);
-        
+
         /// <summary>
         /// Decoding is complete
         /// </summary>
         void Flush();
-        
+
         /// <summary>
         /// Read a symbol from the stream.
         /// Valid symbols must be zero or positive.
@@ -254,7 +272,7 @@ namespace ImageTools.DataCompression.Experimental
         {
             _stream = stream;
         }
-        
+
         public void WriteSymbol(int symbol)
         {
             _stream.WriteByte((byte)symbol);
@@ -270,22 +288,22 @@ namespace ImageTools.DataCompression.Experimental
             return _stream.ReadByte();
         }
     }
-    
+
     /// <summary>
     /// 4-bit access over a dotnet Stream
     /// </summary>
-    public class  NybbleSymbolStream : ISymbolStream
+    public class NybbleSymbolStream : ISymbolStream
     {
         private readonly Stream _stream;
-        private byte _half;
-        private bool _flick;
+        private          byte   _half;
+        private          bool   _flick;
 
         public NybbleSymbolStream(Stream stream)
         {
             _flick = false;
             _stream = stream;
         }
-        
+
         public void WriteSymbol(int symbol)
         {
             if (_flick)
@@ -325,6 +343,35 @@ namespace ImageTools.DataCompression.Experimental
     }
 
     /// <summary>
+    /// 1-bit access over a dotnet Stream
+    /// </summary>
+    public class BitSymbolStream : ISymbolStream
+    {
+        private readonly BitwiseStreamWrapper _stream;
+
+        public BitSymbolStream(Stream stream)
+        {
+            _stream = new BitwiseStreamWrapper(stream, 0);
+        }
+
+        public void WriteSymbol(int symbol)
+        {
+            _stream.WriteBit(symbol);
+        }
+
+        public void Flush()
+        {
+            _stream.Flush();
+        }
+
+        public int ReadSymbol()
+        {
+            if (_stream.TryReadBit(out var b)) return b;
+            return -1;
+        }
+    }
+
+    /// <summary>
     /// Model for ArithmeticEncoder2
     /// </summary>
     public interface IProbabilityModel2
@@ -340,7 +387,7 @@ namespace ImageTools.DataCompression.Experimental
         /// <param name="prevSymbol">Previous symbol</param>
         /// <param name="position">Position of new symbol</param>
         public ISumTree SymbolProbability(int prevSymbol, int position);
-        
+
         /// <summary>
         /// Create, or reset, internal settings
         /// </summary>
@@ -355,10 +402,10 @@ namespace ImageTools.DataCompression.Experimental
     /// <summary>
     /// Non-model, same probability for all symbols
     /// </summary>
-    public class FlatModel_v2: IProbabilityModel2
+    public class FlatModel_v2 : IProbabilityModel2
     {
         private ISumTree _map;
-        
+
         private readonly int _countEntry; // Entry index for max count
         private readonly int _endSymbol; // Symbol for end-of-data
 
@@ -366,10 +413,10 @@ namespace ImageTools.DataCompression.Experimental
         {
             _endSymbol = symbolCount;
             _countEntry = _endSymbol + 1;
-            
+
             _map = new FenwickTree(_countEntry, _endSymbol);
         }
-        
+
         public void UpdateModel(int prev, int next, ulong max)
         {
             // No updates
@@ -389,16 +436,16 @@ namespace ImageTools.DataCompression.Experimental
             return _endSymbol;
         }
     }
-    
+
     /// <summary>
     /// Single probability tree, learning from incoming data
     /// </summary>
-    public class SimpleLearningModel_v2: IProbabilityModel2
+    public class SimpleLearningModel_v2 : IProbabilityModel2
     {
-        private readonly int _aggressiveness;
-        private ISumTree _map;
-        private bool _frozen;
-        
+        private readonly int      _aggressiveness;
+        private          ISumTree _map;
+        private          bool     _frozen;
+
         private readonly int _countEntry; // Entry index for max count
         private readonly int _endSymbol; // Symbol for end-of-data
 
@@ -406,18 +453,19 @@ namespace ImageTools.DataCompression.Experimental
         {
             _endSymbol = symbolCount;
             _countEntry = _endSymbol + 1;
-            
+
             _frozen = false;
             _map = new FenwickTree(_countEntry, _endSymbol);
             _aggressiveness = aggressiveness;
         }
-        
+
         public void UpdateModel(int prev, int next, ulong max)
         {
             if (_frozen) return;
 
             var prob = _map;
-            if (prob.Total() > max) {
+            if (prob.Total() > max)
+            {
                 _frozen = true;
                 return;
             }
@@ -446,7 +494,7 @@ namespace ImageTools.DataCompression.Experimental
     /// <summary>
     /// Single probability tree, learning from incoming data
     /// </summary>
-    public class SimpleLearningModel_Preset_v2: IProbabilityModel2
+    public class SimpleLearningModel_Preset_v2 : IProbabilityModel2
     {
         private readonly int      _aggressiveness;
         private readonly byte[]   _presets;
@@ -485,7 +533,8 @@ namespace ImageTools.DataCompression.Experimental
             if (_frozen) return;
 
             var prob = _map;
-            if (prob.Total() > max) {
+            if (prob.Total() > max)
+            {
                 _frozen = true;
                 return;
             }
@@ -510,14 +559,14 @@ namespace ImageTools.DataCompression.Experimental
             return _endSymbol;
         }
     }
-    
+
     /// <summary>
     /// 4-bit symbol model, with prefix probability table
     /// </summary>
     public class NybblePreScanModel : IProbabilityModel2
     {
-        private FenwickTree _tree;
-        private readonly int[] _histogram;
+        private          FenwickTree _tree;
+        private readonly int[]       _histogram;
 
         /// <summary>
         /// Scan source data, and output probability tables to the destination stream.
@@ -531,11 +580,11 @@ namespace ImageTools.DataCompression.Experimental
             {
                 var upper = (b >> 4) & 0x0F;
                 var lower = b & 0x0F;
-                
+
                 _histogram[upper]++;
                 _histogram[lower]++;
             }
-            
+
             // TODO: actual stuff
         }
 
@@ -556,7 +605,7 @@ namespace ImageTools.DataCompression.Experimental
             {
                 var val = _histogram[i];
                 if (val < 1) val = 1;
-                _tree.IncrementSymbol(i, (ulong)val );
+                _tree.IncrementSymbol(i, (ulong)val);
             }
         }
 
@@ -565,14 +614,14 @@ namespace ImageTools.DataCompression.Experimental
             return 17;
         }
     }
-    
+
     /// <summary>
     /// 4-bit symbol model, with prefix probability table
     /// </summary>
     public class BytePreScanModel : IProbabilityModel2
     {
-        private FenwickTree _tree;
-        private readonly int[] _histogram;
+        private          FenwickTree _tree;
+        private readonly int[]       _histogram;
 
         /// <summary>
         /// Scan source data, and output probability tables to the destination stream.
@@ -586,6 +635,7 @@ namespace ImageTools.DataCompression.Experimental
             {
                 _histogram[b]++;
             }
+
             Reset();
             // TODO: write histogram to dst
         }
@@ -607,7 +657,7 @@ namespace ImageTools.DataCompression.Experimental
             {
                 var val = _histogram[i];
                 if (val < 1) val = 1;
-                _tree.IncrementSymbol(i, (ulong)val );
+                _tree.IncrementSymbol(i, (ulong)val);
             }
         }
 
@@ -616,16 +666,16 @@ namespace ImageTools.DataCompression.Experimental
             return 256;
         }
     }
-    
+
     /// <summary>
     /// 2-stage byte-wise Markov chain
     /// </summary>
-    public class Markov2D_v2: IProbabilityModel2
+    public class Markov2D_v2 : IProbabilityModel2
     {
         private readonly int        _aggressiveness;
         private readonly ISumTree[] _map; // 1 back => predicted next
         private readonly bool[]     _frozen;
-        
+
         private readonly int _mapSize; // Size of 'map' array
         private readonly int _countEntry; // Entry index for max count
         private readonly int _endSymbol; // Symbol for end-of-data
@@ -635,18 +685,19 @@ namespace ImageTools.DataCompression.Experimental
             _endSymbol = symbolCount; // assuming symbols are dense, and start at zero
             _countEntry = _endSymbol + 1;
             _mapSize = _countEntry + 1;
-            
+
             _map = new ISumTree[_mapSize];
             _frozen = new bool[_mapSize];
             _aggressiveness = aggressiveness;
         }
-        
+
         public void UpdateModel(int prev, int next, ulong max)
         {
             if (_frozen[prev]) return;
 
             var prob = _map[prev];
-            if (prob.Total() > max) {
+            if (prob.Total() > max)
+            {
                 Console.WriteLine($"Saturated leading symbol {prev:X2}");
                 _frozen[prev] = true;
                 return;
@@ -666,7 +717,6 @@ namespace ImageTools.DataCompression.Experimental
             {
                 _frozen[i] = false;
                 _map[i] = new FenwickTree(_countEntry, _endSymbol);
-
             }
         }
 
@@ -675,20 +725,152 @@ namespace ImageTools.DataCompression.Experimental
             return _endSymbol;
         }
     }
-    
+
+    /// <summary>
+    /// 16 bit history for 1 bit prediction
+    /// </summary>
+    public class BitChain16 : IProbabilityModel2
+    {
+        private readonly ISumTree[] _map; // TODO: new ISumTree for 1 bit decisions
+
+        private readonly ulong _aggressiveness;
+        private readonly int   _mapSize; // Size of 'map' array
+        private readonly int   _countEntry; // Entry index for max count
+        private readonly int   _endSymbol; // Symbol for end-of-data
+
+        private UInt16 _history;
+
+        public BitChain16(ulong aggressiveness)
+        {
+            _aggressiveness = aggressiveness;
+            _endSymbol = 2; // 0,1 for data
+            _countEntry = _endSymbol + 1;
+            _mapSize = 1 << 16;
+            _map = new ISumTree[_mapSize];
+            _history = 0;
+            Reset();
+        }
+
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            var prob = _map[_history];
+            if (prob.Total() > max)
+            {
+                throw new Exception($"Saturated context: {_history:X}");
+            }
+
+            _history = (ushort)(((_history << 1) + prev) & 0xFFFF);
+
+            prob.IncrementSymbol(next, _aggressiveness);
+        }
+
+        public ISumTree SymbolProbability(int prevSymbol, int position)
+        {
+            return _map[_history];
+        }
+
+        public void Reset()
+        {
+            _history = 0;
+            for (int i = 0; i < _mapSize; i++)
+            {
+                _map[i] = new FenwickTree(_countEntry, _endSymbol);
+            }
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
+
+
+    /// <summary>
+    /// 32 bit history for 1 bit prediction
+    /// </summary>
+    public class BitChain32 : IProbabilityModel2
+    {
+        private readonly double[] _map;
+
+        private readonly int    _mapSize; // Size of 'map' array
+        private readonly int    _countEntry; // Entry index for max count
+        private readonly int    _endSymbol; // Symbol for end-of-data
+
+        private UInt32 _history;
+
+        public BitChain32()
+        {
+            _endSymbol = 2; // 0,1 for data
+            _countEntry = _endSymbol + 1;
+            _mapSize = 1 << 16;
+            _map = new double[_mapSize];
+            _history = 0;
+
+            //_binSumTree = new Binaly
+
+            Reset();
+        }
+
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            var d = _map[_history];
+            if (prev == 0) d -= 0.0001;
+            else d += 0.0001;
+
+            if (d < 0.0) d = 0.0;
+            if (d > 1.0) d = 1.0;
+
+            _map[_history] = d;
+            _history = (ushort)((_history << 1) + prev);
+        }
+
+        public ISumTree SymbolProbability(int prevSymbol, int position)
+        {
+            var t = new FenwickTree(_countEntry, _endSymbol);
+
+            var d = _map[_history];
+            if (d < 0.5)
+            {
+                t.IncrementSymbol(0, 500);
+                t.IncrementSymbol(1, 400);
+            }
+            else
+            {
+                t.IncrementSymbol(1, 500);
+                t.IncrementSymbol(0, 400);
+            }
+
+            return t;
+        }
+
+        public void Reset()
+        {
+            _history = 0;
+            for (int i = 0; i < _mapSize; i++)
+            {
+                _map[i] = 0.5;
+            }
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
+
     /// <summary>
     /// 3-stage byte-wise Markov chain
     /// </summary>
-    public class Markov3D_v2: IProbabilityModel2
+    public class Markov3D_v2 : IProbabilityModel2
     {
-        private readonly int _aggressiveness;
+        private readonly int         _aggressiveness;
         private readonly ISumTree[,] _map; // 2 back, 1 back => predicted next
-        private readonly bool[] _frozen;
-        
+        private readonly bool[]      _frozen;
+
         private readonly int _mapSize; // Size of 'map' array
         private readonly int _countEntry; // Entry index for max count
         private readonly int _endSymbol; // Symbol for end-of-data
-        
+
         private int _doublePrev;
 
         public Markov3D_v2(int symbolCount, int aggressiveness)
@@ -696,18 +878,19 @@ namespace ImageTools.DataCompression.Experimental
             _endSymbol = symbolCount; // assuming symbols are dense, and start at zero
             _countEntry = _endSymbol + 1;
             _mapSize = _countEntry + 1;
-            
-            _map = new ISumTree[_mapSize,_mapSize];
+
+            _map = new ISumTree[_mapSize, _mapSize];
             _frozen = new bool[_mapSize];
             _aggressiveness = aggressiveness;
         }
-        
+
         public void UpdateModel(int prev, int next, ulong max)
         {
             if (_frozen[prev]) return;
 
             var prob = _map[_doublePrev, prev];
-            if (prob.Total() > max) {
+            if (prob.Total() > max)
+            {
                 Console.WriteLine($"Saturated leading symbol {prev:X2}");
                 _frozen[prev] = true;
                 return;
@@ -730,7 +913,7 @@ namespace ImageTools.DataCompression.Experimental
                 for (int j = 0; j < _mapSize; j++)
                 {
                     _frozen[i] = false;
-                    _map[i,j] = new FenwickTree(_countEntry, _endSymbol);
+                    _map[i, j] = new FenwickTree(_countEntry, _endSymbol);
                 }
             }
         }
@@ -744,11 +927,11 @@ namespace ImageTools.DataCompression.Experimental
     /// <summary>
     /// 2-stage Markov chain with byte index in context
     /// </summary>
-    public class MarkovPos_v2: IProbabilityModel2
+    public class MarkovPos_v2 : IProbabilityModel2
     {
-        private readonly int _aggressiveness;
+        private readonly int         _aggressiveness;
         private readonly ISumTree[,] _map; // Index, 1 back => predicted next
-        private readonly bool[] _frozen;
+        private readonly bool[]      _frozen;
 
         private readonly int _mapSize; // Size of 'map' array
         private readonly int _countEntry; // Entry index for max count
@@ -762,7 +945,7 @@ namespace ImageTools.DataCompression.Experimental
             _countEntry = _endSymbol + 1;
             _mapSize = _countEntry + 1;
 
-            _map = new ISumTree[_mapSize,_mapSize];
+            _map = new ISumTree[_mapSize, _mapSize];
             _frozen = new bool[_mapSize];
             _aggressiveness = aggressiveness;
         }
@@ -772,7 +955,8 @@ namespace ImageTools.DataCompression.Experimental
             if (_frozen[prev]) return;
 
             var prob = _map[_lastIndex, prev];
-            if (prob.Total() > max) {
+            if (prob.Total() > max)
+            {
                 Console.WriteLine($"Saturated leading symbol {prev:X2}");
                 _frozen[prev] = true;
                 return;
@@ -795,7 +979,7 @@ namespace ImageTools.DataCompression.Experimental
                 for (int j = 0; j < _mapSize; j++)
                 {
                     _frozen[i] = false;
-                    _map[i,j] = new FenwickTree(_countEntry, _endSymbol);
+                    _map[i, j] = new FenwickTree(_countEntry, _endSymbol);
                 }
             }
         }
@@ -809,7 +993,7 @@ namespace ImageTools.DataCompression.Experimental
     /// <summary>
     /// 2-stage Markov chain with byte index in context, and context folding
     /// </summary>
-    public class MarkovFoldPos_v2: IProbabilityModel2
+    public class MarkovFoldPos_v2 : IProbabilityModel2
     {
         private readonly int         _aggressiveness;
         private readonly ISumTree[,] _map; // Index, 1 back => predicted next
@@ -827,17 +1011,18 @@ namespace ImageTools.DataCompression.Experimental
             _countEntry = _endSymbol + 1;
 
             // all context is folded to 0x7F
-            _map = new ISumTree[fold+1, fold+1];
-            _frozen = new bool[fold+1];
+            _map = new ISumTree[fold + 1, fold + 1];
+            _frozen = new bool[fold + 1];
             _aggressiveness = aggressiveness;
         }
 
         public void UpdateModel(int prev, int next, ulong max)
         {
-            if (_frozen[prev&fold]) return;
+            if (_frozen[prev & fold]) return;
 
-            var prob = _map[_lastIndex&fold, prev&fold];
-            if (prob.Total() > max) {
+            var prob = _map[_lastIndex & fold, prev & fold];
+            if (prob.Total() > max)
+            {
                 Console.WriteLine($"Saturated leading symbol {prev:X2}");
                 _frozen[prev] = true;
                 return;
@@ -849,7 +1034,7 @@ namespace ImageTools.DataCompression.Experimental
         public ISumTree SymbolProbability(int symbol, int position)
         {
             _lastIndex = position;
-            return _map[_lastIndex&fold, symbol&fold];
+            return _map[_lastIndex & fold, symbol & fold];
         }
 
         public void Reset()
@@ -860,7 +1045,7 @@ namespace ImageTools.DataCompression.Experimental
                 for (int j = 0; j <= fold; j++)
                 {
                     _frozen[i] = false;
-                    _map[i,j] = new FenwickTree(_countEntry, _endSymbol);
+                    _map[i, j] = new FenwickTree(_countEntry, _endSymbol);
                 }
             }
         }
@@ -874,7 +1059,7 @@ namespace ImageTools.DataCompression.Experimental
     /// <summary>
     /// Rolling hash Markov chain
     /// </summary>
-    public class MarkovRH_v2: IProbabilityModel2
+    public class MarkovRH_v2 : IProbabilityModel2
     {
         private readonly int        _aggressiveness;
         private readonly ISumTree[] _map; // hash => predicted next
@@ -895,8 +1080,8 @@ namespace ImageTools.DataCompression.Experimental
             _mapSize = _countEntry + 1;
             _rollingHash = 0;
 
-            _map = new ISumTree[hashMask+1];
-            _frozen = new bool[hashMask+1];
+            _map = new ISumTree[hashMask + 1];
+            _frozen = new bool[hashMask + 1];
             _aggressiveness = aggressiveness;
         }
 
@@ -906,7 +1091,8 @@ namespace ImageTools.DataCompression.Experimental
             if (_frozen[_rollingHash & hashMask]) return;
 
             var prob = _map[_rollingHash & hashMask];
-            if (prob.Total() > max) {
+            if (prob.Total() > max)
+            {
                 Console.WriteLine($"Saturated leading symbol {prev:X2}");
                 _frozen[_rollingHash & hashMask] = true;
                 return;
@@ -928,7 +1114,6 @@ namespace ImageTools.DataCompression.Experimental
             {
                 _frozen[i] = false;
                 _map[i] = new FenwickTree(_countEntry, _endSymbol);
-
             }
         }
 
@@ -941,15 +1126,15 @@ namespace ImageTools.DataCompression.Experimental
     /// <summary>
     /// 4-stage byte-wise Markov chain
     /// </summary>
-    public class Markov4D_v2: IProbabilityModel2
+    public class Markov4D_v2 : IProbabilityModel2
     {
-        private readonly int _aggressiveness;
+        private readonly int          _aggressiveness;
         private readonly ISumTree[,,] _map; // 3, 2, 1 back => predicted next
-        
+
         private readonly int _mapSize; // Size of 'map' array
         private readonly int _countEntry; // Entry index for max count
         private readonly int _endSymbol; // Symbol for end-of-data
-        
+
         private int _doublePrev;
         private int _triplePrev;
 
@@ -958,14 +1143,13 @@ namespace ImageTools.DataCompression.Experimental
             _endSymbol = symbolCount; // assuming symbols are dense, and start at zero
             _countEntry = _endSymbol + 1;
             _mapSize = _countEntry + 1;
-            
-            _map = new ISumTree[_mapSize,_mapSize,_mapSize];
+
+            _map = new ISumTree[_mapSize, _mapSize, _mapSize];
             _aggressiveness = aggressiveness;
         }
-        
+
         public void UpdateModel(int prev, int next, ulong max)
         {
-
             var prob = _map[_triplePrev, _doublePrev, prev];
 
             _triplePrev = _doublePrev;
@@ -1003,7 +1187,7 @@ namespace ImageTools.DataCompression.Experimental
     /// <summary>
     /// 4-stage byte-wise Markov chain with context folding
     /// </summary>
-    public class Markov4DFold_v2: IProbabilityModel2
+    public class Markov4DFold_v2 : IProbabilityModel2
     {
         private readonly int          _aggressiveness;
         private readonly ISumTree[,,] _map; // 3, 2, 1 back => predicted next
@@ -1021,7 +1205,7 @@ namespace ImageTools.DataCompression.Experimental
             _endSymbol = symbolCount; // assuming symbols are dense, and start at zero
             _countEntry = _endSymbol + 1;
 
-            _map = new ISumTree[fold+1,fold+1,fold+1];
+            _map = new ISumTree[fold + 1, fold + 1, fold + 1];
             _aggressiveness = aggressiveness;
         }
 
