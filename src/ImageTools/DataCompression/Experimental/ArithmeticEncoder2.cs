@@ -689,6 +689,7 @@ namespace ImageTools.DataCompression.Experimental
             _map = new ISumTree[_mapSize];
             _frozen = new bool[_mapSize];
             _aggressiveness = aggressiveness;
+            Reset();
         }
 
         public void UpdateModel(int prev, int next, ulong max)
@@ -831,13 +832,13 @@ namespace ImageTools.DataCompression.Experimental
             var d = _map[_history];
             if (d < 0.5)
             {
-                t.IncrementSymbol(0, 500);
-                t.IncrementSymbol(1, 400);
+                t.IncrementSymbol(0, 14000);
+                t.IncrementSymbol(1, 10000);
             }
             else
             {
-                t.IncrementSymbol(1, 500);
-                t.IncrementSymbol(0, 400);
+                t.IncrementSymbol(1, 14000);
+                t.IncrementSymbol(0, 10000);
             }
 
             return t;

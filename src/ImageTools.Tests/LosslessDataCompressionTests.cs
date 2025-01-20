@@ -1803,6 +1803,10 @@ to be there when you fall.""";
             // Equivalent deflate: 321.13kb (64.0%)
             //
             // Original: 492.34kb; Encoded: 460.88kb (93.6%) <-- new Markov2D_v2(2, 2) -- this is guessing one bit based on previous bit
+            // Original: 492.34kb; Encoded: 455.58kb (92.5%) <-- Markov4D_v2(2, 10)
+            // Original: 492.34kb; Encoded: 457.72kb (93.0%) <-- MarkovFoldPos_v2(2, 4)
+            // Original: 492.34kb; Encoded: 466.95kb (94.8%) <-- MarkovRH_v2(2, 4)
+            //
             // Original: 492.34kb; Encoded: 433.24kb (88.0%) <-- BitChain16(1)
             // Original: 492.34kb; Encoded: 424.29kb (86.2%) <-- BitChain16(3)
             // Original: 492.34kb; Encoded: 423.99kb (86.1%) <-- BitChain16(4)
@@ -1811,6 +1815,7 @@ to be there when you fall.""";
             //
             // Original: 492.34kb; Encoded: 482.37kb (98.0%) <-- BC32 with 250/200
             // Original: 492.34kb; Encoded: 481.57kb (97.8%) <-- BC32 with 500/400
+            // Original: 492.34kb; Encoded: 478.27kb (97.1%) <-- BC32 with 14000/10000
 
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
@@ -1820,8 +1825,12 @@ to be there when you fall.""";
             var src = new MemoryStream(expected);
 
             //var subject = new ArithmeticEncoder2(new Markov2D_v2(2, 2));
-            //var subject = new ArithmeticEncoder2(new BitChain16(4));
-            var subject = new ArithmeticEncoder2(new BitChain32());
+            //var subject = new ArithmeticEncoder2(new Markov4D_v2(2, 4));
+            //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(2, 4));
+            //var subject = new ArithmeticEncoder2(new MarkovFoldPos_v2(2, 4));
+            //var subject = new ArithmeticEncoder2(new MarkovRH_v2(2, 4));
+            var subject = new ArithmeticEncoder2(new BitChain16(4));
+            //var subject = new ArithmeticEncoder2(new BitChain32()); // very experimental
             subject.CompressStream(new BitSymbolStream(src), encoded);
             encoded.Seek(0, SeekOrigin.Begin);
             var ok = subject.DecompressStream(encoded, new BitSymbolStream(dst));
@@ -1871,7 +1880,7 @@ to be there when you fall.""";
             //
             // Original: 492.34kb; Encoded: 381.66kb (77.5%) <-- Markov2D_v2(256,  8)
             // Original: 492.34kb; Encoded: 373.57kb (75.9%) <-- Markov2D_v2(256, 16)
-            // Original: 492.34kb; Encoded: 371.20kb (75.4%) <-- Markov2D_v2(256, 30)
+            // Original: 492.34kb; Encoded: 371.20kb (75.4%) <-- Markov2D_v2(256, 28)
             // Original: 492.34kb; Encoded: 375.24kb (76.2%) <-- Markov2D_v2(256, 64)
 
             var path     = @"C:\temp\LargeEspIdf.bin";
