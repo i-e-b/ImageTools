@@ -1326,6 +1326,7 @@ to be there when you fall.""";
         {
             // Original: 503.48kb; Encoded: 471.83kb (93.7%) <-- plain
             // Original: 499.24kb; Encoded: 418.63kb (83.9%) <-- with STX
+            // Original: 492.34kb; Encoded: 418.7kb (85.0%)  <-- newer image
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
             
@@ -1575,23 +1576,27 @@ to be there when you fall.""";
         }
 
         [Test]
-        public void compress_firmware_rle()
+        public void compress_firmware_bytewise_rle()
         {
             // Equivalent deflate: 321.13kb (64.0%)
-            // Original: 499.23kb; Encoded: 483.22kb (96.8%)
+            // Original: 499.23kb; Encoded: 483.22kb (96.8%) <-- without STX
+            // Original: 492.34kb; Encoded: 406.15kb (82.5%) <-- with STX
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
-            
-            var encoded = SimpleRle.Compress(expected);
-            var dst = SimpleRle.Decompress(encoded);
+
+
+            var stxIn = Stx.ForwardTransform(expected);
+
+            var encoded = BytewiseRle.Compress(stxIn);
+            var dst     = BytewiseRle.Decompress(encoded);
             
             var percent = (100.0 * encoded.Length) / expected.Length;
             Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
             
-            var result = dst.ToArray();
+            var result = Stx.ReverseTransform(dst.ToArray());
 
             var before = DeflateSize(expected);
-            var after = DeflateSize(encoded);
+            var after = DeflateSize(stxIn);
             Console.WriteLine($"Deflate before={Bin.Human(before)}; after={Bin.Human(after)};");
 
             Assert.That(result, Is.EqualTo(expected).AsCollection);
@@ -1693,7 +1698,7 @@ to be there when you fall.""";
             var ptf = IndexPushToFront.Transform(expected);
             var src = new MemoryStream(ptf);
             
-            //var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
+            //var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 8));
             //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(256, 2));
             var subject = new ArithmeticEncoder2(new BytePreScanModel(ptf, dst));
             
@@ -1715,6 +1720,8 @@ to be there when you fall.""";
         public void arithmetic_encoder_2_compress_firmware_with_fibonacci_push_to_front()
         {
             // Equivalent deflate: 307.28kb (61.6%)
+            // Original: 492.34kb; PTF Encoded: 458.41kb (93.1%) -->
+            //
             // Original: 499.23kb; Encoded: 425.95kb (85.3%) <-- Markov2D_v2(256, 2)
             // Original: 499.23kb; Encoded: 445.11kb (89.2%) <-- SimpleLearningModel_v2(256, 2)
             
@@ -1727,6 +1734,8 @@ to be there when you fall.""";
             var final = new MemoryStream();
 
             PushToFrontEncoder.Compress(src, ptf);
+            var percent = (100.0 * ptf.Length) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; PTF Encoded: {Bin.Human(ptf.Length)} ({percent:0.0}%)");
             ptf.Seek(0, SeekOrigin.Begin);
             
             var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
@@ -1742,12 +1751,12 @@ to be there when you fall.""";
             final.Seek(0, SeekOrigin.Begin);
             var actual = final.ToArray();
             
-            var percent = (100.0 * encoded.Length) / expected.Length;
+            percent = (100.0 * encoded.Length) / expected.Length;
             Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
             
             Assert.That(actual, Is.EqualTo(expected).AsCollection);
             Assert.That(ok, "Stream was truncated, but should not have been");
-            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
         }
         
         [Test]
@@ -1798,6 +1807,46 @@ to be there when you fall.""";
         }
 
         [Test]
+        public void arithmetic_encoder_2_compress_firmware_nybble_STX()
+        {
+            // Equivalent deflate: 321.13kb (64.0%)
+            //
+            // Original: 499.23kb; Encoded: 375.60kb (75.2%) <-- Markov4D_v2(16,2), no STX
+            // Original: 492.34kb; Encoded: 354.82kb (72.1%) <-- With STX: Markov4D_v2(16,2)
+            // Original: 492.34kb; Encoded: 438.39kb (89.0%) <-- With STX: Markov2D_v2(16,2)
+            // Original: 492.34kb; Encoded: 454.98kb (92.4%) <-- With STX: SimpleLearningModel_v2(16,16)
+            // Original: 492.34kb; Encoded: 454.98kb (92.4%) <-- With STX: RollingLearningModel_v2(16,16)
+
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+
+            var stx = Stx.ForwardTransform(expected);
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(stx);
+
+            //var subject = new ArithmeticEncoder2(new Markov4D_v2(16, 2));
+            //var subject = new ArithmeticEncoder2(new Markov3D_v2(16, 2));
+            //var subject = new ArithmeticEncoder2(new Markov2D_v2(16, 16));
+            //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(16, 16));
+            var subject = new ArithmeticEncoder2(new RollingLearningModel_v2(16, 16));
+            subject.CompressStream(new NybbleSymbolStream(src), encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            var ok = subject.DecompressStream(encoded, new NybbleSymbolStream(dst));
+
+            dst.Seek(0, SeekOrigin.Begin);
+            var actual = Stx.ReverseTransform(dst.ToArray());
+
+            var percent = (100.0 * encoded.Length) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+
+            Assert.That(actual, Is.EqualTo(expected).AsCollection);
+            Assert.That(ok, "Stream was truncated, but should not have been");
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
+        }
+
+        [Test]
         public void arithmetic_encoder_2_compress_firmware_bitwise()
         {
             // Equivalent deflate: 321.13kb (64.0%)
@@ -1807,15 +1856,16 @@ to be there when you fall.""";
             // Original: 492.34kb; Encoded: 457.72kb (93.0%) <-- MarkovFoldPos_v2(2, 4)
             // Original: 492.34kb; Encoded: 466.95kb (94.8%) <-- MarkovRH_v2(2, 4)
             //
-            // Original: 492.34kb; Encoded: 433.24kb (88.0%) <-- BitChain16(1)
             // Original: 492.34kb; Encoded: 424.29kb (86.2%) <-- BitChain16(3)
             // Original: 492.34kb; Encoded: 423.99kb (86.1%) <-- BitChain16(4)
             // Original: 492.34kb; Encoded: 424.22kb (86.2%) <-- BitChain16(5)
-            // Original: 492.34kb; Encoded: 425.79kb (86.5%) <-- BitChain16(8)
             //
-            // Original: 492.34kb; Encoded: 482.37kb (98.0%) <-- BC32 with 250/200
-            // Original: 492.34kb; Encoded: 481.57kb (97.8%) <-- BC32 with 500/400
-            // Original: 492.34kb; Encoded: 478.27kb (97.1%) <-- BC32 with 14000/10000
+            // Original: 492.34kb; Encoded: 468.19kb (95.1%) <-- BC32 with scale =   125_000.0;
+            // Original: 492.34kb; Encoded: 466.25kb (94.7%) <-- BC32 with scale =   250_000.0;
+            // Original: 492.34kb; Encoded: 467.96kb (95.0%) <-- BC32 with scale =   500_000.0;
+            // Original: 492.34kb; Encoded: 475.42kb (96.6%) <-- BC32 with scale = 1_000_000.0;
+            //
+            // Original: 492.34kb; Encoded: 466.95kb (94.8%) <-- BitHash(4)
 
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
@@ -1829,14 +1879,50 @@ to be there when you fall.""";
             //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(2, 4));
             //var subject = new ArithmeticEncoder2(new MarkovFoldPos_v2(2, 4));
             //var subject = new ArithmeticEncoder2(new MarkovRH_v2(2, 4));
-            var subject = new ArithmeticEncoder2(new BitChain16(4));
+            //var subject = new ArithmeticEncoder2(new BitChain16(4));
             //var subject = new ArithmeticEncoder2(new BitChain32()); // very experimental
+            var subject = new ArithmeticEncoder2(new BitHash(4)); // very experimental
             subject.CompressStream(new BitSymbolStream(src), encoded);
             encoded.Seek(0, SeekOrigin.Begin);
             var ok = subject.DecompressStream(encoded, new BitSymbolStream(dst));
 
             dst.Seek(0, SeekOrigin.Begin);
             var actual = dst.ToArray();
+
+            var percent = (100.0 * encoded.Length) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+
+            Assert.That(actual, Is.EqualTo(expected).AsCollection);
+            Assert.That(ok, "Stream was truncated, but should not have been");
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
+        }
+
+        [Test]
+        public void arithmetic_encoder_2_compress_firmware_bitwise_and_STX()
+        {
+            // Equivalent deflate: 321.13kb (64.0%)
+            //
+            // Original: 492.34kb; Encoded: 477.97kb (97.1%) <-- BitChain32() with STX
+            // Original: 492.34kb; Encoded: 423.99kb (86.1%) <-- BitChain16(4) no STX
+            // Original: 492.34kb; Encoded: 393.50kb (79.9%) <-- With STX BitChain16(4)
+
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+
+            var stx = Stx.ForwardTransform(expected);
+
+            var encoded = new MemoryStream();
+            var dst = new MemoryStream();
+            var src = new MemoryStream(stx);
+
+            var subject = new ArithmeticEncoder2(new BitChain16(4));
+            //var subject = new ArithmeticEncoder2(new BitChain32());
+            subject.CompressStream(new BitSymbolStream(src), encoded);
+            encoded.Seek(0, SeekOrigin.Begin);
+            var ok = subject.DecompressStream(encoded, new BitSymbolStream(dst));
+
+            dst.Seek(0, SeekOrigin.Begin);
+            var actual = Stx.ReverseTransform(dst.ToArray());
 
             var percent = (100.0 * encoded.Length) / expected.Length;
             Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
@@ -1878,10 +1964,14 @@ to be there when you fall.""";
             // Equivalent deflate: 321.13kb (64.0%)
             // Equivalent deflate in blocks: 352.27kb (71.5%)
             //
+            // Original: 492.34kb; Encoded: 405.20kb (82.3%) <-- SimpleLearningModel_v2(256, 4)
+            //
             // Original: 492.34kb; Encoded: 381.66kb (77.5%) <-- Markov2D_v2(256,  8)
             // Original: 492.34kb; Encoded: 373.57kb (75.9%) <-- Markov2D_v2(256, 16)
             // Original: 492.34kb; Encoded: 371.20kb (75.4%) <-- Markov2D_v2(256, 28)
             // Original: 492.34kb; Encoded: 375.24kb (76.2%) <-- Markov2D_v2(256, 64)
+            //
+            // Original: 492.34kb; Encoded: 395.42kb (80.3%) <-- new Markov3D_v2(256, 28) (very slow)!
 
             var path     = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
@@ -1901,6 +1991,57 @@ to be there when you fall.""";
                 deflateSize += (int)DeflateSize(expected, i, len);
                 var src     = new MemoryStream(expected, i, len);
                 //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(256, 4));
+                var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 28));
+                //var subject = new ArithmeticEncoder2(new Markov3D_v2(256, 28));
+
+                using var encoded = new MemoryStream();
+                subject.CompressStream(new ByteSymbolStream(src), encoded);
+
+                //Console.WriteLine($"    b{c}: {len}->{encoded.Length}");
+                var result = (int)encoded.Length;
+                totalSize += result;
+                if (result > largest) largest = result;
+                if (result < smallest) smallest = result;
+            }
+
+            var percent = (100.0 * totalSize) / expected.Length;
+            var defPercent = (100.0 * deflateSize) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(totalSize)} ({percent:0.0}%)");
+            Console.WriteLine($"Min block: {smallest}; Max block: {largest}; Block count: {c};");
+            Console.WriteLine($"Sum of deflate blocks: {Bin.Human(deflateSize)} ({defPercent:0.0}%)");
+
+            Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(totalSize)} ({percent:0.0}%)\r\n");
+        }
+
+        [Test]
+        public void arithmetic_encoder_2_compress_1400s_STX()
+        {
+            // Equivalent deflate: 321.13kb (64.0%)
+            // Equivalent deflate in blocks: 352.27kb (71.5%)
+            //
+            // Original: 492.34kb; Encoded: 371.20kb (75.4%) <-- Markov2D_v2(256, 28), no STX
+            // Original: 492.34kb; Encoded: 394.34kb (80.1%) <-- With STX, Markov2D_v2(256, 28)
+
+            var path     = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+
+            var smallest  = 1400;
+            var largest   = 0;
+            var totalSize = 0;
+            var deflateSize = 0;
+
+            var c = 0;
+            for (int i = 0; i < expected.Length; i+= 1400)
+            {
+                c++;
+                var len = expected.Length - i;
+                if (len > 1400) len = 1400;
+
+                deflateSize += (int)DeflateSize(expected, i, len);
+
+                var stx     = Stx.ForwardTransform(expected, i, len);
+
+                var src     = new MemoryStream(stx);
                 var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 28));
 
                 using var encoded = new MemoryStream();

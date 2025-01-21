@@ -5,10 +5,13 @@ namespace ImageTools.DataCompression.Experimental
     /// <summary>
     /// Schindler Transform, a sort-based transform similar to BWT.
     /// <p/>
+    /// Memory use for either transform is <c>src length + 65798</c> bytes.
+    /// <p/>
     /// References:<ul>
     /// <li>https://ieeexplore.ieee.org/document/1607307</li>
     /// <li>http://www.compressconsult.com/st/</li>
     /// </ul>
+    /// By Michael Schindler
     /// </summary>
     public static class Stx
     {
@@ -48,6 +51,45 @@ namespace ImageTools.DataCompression.Experimental
             for( i=0; i<srcLen; i++ ) {
                 c = dst[ o2[p+(q<<8)]++ ] = src[i]; 
                 p = q; q = c; 
+            }
+
+            return dst;
+        }
+
+        /// <summary>
+        /// Transform source to sorted/clustered output.
+        /// Output will be two bytes longer than input.
+        /// </summary>
+        public static byte[] ForwardTransform(byte[] src, int offset, int length)
+        {
+            var srcLen = length;
+            var dst    = new byte[srcLen+2];
+
+            uint i,c;
+
+            var o2 = new uint[SymbolCount*SymbolCount + 2];
+
+            uint p = src[offset+srcLen-2];
+            uint q = src[offset+srcLen-1];
+            for( i=0; i<srcLen; i++ ) {
+                c = src[offset+i];
+
+                var idx = 1+p+(q<<8);
+                o2[idx]++;
+                p = q; q = c;
+            }
+
+            for (i = 0, c = 2; i < SymbolCount * SymbolCount; i++)
+            {
+                o2[i] = c;
+                c += o2[i + 1];
+            }
+
+            p = src[offset+srcLen-2]; dst[0] = (byte)p;
+            q = src[offset+srcLen-1]; dst[1] = (byte)q;
+            for( i=0; i<srcLen; i++ ) {
+                c = dst[ o2[p+(q<<8)]++ ] = src[offset+i];
+                p = q; q = c;
             }
 
             return dst;

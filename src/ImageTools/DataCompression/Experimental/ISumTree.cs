@@ -10,9 +10,14 @@ namespace ImageTools.DataCompression.Experimental
         SymbolProbability FindSymbol(ulong scaledValue);
         
         /// <summary>
-        /// Add delta to element with index i (zero-based)
+        /// Add delta to element with index (zero-based)
         /// </summary>
-        void IncrementSymbol(int index, ulong value);
+        void IncrementSymbol(int index, ulong delta);
+
+        /// <summary>
+        /// Subtract delta from element with index (zero-based)
+        /// </summary>
+        void DecrementSymbol(int index, ulong delta);
         
         /// <summary>
         /// Return the total scaled probability for all symbols

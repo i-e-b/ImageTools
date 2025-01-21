@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using ImageTools.ImageDataFormats;
 
 namespace ImageTools.DataCompression.Experimental
 {
@@ -17,7 +18,7 @@ namespace ImageTools.DataCompression.Experimental
     /// </ul>
     /// Bytes must be repeated 3 times to break-even
     /// </summary>
-    public abstract class SimpleRle
+    public static class BytewiseRle
     {
         public static byte[] Compress(byte[] input)
         {

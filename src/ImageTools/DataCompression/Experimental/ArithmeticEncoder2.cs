@@ -2,6 +2,7 @@
 using System.IO;
 using ImageTools.DataCompression.Encoding;
 using ImageTools.ImageDataFormats;
+using ImageTools.Utilities;
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable PossibleNullReferenceException
@@ -470,7 +471,65 @@ namespace ImageTools.DataCompression.Experimental
                 return;
             }
 
-            prob.IncrementSymbol(next, (ulong)_aggressiveness);
+            prob.IncrementSymbol(prev, (ulong)_aggressiveness);
+        }
+
+        public ISumTree SymbolProbability(int symbol, int position)
+        {
+            return _map;
+        }
+
+        public void Reset()
+        {
+            _frozen = false;
+            _map = new FenwickTree(_countEntry, _endSymbol);
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
+
+
+    /// <summary>
+    /// Single probability tree, learning from incoming data
+    /// </summary>
+    public class RollingLearningModel_v2 : IProbabilityModel2
+    {
+        private readonly int      _aggressiveness;
+        private          ISumTree _map;
+        private          bool     _frozen;
+
+        private readonly int _countEntry; // Entry index for max count
+        private readonly int _endSymbol; // Symbol for end-of-data
+
+        public RollingLearningModel_v2(int symbolCount, int aggressiveness)
+        {
+            _endSymbol = symbolCount;
+            _countEntry = _endSymbol + 1;
+
+            _frozen = false;
+            _map = new FenwickTree(_countEntry, _endSymbol);
+            _aggressiveness = aggressiveness;
+        }
+
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            if (_frozen) return;
+
+            var prob = _map;
+            if (prob.Total() > max)
+            {
+                _frozen = true;
+                return;
+            }
+
+            for (int i = 0; i < _endSymbol; i++)
+            {
+                if (i == prev) prob.IncrementSymbol(prev, (ulong)_aggressiveness);
+                else prob.DecrementSymbol(prev, 1);
+            }
         }
 
         public ISumTree SymbolProbability(int symbol, int position)
@@ -785,6 +844,66 @@ namespace ImageTools.DataCompression.Experimental
         }
     }
 
+    /// <summary>
+    /// Hash history for 1 bit prediction
+    /// </summary>
+    public class BitHash : IProbabilityModel2
+    {
+        private readonly ISumTree[] _map;
+
+        private readonly ulong _aggressiveness;
+        private readonly int   _mapSize; // Size of 'map' array
+        private readonly int   _countEntry; // Entry index for max count
+        private readonly int   _endSymbol; // Symbol for end-of-data
+
+        private UInt16 _history;
+        private int    _lastPos;
+
+        public BitHash(ulong aggressiveness)
+        {
+            _aggressiveness = aggressiveness;
+            _endSymbol = 2; // 0,1 for data
+            _countEntry = _endSymbol + 1;
+            _mapSize = 1 << 16;
+            _map = new ISumTree[_mapSize];
+            _history = 0;
+            Reset();
+        }
+
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            var prob = _map[_history];
+            if (prob.Total() > max)
+            {
+                throw new Exception($"Saturated context: {_history:X}");
+            }
+
+            _history = (ushort)((prev+1)*_lastPos * _history);
+
+            prob.IncrementSymbol(next, _aggressiveness);
+        }
+
+        public ISumTree SymbolProbability(int prevSymbol, int position)
+        {
+            _lastPos = position;
+            return _map[_history];
+        }
+
+        public void Reset()
+        {
+            _history = 0;
+            for (int i = 0; i < _mapSize; i++)
+            {
+                _map[i] = new FenwickTree(_countEntry, _endSymbol);
+            }
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
+
 
     /// <summary>
     /// 32 bit history for 1 bit prediction
@@ -807,7 +926,7 @@ namespace ImageTools.DataCompression.Experimental
             _map = new double[_mapSize];
             _history = 0;
 
-            //_binSumTree = new Binaly
+            Console.WriteLine($"BitChain32 map = {Bin.Human(_mapSize * 8)};");
 
             Reset();
         }
@@ -829,15 +948,19 @@ namespace ImageTools.DataCompression.Experimental
         {
             var t = new FenwickTree(_countEntry, _endSymbol);
 
-            var d = _map[_history];
+            var d     = _map[_history];
+            var scale = 250_000.0;
+
             if (d < 0.5)
             {
-                t.IncrementSymbol(0, 14000);
+                var p = (0.5 - d) * scale;
+                t.IncrementSymbol(0, (ulong)(10000 + p));
                 t.IncrementSymbol(1, 10000);
             }
             else
             {
-                t.IncrementSymbol(1, 14000);
+                var p = (d - 0.5) * scale;
+                t.IncrementSymbol(1, (ulong)(10000 + p));
                 t.IncrementSymbol(0, 10000);
             }
 

@@ -58,7 +58,7 @@
     <Compile Include="DataCompression\Experimental\NybbleEncoder.cs" />
     <Compile Include="DataCompression\Experimental\IndexPushToFront.cs" />
     <Compile Include="DataCompression\Experimental\PushToFrontEncoder.cs" />
-    <Compile Include="DataCompression\Experimental\SimpleRLE.cs" />
+    <Compile Include="DataCompression\Experimental\BytewiseRle.cs" />
     <Compile Include="DataCompression\Experimental\SplitTree.cs" />
     <Compile Include="DataCompression\Experimental\Stx.cs" />
     <Compile Include="DataCompression\Experimental\ISumTree.cs" />

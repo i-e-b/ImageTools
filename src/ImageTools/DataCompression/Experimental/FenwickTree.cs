@@ -71,6 +71,15 @@ namespace ImageTools.DataCompression.Experimental
                 _data![i] += delta;
         }
 
+        /// <summary>
+        /// Subtract delta from element with index i (zero-based)
+        /// </summary>
+        public void DecrementSymbol(int i, ulong delta)
+        {
+            _sum -= delta;
+            for (; i < _size; i += LeastBit(i + 1))
+                _data![i] -= delta;
+        }
 
         public SymbolProbability FindSymbol(ulong scaledValue)
         {
