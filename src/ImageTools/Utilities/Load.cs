@@ -21,7 +21,7 @@ namespace ImageTools.Utilities
             }
 
             using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            using var bmp = Image.FromStream(fs);
+            using var bmp = Image.FromStream(fs, false, false);
             
             return new Bitmap(bmp);
         }

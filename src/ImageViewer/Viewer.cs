@@ -270,7 +270,7 @@ namespace ImageViewer
             if (string.IsNullOrWhiteSpace(_files[_fileIndex]!)) return;
             
             // TODO: refine this so we can find other install locations
-            Process.Start(@"C:\Program Files\paint.net\PaintDotNet.exe", _files[_fileIndex]!);
+            Process.Start(@"C:\Program Files\paint.net\PaintDotNet.exe", "\"" + _files[_fileIndex]! + "\"");
             
             //MessageBox.Show("Not implemented");
         }
