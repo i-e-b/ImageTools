@@ -58,6 +58,7 @@
     <Compile Include="ColorSpaceTests.cs" />
     <Compile Include="InterleavedFileTests.cs" />
     <Compile Include="PvrTextureCompression.cs" />
+    <Compile Include="RadonTransformTests.cs" />
     <Compile Include="SpaceFillingCurveTests.cs" />
     <Compile Include="TextureMappingTests.cs" />
     <Compile Include="Wavelet_3D_Tests.cs" />
@@ -93,6 +94,15 @@
     <Content Include="inputs\7.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="inputs\7.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="inputs\bar_code.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="inputs\bar_code_tilted.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="inputs\glyph.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -111,7 +121,16 @@
     <Content Include="inputs\pixart.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="inputs\qr_code.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="inputs\qr_code_tilted.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="inputs\sketch.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="inputs\slight_rotation.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="inputs\super_wide.jpg">

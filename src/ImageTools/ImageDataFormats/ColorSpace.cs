@@ -1195,5 +1195,12 @@ namespace ImageTools.ImageDataFormats
             G = clip(G);
             B = clip(B);
         }
+
+        public static void RGB_To_RGB(double c1, double c2, double c3, out double R, out double G, out double B)
+        {
+            R = clip(c1);
+            G = clip(c2);
+            B = clip(c3);
+        }
     }
 }

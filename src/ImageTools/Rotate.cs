@@ -96,6 +96,7 @@ namespace ImageTools
                 }
                 for (int x = bounds_width - dx; x < bounds_width; x++)
                 {
+                    if (oy + x < 0 || oy + x >= dY.Length) continue;
                     dY[oy + x] = 0;
                     dU[oy + x] = 127;
                     dV[oy + x] = 127;

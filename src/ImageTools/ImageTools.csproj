@@ -111,6 +111,7 @@
     <Compile Include="ImageStorageFileFormats\VersionedInterleavedFile.cs" />
     <Compile Include="ImageStorageFileFormats\WaveletImageFormat.cs" />
     <Compile Include="PixelScale.cs" />
+    <Compile Include="Radon.cs" />
     <Compile Include="Rotate.cs" />
     <Compile Include="TextureRendering\PerspectiveScanline.cs" />
     <Compile Include="Utilities\BitmapTools.cs" />
