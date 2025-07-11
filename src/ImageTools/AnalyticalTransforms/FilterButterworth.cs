@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace ImageTools.AnalyticalTransforms
+﻿namespace ImageTools.AnalyticalTransforms
 {
     public class ButterworthBandpass
     {

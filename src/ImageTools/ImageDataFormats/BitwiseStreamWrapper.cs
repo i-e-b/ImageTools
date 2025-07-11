@@ -1,7 +1,4 @@
-﻿using System;
-using System.IO;
-
-namespace ImageTools.ImageDataFormats
+﻿namespace ImageTools.ImageDataFormats
 {
     /// <summary>
     /// A bitwise wrapper around a byte stream. Also provides run-out

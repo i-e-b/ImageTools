@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace ImageTools.DataCompression
+﻿namespace ImageTools.DataCompression
 {
     public class Lzjb
     {

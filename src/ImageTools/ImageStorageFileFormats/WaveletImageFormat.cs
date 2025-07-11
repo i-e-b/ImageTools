@@ -1,7 +1,4 @@
-﻿using System;
-using System.Drawing;
-using System.IO;
-using System.IO.Compression;
+﻿using System.Drawing;
 using ImageTools.DataCompression.Experimental;
 using ImageTools.ImageDataFormats;
 using ImageTools.Utilities;

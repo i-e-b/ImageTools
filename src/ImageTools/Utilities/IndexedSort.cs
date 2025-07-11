@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace ImageTools.Utilities
+﻿namespace ImageTools.Utilities
 {
     public class IndexedSort
     {

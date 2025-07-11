@@ -1,7 +1,4 @@
-﻿using System;
-using System.IO;
-using System.Reflection;
-using ImageTools.AnalyticalTransforms;
+﻿using System.Reflection;
 using ImageTools.Utilities;
 using NUnit.Framework;
 

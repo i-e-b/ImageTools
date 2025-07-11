@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace ImageTools.ImageDataFormats
+﻿namespace ImageTools.ImageDataFormats
 {
     public static class TinyFloat
     {

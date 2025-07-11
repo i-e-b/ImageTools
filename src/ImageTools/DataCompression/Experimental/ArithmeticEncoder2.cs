@@ -1,6 +1,4 @@
-﻿using System;
-using System.IO;
-using ImageTools.DataCompression.Encoding;
+﻿using ImageTools.DataCompression.Encoding;
 using ImageTools.ImageDataFormats;
 using ImageTools.Utilities;
 

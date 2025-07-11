@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using ImageTools.ImageDataFormats;
-
-namespace ImageTools.DataCompression.Experimental
+﻿namespace ImageTools.DataCompression.Experimental
 {
     /// <summary>
     /// Run-length encoding.

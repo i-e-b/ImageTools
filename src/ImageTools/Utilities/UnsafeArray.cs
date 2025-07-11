@@ -1,8 +1,4 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-
-namespace ImageTools.Utilities
+﻿namespace ImageTools.Utilities
 {
     /*
     public unsafe class UnsafeUIntArray

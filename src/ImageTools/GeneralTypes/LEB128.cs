@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-
-namespace ImageTools.GeneralTypes
+﻿namespace ImageTools.GeneralTypes
 {
     /// <summary>
     /// Encode integer values as a variable-length compact representation.

@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using ImageTools.DataCompression;
@@ -469,7 +464,7 @@ namespace ImageTools.Tests
             {
                 var inp = msY.ReadByte();
                 var outp = finalY.ReadByte();
-                Assert.AreEqual(inp, outp);
+                Assert.That(outp, Is.EqualTo(inp));
                 
                 if (inp < 0 || outp < 0) break;
             }

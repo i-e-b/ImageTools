@@ -1,7 +1,5 @@
-﻿using System;
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Imaging;
-using System.Linq;
 using ImageTools.AnalyticalTransforms;
 using ImageTools.Utilities;
 

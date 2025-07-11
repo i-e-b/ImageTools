@@ -1,7 +1,4 @@
-﻿using System;
-using System.IO;
-
-namespace ImageTools.Utilities
+﻿namespace ImageTools.Utilities
 {
     /// <summary>
     /// Wrapper for input streams to simulate truncating of that stream.

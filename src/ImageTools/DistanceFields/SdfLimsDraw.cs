@@ -1,5 +1,4 @@
-﻿using System;
-using ImageTools.GeneralTypes;
+﻿using ImageTools.GeneralTypes;
 
 namespace ImageTools.DistanceFields
 {

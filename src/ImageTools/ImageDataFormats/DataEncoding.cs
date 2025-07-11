@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-
-namespace ImageTools.ImageDataFormats
+﻿namespace ImageTools.ImageDataFormats
 {
     /// <summary>
     /// Tools to convert arrays to different encodings

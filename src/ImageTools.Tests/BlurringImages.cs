@@ -1,5 +1,4 @@
-﻿using System;
-using ImageTools.ImageDataFormats;
+﻿using ImageTools.ImageDataFormats;
 using ImageTools.Utilities;
 using NUnit.Framework;
 // ReSharper disable AssignNullToNotNullAttribute

@@ -1,156 +1,23 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
-  <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{93FAD718-F07F-4210-9AEA-F8BE82BB58A6}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>ImageTools</RootNamespace>
-    <AssemblyName>ImageTools</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile />
-    <LangVersion>9</LangVersion>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Drawing" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="AnalyticalTransforms\CubicInterpolate.cs" />
-    <Compile Include="AnalyticalTransforms\FilterButterworth.cs" />
-    <Compile Include="BiCubicBoxScale.cs" />
-    <Compile Include="ByteImage.cs" />
-    <Compile Include="CubicScale.cs" />
-    <Compile Include="DataCompression\ArithmeticEncoding\ArithmeticEncode.cs" />
-    <Compile Include="DataCompression\ArithmeticEncoding\ProbabilityModels.cs" />
-    <Compile Include="DataCompression\Experimental\ArithmeticEncoder2.cs" />
-    <Compile Include="DataCompression\Experimental\BinaryFolding.cs" />
-    <Compile Include="DataCompression\Experimental\BWST.cs" />
-    <Compile Include="DataCompression\Experimental\FenwickTree.cs" />
-    <Compile Include="DataCompression\Experimental\LZAC.cs" />
-    <Compile Include="DataCompression\Experimental\NGrams.cs" />
-    <Compile Include="DataCompression\Experimental\NybbleEncoder.cs" />
-    <Compile Include="DataCompression\Experimental\IndexPushToFront.cs" />
-    <Compile Include="DataCompression\Experimental\PushToFrontEncoder.cs" />
-    <Compile Include="DataCompression\Experimental\BytewiseRle.cs" />
-    <Compile Include="DataCompression\Experimental\SplitTree.cs" />
-    <Compile Include="DataCompression\Experimental\Stx.cs" />
-    <Compile Include="DataCompression\Experimental\ISumTree.cs" />
-    <Compile Include="DataCompression\Experimental\TruncatableEncoder.cs" />
-    <Compile Include="DataCompression\Experimental\Whitener.cs" />
-    <Compile Include="DataCompression\Huffman\ByteHuffmanTree.cs" />
-    <Compile Include="DataCompression\Huffman\StringHuffmanTree.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\ArithmeticCodec.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\Bitstream.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\CodecAttributes.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\CodecBase.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\CompressionChecker.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\Datastream.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\Filters.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\FixedSizeCodec.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\FrameOfReferenceCodec.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\GolombCodec.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\Header.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\HuffmanCodec.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\LZ77Codec.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\LZCLCodec.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\Output.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\RunLengthCodec.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\StatRecorder.cs" />
-    <Compile Include="DataCompression\LzType\Lomont\UniversalCodec.cs" />
-    <Compile Include="DataCompression\LzType\Lzjb.cs" />
-    <Compile Include="DataCompression\LzType\LZMWPack.cs" />
-    <Compile Include="DataCompression\LzType\LZSSPack.cs" />
-    <Compile Include="DataCompression\LzType\LZWPack.cs" />
-    <Compile Include="DataCompression\PPM\HashMatchCompressor.cs" />
-    <Compile Include="Decorrelation.cs" />
-    <Compile Include="DistanceFields\DistanceField.cs" />
-    <Compile Include="DistanceFields\GlslHelper.cs" />
-    <Compile Include="DistanceFields\ScanlineDraw.cs" />
-    <Compile Include="DistanceFields\SdfDraw.cs" />
-    <Compile Include="DistanceFields\SdfLimsDraw.cs" />
-    <Compile Include="GeneralTypes\BoolVec3.cs" />
-    <Compile Include="GeneralTypes\Contour.cs" />
-    <Compile Include="GeneralTypes\LEB128.cs" />
-    <Compile Include="GeneralTypes\Matrix2.cs" />
-    <Compile Include="GeneralTypes\Size2D.cs" />
-    <Compile Include="GeneralTypes\Vector2.cs" />
-    <Compile Include="GeneralTypes\Vector3.cs" />
-    <Compile Include="ImageDataFormats\BitwiseStreamWrapper.cs" />
-    <Compile Include="ErrorDiffusionScale.cs" />
-    <Compile Include="ImageDataFormats\ColorRGB.cs" />
-    <Compile Include="ImageDataFormats\ColorYUV.cs" />
-    <Compile Include="ImageDataFormats\TinyFloat.cs" />
-    <Compile Include="ImageHeaders.cs" />
-    <Compile Include="ImageStorageFileFormats\VersionedInterleavedFile.cs" />
-    <Compile Include="ImageStorageFileFormats\WaveletImageFormat.cs" />
-    <Compile Include="PixelScale.cs" />
-    <Compile Include="Radon.cs" />
-    <Compile Include="Rotate.cs" />
-    <Compile Include="TextureRendering\PerspectiveScanline.cs" />
-    <Compile Include="Utilities\BitmapTools.cs" />
-    <Compile Include="Blur.cs" />
-    <Compile Include="Utilities\IndexedSort.cs" />
-    <Compile Include="Utilities\UnsafeArray.cs" />
-    <Compile Include="WaveletTransforms\CDF.cs" />
-    <Compile Include="ColorCellEncoding.cs" />
-    <Compile Include="WaveletCompress.cs" />
-    <Compile Include="ImageDataFormats\ColorSpace.cs" />
-    <Compile Include="DataCompression\LzType\LZMA\Lzma.cs" />
-    <Compile Include="WaveletTransforms\IntegerWavelet.cs" />
-    <Compile Include="WaveletTransforms\Haar.cs" />
-    <Compile Include="SpaceFillingCurves\Hilbert.cs" />
-    <Compile Include="Utilities\Image3d.cs" />
-    <Compile Include="Utilities\QuantiseType.cs" />
-    <Compile Include="Utilities\TruncatedStream.cs" />
-    <Compile Include="Utilities\Bin.cs" />
-    <Compile Include="ImageDataFormats\DataEncoding.cs" />
-    <Compile Include="ImageDataFormats\InterleavedFile.cs" />
-    <Compile Include="Utilities\Load.cs" />
-    <Compile Include="SpaceFillingCurves\Morton.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Utilities\Save.cs" />
-    <Compile Include="FastScale.cs" />
-    <Compile Include="Utilities\TypeSize.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include=".editorconfig" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="DataCompression\LzType\Lomont\ReadMe.md" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <LangVersion>latestmajor</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <Optimize>true</Optimize>
+      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="System.Drawing.Common" Version="9.0.7" />
+    </ItemGroup>
+
 </Project>

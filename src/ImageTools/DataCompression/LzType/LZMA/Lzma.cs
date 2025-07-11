@@ -1,5 +1,4 @@
-﻿using System;
-using System.IO;
+﻿
 
 // Adapted from https://github.com/dotnet/cli/tree/rel/1.0.0/src/Microsoft.DotNet.Archive/LZMA
 

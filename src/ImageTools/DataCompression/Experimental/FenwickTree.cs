@@ -1,4 +1,3 @@
-using System;
 using ImageTools.DataCompression.Encoding;
 
 namespace ImageTools.DataCompression.Experimental

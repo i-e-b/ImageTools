@@ -1,5 +1,4 @@
-﻿using System;
-using ImageTools.Utilities;
+﻿using ImageTools.Utilities;
 using NUnit.Framework;
 
 namespace ImageTools.Tests

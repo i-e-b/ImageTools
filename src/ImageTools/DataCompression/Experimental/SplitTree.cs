@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
+﻿using System.Text;
 using ImageTools.ImageDataFormats;
 
 namespace ImageTools.DataCompression.Experimental

@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using ImageTools.ImageDataFormats;
+﻿using ImageTools.ImageDataFormats;
 // ReSharper disable InconsistentNaming
 
 namespace ImageTools.ImageStorageFileFormats

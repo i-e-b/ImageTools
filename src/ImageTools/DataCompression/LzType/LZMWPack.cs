@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using System.IO;
-using ImageTools.ImageDataFormats;
+﻿using ImageTools.ImageDataFormats;
 
 namespace ImageTools.DataCompression
 {

@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace ImageTools.DataCompression.PPM
+﻿namespace ImageTools.DataCompression.PPM
 {
 /// <summary>
 /// General purpose compressor by PPM (Prediction by Partial Matching)

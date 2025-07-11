@@ -1,7 +1,4 @@
-﻿using System;
-using System.IO;
-
-namespace ImageTools.ImageDataFormats
+﻿namespace ImageTools.ImageDataFormats
 {
     /// <summary>
     /// A stream container for progressive image files.

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Imaging;
 using ImageTools.ImageDataFormats;
 using ImageTools.Utilities;

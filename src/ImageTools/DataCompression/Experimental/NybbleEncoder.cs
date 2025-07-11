@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using ImageTools.DataCompression.Encoding;
+﻿using ImageTools.DataCompression.Encoding;
 using ImageTools.ImageDataFormats;
 
 namespace ImageTools.DataCompression.Experimental

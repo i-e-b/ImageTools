@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace ImageTools.DataCompression.Experimental
+﻿namespace ImageTools.DataCompression.Experimental
 {
     /// <summary>
     /// Schindler Transform, a sort-based transform similar to BWT.

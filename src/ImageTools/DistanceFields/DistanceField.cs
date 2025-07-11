@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
+﻿using System.Drawing;
 using ImageTools.AnalyticalTransforms;
 using ImageTools.GeneralTypes;
 using ImageTools.Utilities;

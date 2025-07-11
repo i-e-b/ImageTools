@@ -1,7 +1,4 @@
-﻿using System;
-using System.IO;
-
-namespace ImageTools.DataCompression.Encoding
+﻿namespace ImageTools.DataCompression.Encoding
 {
     /// <summary>
     /// Container for various Arithmetic Encoder models

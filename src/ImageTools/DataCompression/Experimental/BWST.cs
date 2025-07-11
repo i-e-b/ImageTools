@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections;
 
 namespace ImageTools.DataCompression.Experimental
 {
@@ -184,30 +181,37 @@ namespace ImageTools.DataCompression.Experimental
         // rotation of its word, so the locations can be sorted. Because each char is
         // in order already, we only need to sort the occurrences of each char
         // separately to sort the entire thing.
-        private static void SortRotations(Slice<byte> s, int[] words, LocList locs) {
-            locs.Sort((i, j) => {// Cyclic order - AXYA < AXY here because AXYAAXYA < AXYAXY
-                var loc1 = i;//locs[i];
-                var loc2 = j;//locs[j];
+        private static void SortRotations(Slice<byte> s, int[] words, LocList locs)
+        {
+            locs.Sort((i, j) =>
+            {
+                // Cyclic order - AXYA < AXY here because AXYAAXYA < AXYAXY
+                var loc1 = i; //locs[i];
+                var loc2 = j; //locs[j];
                 // get the actual sequences
-                var w1 = s.OuterSlice(words[loc1.Word],words[loc1.Word + 1]);
-                var w2 = s.OuterSlice(words[loc2.Word],words[loc2.Word + 1]);
-                var x = loc1.Idx;
-                var y = loc2.Idx;
-                var n = lcm(w1.Length, w2.Length);
-                for (var count = 0; count < n; count++) {
+                var w1 = s.OuterSlice(words[loc1.Word], words[loc1.Word + 1]);
+                var w2 = s.OuterSlice(words[loc2.Word], words[loc2.Word + 1]);
+                var x  = loc1.Idx;
+                var y  = loc2.Idx;
+                var n  = lcm(w1.Length, w2.Length);
+                for (var count = 0; count < n; count++)
+                {
                     var a = (int)w1[x];
                     var b = (int)w2[y];
                     if (a < b) { return -1; }
+
                     if (a > b) { return 1; }
-                        
+
                     x++;
                     if (x >= w1.Length) { x = 0; }
-                        
+
                     y++;
                     if (y >= w2.Length) { y = 0; }
                 }
+
                 // words are equal
-                return 0;});
+                return 0;
+            });
         }
 
         private static int gcd(int m, int n ) {
