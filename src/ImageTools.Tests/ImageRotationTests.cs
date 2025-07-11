@@ -27,12 +27,12 @@ namespace ImageTools.Tests
         public void rotate_with_matrix_and_sampling ()
         {
             using var bmp = Load.FromFile("./inputs/3.png");
-            using (var bmp2 = Rotate.SelectRotate(bmp, 0)) bmp2.SaveBmp("./outputs/3_rot0deg0_sample.bmp");
-            using (var bmp2 = Rotate.SelectRotate(bmp, 2.5)) bmp2.SaveBmp("./outputs/3_rot2deg5_sample.bmp");
-            using (var bmp2 = Rotate.SelectRotate(bmp, 15.5)) bmp2.SaveBmp("./outputs/3_rot15deg5_sample.bmp");
-            using (var bmp2 = Rotate.SelectRotate(bmp, 45.0)) bmp2.SaveBmp("./outputs/3_rot45deg0_sample.bmp");
-            using (var bmp2 = Rotate.SelectRotate(bmp, 90.0)) bmp2.SaveBmp("./outputs/3_rot90deg0_sample.bmp");
-            using (var bmp2 = Rotate.SelectRotate(bmp, 91.1)) bmp2.SaveBmp("./outputs/3_rot91deg1_sample.bmp");
+            using (var bmp2 = Rotate.SelectRotateDeg(bmp, 0)) bmp2.SaveBmp("./outputs/3_rot0deg0_sample.bmp");
+            using (var bmp2 = Rotate.SelectRotateDeg(bmp, 2.5)) bmp2.SaveBmp("./outputs/3_rot2deg5_sample.bmp");
+            using (var bmp2 = Rotate.SelectRotateDeg(bmp, 15.5)) bmp2.SaveBmp("./outputs/3_rot15deg5_sample.bmp");
+            using (var bmp2 = Rotate.SelectRotateDeg(bmp, 45.0)) bmp2.SaveBmp("./outputs/3_rot45deg0_sample.bmp");
+            using (var bmp2 = Rotate.SelectRotateDeg(bmp, 90.0)) bmp2.SaveBmp("./outputs/3_rot90deg0_sample.bmp");
+            using (var bmp2 = Rotate.SelectRotateDeg(bmp, 91.1)) bmp2.SaveBmp("./outputs/3_rot91deg1_sample.bmp");
         }
 
         [Test, Explicit("Slow test")]
@@ -44,7 +44,7 @@ namespace ImageTools.Tests
 
             for (int i = 0; i < 90; i++)
             {
-                bmp2 = Rotate.SelectRotate(bmp, 1.0);
+                bmp2 = Rotate.SelectRotateDeg(bmp, 1.0);
 
                 bmp.Dispose();
                 bmp = bmp2;

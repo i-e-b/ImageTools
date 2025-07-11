@@ -112,14 +112,18 @@ namespace ImageTools
             return dest;
         }
 
-        public static Bitmap SelectRotate(Bitmap source, double angleDegrees)
+        public static Bitmap? SelectRotateDeg(Bitmap? source, double angleDegrees)
+        {
+            return SelectRotateRad(source, deg2rad(angleDegrees));
+        }
+
+        public static Bitmap? SelectRotateRad(Bitmap? source, double angleRadians)
         {
             if (source == null) return null;
             
-            var ar = deg2rad(angleDegrees);
             var rot = new Matrix2(
-                Math.Cos(ar), -Math.Sin(ar),
-                Math.Sin(ar),  Math.Cos(ar)
+                Math.Cos(angleRadians), -Math.Sin(angleRadians),
+                Math.Sin(angleRadians),  Math.Cos(angleRadians)
                 );
 
             // Calculate how big the output image has to be

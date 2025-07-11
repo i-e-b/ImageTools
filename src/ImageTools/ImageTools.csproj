@@ -117,6 +117,7 @@
     <Compile Include="Utilities\BitmapTools.cs" />
     <Compile Include="Blur.cs" />
     <Compile Include="Utilities\IndexedSort.cs" />
+    <Compile Include="Utilities\UnsafeArray.cs" />
     <Compile Include="WaveletTransforms\CDF.cs" />
     <Compile Include="ColorCellEncoding.cs" />
     <Compile Include="WaveletCompress.cs" />
