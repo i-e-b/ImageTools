@@ -1,4 +1,6 @@
-﻿namespace ImageTools.GeneralTypes
+﻿using System.Runtime.CompilerServices;
+
+namespace ImageTools.GeneralTypes
 {
     public struct Matrix2
     {
@@ -27,12 +29,29 @@
             };
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        public void Mul(double bX, double bY, out double x, out double y)
+        {
+            x = m[0] * bX + m[2] * bY;
+            y = m[1] * bX + m[3] * bY;
+        }
+
         public Matrix2 Inverse()
         {
             var det = 1 / (m[0]*m[3] - m[1]*m[2]);
             return new Matrix2(
                  m[3] * det, -m[1] * det,
                 -m[2] * det,  m[0] * det
+            );
+        }
+
+        public static Matrix2 Rotation(double radians)
+        {
+            var cr = Math.Cos(radians);
+            var sr = Math.Sin(radians);
+            return new Matrix2(
+                cr, -sr,
+                sr,  cr
             );
         }
     }

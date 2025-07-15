@@ -1,9 +1,12 @@
 ﻿using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Runtime.CompilerServices;
 using ImageTools.GeneralTypes;
 using ImageTools.ImageDataFormats;
 using ImageTools.Utilities;
+
+#pragma warning disable CA1416 // Only available on Windows
 
 namespace ImageTools
 {
@@ -18,7 +21,7 @@ namespace ImageTools
         /// </summary>
         /// <param name="source">input bitmap</param>
         /// <param name="highestEnergyRotation">rotation in radians that will put the strongest line signals to vertical alignment</param>
-        public static Bitmap? BuildRadon(Bitmap? source, out double highestEnergyRotation)
+        public static unsafe Bitmap? BuildRadon(Bitmap? source, out double highestEnergyRotation)
         {
             highestEnergyRotation = 0.0;
             if (source == null) return null;
@@ -40,8 +43,8 @@ namespace ImageTools
 
             // create an output image, and get source planes
             var dest = new Bitmap(scanWidth, (int)quarterTurn, PixelFormat.Format32bppArgb);
-            BitmapTools.ImageToPlanes(source, ColorSpace.RGB_To_RGB, out var sY, out var sU, out var sV); // decompose input
-            BitmapTools.ImageToPlanes(dest, ColorSpace.RGB_To_RGB, out var dY, out var dU, out var dV);   // build output arrays
+            BitmapTools.ImageToPlanes_UA(source, ColorSpace.RGB_To_RGB, out var sY, out var sU, out var sV); // decompose input
+            BitmapTools.ImageToPlanes_UA(dest, ColorSpace.RGB_To_RGB, out var dY, out var dU, out var dV);   // build output arrays
 
 
             var sw = new Stopwatch();
@@ -50,30 +53,43 @@ namespace ImageTools
             // For each scan width, sum up the values along each scan line, and divide by `scanWidth`.
             // Repeat this until rotateCount > quarterTurn
 
-            int outY = 0;
+            int outY           = 0;
+            var sYb            = sY.Buffer;
+            var sUb            = sU.Buffer;
+            var sVb            = sV.Buffer;
+            var dYb            = dY.Buffer;
+            var dUb            = dU.Buffer;
+            var dVb            = dV.Buffer;
+            var sYl            = sY.Length;
+            var dYl            = dY.Length;
+            var halfHeight     = height / 2.0;
+            var halfWidth      = width / 2.0;
+            var halfPi         = Math.PI * 0.5;
+            var perQuarterTurn = 1.0 / quarterTurn;
+
             while (rotateCount <= quarterTurn)
             {
                 // Build rotation matrix for this step
-                var radians = Math.PI * 0.5 * (rotateCount / quarterTurn);
-                var rot = new Matrix2(
-                    Math.Cos(radians), -Math.Sin(radians),
-                    Math.Sin(radians),  Math.Cos(radians)
-                );
+                var radians = halfPi * rotateCount * perQuarterTurn;
+                var rot = Matrix2.Rotation(radians);
 
                 // Invert the matrix, and look up a source location for each output pixel
-                var halfHeight = height / 2.0;
-                var halfWidth  = width / 2.0;
-                var inverse    = rot.Inverse();
+                var inverse = rot.Inverse();
+
                 for (var dy = -halfHeight; dy < halfHeight; dy++)
                 {
                     for (var dx = -halfWidth; dx < halfWidth; dx++)
                     {
-                        var sp = new Vector2(dx, dy) * inverse;
-                        var sx = sp.X + halfWidth;
-                        var sy = sp.Y + halfHeight;
+                        inverse.Mul(dx, dy, out var spX, out var spY);//var sp = new Vector2(dx, dy) * inverse;
+                        var sx = spX + halfWidth;
+                        var sy = spY + halfHeight;
 
                         // sample multiple points blended by sx/sy fractions
-                        SumSubsampled( /*from*/ (int)width, (int)height, sx, sy, /* to */ scanWidth, dx + halfWidth, outY, /* buffers */ sY, sU, sV, dY, dU, dV);
+                        SumSubsampled(
+                            /*from*/ (int)width, (int)height, sx, sy,
+                            /* to */ scanWidth, dx + halfWidth, outY,
+                            /* buffers */ sYb, sUb, sVb, dYb, dUb, dVb,
+                            sYl, dYl);
                     }
                 }
 
@@ -94,15 +110,15 @@ namespace ImageTools
 
             // TODO: maybe check difference between sequential samples -- a contrast check?
 
-            FillGutterWithRowEnergy(scanWidth, gutter, quarterTurn, dY, dU, dV, ref highestEnergyRotation);
+            FillGutterWithRowEnergy(scanWidth, gutter, quarterTurn, dY, dU, dV, out highestEnergyRotation);
 
             // pack back into bitmap
-            BitmapTools.PlanesToImage(dest, ColorSpace.RGB_To_RGB, 0, dY, dU, dV);
+            BitmapTools.PlanesToImage_UA(dest, ColorSpace.RGB_To_RGB, 0, dY, dU, dV);
 
             return dest;
         }
 
-        private static void FillGutterWithRowEnergy(int scanWidth, int gutter, double quarterTurn, double[] dY, double[] dU, double[] dV, ref double highestEnergyRotation)
+        private static void FillGutterWithRowEnergy(int scanWidth, int gutter, double quarterTurn, UnsafeDoubleArray dY, UnsafeDoubleArray dU, UnsafeDoubleArray dV, out double highestEnergyRotation)
         {
             // Measure the peakiness of each row by Y channel, and mark the image at the right edge.
             int    realWidth  = scanWidth - gutter;
@@ -157,17 +173,19 @@ namespace ImageTools
             highestEnergyRotation = Math.PI * 0.5 * (bestRow / quarterTurn);
         }
 
-        private static double Fractional(double real) => real - Math.Truncate(real);
-
         /// <summary>
         /// sample 4 input points, and add to a single output point
         /// </summary>
-        private static void SumSubsampled(int sw, int sh, double sx, double sy, int dw, double dx, double dy, double[] sY, double[] sU, double[] sV, double[] dY, double[] dU, double[] dV)
+        private static unsafe void SumSubsampled(int sw, int sh, double sx, double sy, int dw, double dx, double dy,
+            double* sY, double* sU, double* sV, double* dY, double* dU, double* dV, int sourceLength, int destLength)
         {
             // work out the sample weights
-            var fx2 = Fractional(sx);
+
+            var tsx = Math.Truncate(sx);
+            var tsy = Math.Truncate(sy);
+            var fx2 = sx - tsx;
+            var fy2 = sy - tsy;
             var fx1 = 1.0 - fx2;
-            var fy2 = Fractional(sy);
             var fy1 = 1.0 - fy2;
 
             var f0 = fx1 * fy1;
@@ -178,12 +196,12 @@ namespace ImageTools
             var ox = sx < sw-1 ? 1 : 0;
             var oy = sy < sh-1 ? sw : 0;
 
-            var sm0 = sw * (int)sy + (int)sx;
+            var sm0 = (int)Math.FusedMultiplyAdd(sw, tsy, tsx);//sw * (int)sy + (int)sx;
             var sm1 = sm0 + ox;
             var sm2 = sm0 + oy;
             var sm3 = sm2 + ox;
 
-            var max = sY.Length - 1;
+            var max = sourceLength - 1;
             if (sm0 < 0) sm0 = 0;
             if (sm1 < 0) sm1 = 0;
             if (sm2 < 0) sm2 = 0;
@@ -192,13 +210,25 @@ namespace ImageTools
             if (sm1 > max) sm1 = max;
             if (sm2 > max) sm2 = max;
             if (sm3 > max) sm3 = max;
+            /*sm0 = Math.Max(0, Math.Min(max, sm0));
+            sm1 = Math.Max(0, Math.Min(max, sm1));
+            sm2 = Math.Max(0, Math.Min(max, sm2));
+            sm3 = Math.Max(0, Math.Min(max, sm3));*/
+            /*if (sm0 < 0) sm0 = 0; else if (sm0 > max) sm0 = max;
+            if (sm1 < 0) sm1 = 0; else if (sm1 > max) sm1 = max;
+            if (sm2 < 0) sm2 = 0; else if (sm2 > max) sm2 = max;
+            if (sm3 < 0) sm3 = 0; else if (sm3 > max) sm3 = max;*/
 
-            var dm = dw*(int)dy + (int)dx;
-            if (dm < 0 || dm >= dY.Length) return;
+            var dm = (int)Math.FusedMultiplyAdd(dw, Math.Truncate(dy), Math.Truncate(dx));//dw*(int)dy + (int)dx;
+            if (dm < 0 || dm >= destLength) return;
 
+            // These look-ups are about 20% of the entire run-time
             dY[dm] += sY[sm0] * f0 + sY[sm1] * f1 + sY[sm2] * f2 + sY[sm3] * f3;
             dU[dm] += sU[sm0] * f0 + sU[sm1] * f1 + sU[sm2] * f2 + sU[sm3] * f3;
             dV[dm] += sV[sm0] * f0 + sV[sm1] * f1 + sV[sm2] * f2 + sV[sm3] * f3;
+            /*dY[dm] += sY.Get(sm0) * f0 + sY.Get(sm1) * f1 + sY.Get(sm2) * f2 + sY.Get(sm3) * f3;
+            dU[dm] += sU.Get(sm0) * f0 + sU.Get(sm1) * f1 + sU.Get(sm2) * f2 + sU.Get(sm3) * f3;
+            dV[dm] += sV.Get(sm0) * f0 + sV.Get(sm1) * f1 + sV.Get(sm2) * f2 + sV.Get(sm3) * f3;*/
         }
     }
 }

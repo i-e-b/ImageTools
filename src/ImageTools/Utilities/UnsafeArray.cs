@@ -43,6 +43,7 @@ namespace ImageTools.Utilities
     public unsafe class UnsafeDoubleArray
     {
         public int Length { get; init; }
+        public double* Buffer => _dataPtr;
 
         private readonly double[] _data;
         private readonly double*  _dataPtr;

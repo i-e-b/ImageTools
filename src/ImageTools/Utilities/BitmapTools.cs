@@ -727,6 +727,37 @@ namespace ImageTools.Utilities
                 src.UnlockBits(srcData);
             }
         }
+
+        /// <summary>
+        /// Convert a bitmap image to a set of color planes, given a space conversion.
+        /// Output ranges are 0..255 doubles, in UnsafeDoubleArray objects
+        /// </summary>
+        public static unsafe void ImageToPlanes_UA(Bitmap src, TripleToTripleSpace conversion, out UnsafeDoubleArray Xs, out UnsafeDoubleArray Ys, out UnsafeDoubleArray Zs)
+        {
+            var ri      = new Rectangle(Point.Empty, src.Size);
+            var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            var len     = srcData.Height * srcData.Width;
+            Xs = new UnsafeDoubleArray(len);
+            Ys = new UnsafeDoubleArray(len);
+            Zs = new UnsafeDoubleArray(len);
+            try
+            {
+                var s = (uint*)srcData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    ColorSpace.CompoundToComponent(s[i], out _, out var r, out var g, out var b);
+                    conversion(r,g,b, out var x, out var y, out var z);
+                    Xs[i] = x;
+                    Ys[i] = y;
+                    Zs[i] = z;
+                }
+            }
+            finally
+            {
+                src.UnlockBits(srcData);
+            }
+        }
+
         /// <summary>
         /// Convert a bitmap image to a set of color planes, given a space conversion.
         /// Output ranges are 0..255 floats
@@ -768,6 +799,28 @@ namespace ImageTools.Utilities
                 for (int i = 0; i < len; i++)
                 {
                     conversion(Xs[offset + i], Ys[offset + i], Zs[offset + i], out var r, out var g, out var b);
+                    s[i] = ColorSpace.ComponentToCompound(255, r, g, b);
+                }
+            }
+            finally
+            {
+                dst.UnlockBits(dstData);
+            }
+        }
+
+
+        public static unsafe void PlanesToImage_UA(Bitmap dst, TripleToTripleSpace conversion, int offset, UnsafeDoubleArray Xs, UnsafeDoubleArray Ys, UnsafeDoubleArray Zs)
+        {
+            var ri      = new Rectangle(Point.Empty, dst.Size);
+            var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            var len     = dstData.Height * dstData.Width;
+            try
+            {
+                var s = (uint*)dstData.Scan0;
+                for (int i = 0; i < len; i++)
+                {
+                    var o = offset + i;
+                    conversion(Xs[o], Ys[o], Zs[o], out var r, out var g, out var b);
                     s[i] = ColorSpace.ComponentToCompound(255, r, g, b);
                 }
             }
