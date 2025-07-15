@@ -784,6 +784,75 @@ namespace ImageTools.DataCompression.Experimental
         }
     }
 
+
+    /// <summary>
+    /// 2-stage byte-wise Markov chain with block-size model resets
+    /// </summary>
+    public class Markov2D_Block_v2 : IProbabilityModel2
+    {
+        private readonly int        _aggressiveness;
+        private readonly int        _blockBytes;
+        private readonly ISumTree[] _map; // 1 back => predicted next
+        private readonly bool[]     _frozen;
+
+        private readonly int _mapSize; // Size of 'map' array
+        private readonly int _countEntry; // Entry index for max count
+        private readonly int _endSymbol; // Symbol for end-of-data
+
+        private int _bytesCount;
+
+        public Markov2D_Block_v2(int symbolCount, int aggressiveness, int blockBytes)
+        {
+            _endSymbol = symbolCount; // assuming symbols are dense, and start at zero
+            _countEntry = _endSymbol + 1;
+            _mapSize = _countEntry + 1;
+
+            _map = new ISumTree[_mapSize];
+            _frozen = new bool[_mapSize];
+            _aggressiveness = aggressiveness;
+            _blockBytes = blockBytes;
+            Reset();
+        }
+
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            _bytesCount++;
+            if (_bytesCount > _blockBytes) Reset();
+
+            if (_frozen[prev]) return;
+
+            var prob = _map[prev];
+            if (prob.Total() > max)
+            {
+                Console.WriteLine($"Saturated leading symbol {prev:X2}");
+                _frozen[prev] = true;
+                return;
+            }
+
+            prob.IncrementSymbol(next, (ulong)_aggressiveness);
+        }
+
+        public ISumTree SymbolProbability(int symbol, int position)
+        {
+            return _map[symbol];
+        }
+
+        public void Reset()
+        {
+            _bytesCount = 0;
+            for (int i = 0; i < _mapSize; i++)
+            {
+                _frozen[i] = false;
+                _map[i] = new FenwickTree(_countEntry, _endSymbol);
+            }
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
+
     /// <summary>
     /// 16 bit history for 1 bit prediction
     /// </summary>
@@ -981,6 +1050,79 @@ namespace ImageTools.DataCompression.Experimental
     }
 
     /// <summary>
+    /// 3-stage byte-wise Markov chain with block-size model resets
+    /// </summary>
+    public class Markov3D_Block_v2 : IProbabilityModel2
+    {
+        private readonly int         _aggressiveness;
+        private readonly int         _blockBytes;
+        private readonly ISumTree[,] _map; // 2 back, 1 back => predicted next
+        private readonly bool[]      _frozen;
+
+        private readonly int _mapSize; // Size of 'map' array
+        private readonly int _countEntry; // Entry index for max count
+        private readonly int _endSymbol; // Symbol for end-of-data
+
+        private          int _doublePrev;
+        private          int _bytesCount;
+
+        public Markov3D_Block_v2(int symbolCount, int aggressiveness, int blockBytes)
+        {
+            _endSymbol = symbolCount; // assuming symbols are dense, and start at zero
+            _countEntry = _endSymbol + 1;
+            _mapSize = _countEntry + 1;
+
+            _map = new ISumTree[_mapSize, _mapSize];
+            _frozen = new bool[_mapSize];
+            _aggressiveness = aggressiveness;
+            _blockBytes = blockBytes;
+        }
+
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            _bytesCount++;
+            if (_bytesCount > _blockBytes) Reset();
+
+            if (_frozen[prev]) return;
+
+            var prob = _map[_doublePrev, prev];
+            if (prob.Total() > max)
+            {
+                Console.WriteLine($"Saturated leading symbol {prev:X2}");
+                _frozen[prev] = true;
+                return;
+            }
+
+            _doublePrev = prev;
+            prob.IncrementSymbol(next, (ulong)_aggressiveness);
+        }
+
+        public ISumTree SymbolProbability(int symbol, int position)
+        {
+            return _map[_doublePrev, symbol];
+        }
+
+        public void Reset()
+        {
+            _bytesCount = 0;
+            _doublePrev = 0;
+            for (int i = 0; i < _mapSize; i++)
+            {
+                for (int j = 0; j < _mapSize; j++)
+                {
+                    _frozen[i] = false;
+                    _map[i, j] = new FenwickTree(_countEntry, _endSymbol);
+                }
+            }
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
+
+    /// <summary>
     /// 3-stage byte-wise Markov chain
     /// </summary>
     public class Markov3D_v2 : IProbabilityModel2
@@ -1045,6 +1187,7 @@ namespace ImageTools.DataCompression.Experimental
             return _endSymbol;
         }
     }
+
 
     /// <summary>
     /// 2-stage Markov chain with byte index in context

@@ -32,8 +32,8 @@ public class HashMatchCompressor
     /// <summary>
     /// Create a new compressor with custom settings
     /// </summary>
-    /// <param name="numBits">how many entries in hash table (2^numBits)</param>
-    /// <param name="order">how many *bytes* of context to use between rounds [1..3]</param>
+    /// <param name="numBits">how many entries in hash table (2^numBits) default:12, range:[2..15]</param>
+    /// <param name="order">how many *bytes* of context to use between rounds default:3, range:[1..7]</param>
     /// <param name="mixer">Hash mixer value</param>
     public HashMatchCompressor(int numBits, int order, ulong mixer = 0xff51afd7ed558ccdUL)
     {

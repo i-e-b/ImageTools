@@ -1552,10 +1552,12 @@ to be there when you fall.""";
         {
             // Equivalent deflate: 321.13kb (64.0%)
             // Original: 499.23kb; Encoded: 441.91kb (88.5%)
+            // Original: 492.34kb; Encoded: 413.56kb (84.0%) <-- (12, 2)
+            // Original: 492.34kb; Encoded: 398.07kb (80.9%) <-- (16, 2) (64k dict)
             var path = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
             
-            var subject = new HashMatchCompressor();
+            var subject = new HashMatchCompressor(16, 2);
             
             var encoded = subject.Compress(expected);
             var dst = subject.Decompress(encoded);
@@ -1604,14 +1606,24 @@ to be there when you fall.""";
             // Equivalent deflate: 321.13kb (64.0%) <-- old
             // Equivalent deflate: 307.28kb (61.6%) <-- new
             //
-            // Original: 499.23kb; Encoded: 369.71kb (74.1%)  <-- Markov2D_v2(256, 1)
-            // Original: 499.23kb; Encoded: 367.67kb (73.6%)  <-- Markov2D_v2(256, 2)
-            // Original: 499.23kb; Encoded: 367.86kb (73.7%)  <-- Markov2D_v2(256, 4)
-            //
             // Original: 499.23kb; Encoded: 354.88kb (71.1%)  <-- Markov3D_v2(256, 4)
             // Original: 499.23kb; Encoded: 346.17kb (69.3%)  <-- Markov3D_v2(256, 8)
             // Original: 499.23kb; Encoded: 341.95kb (68.5%)  <-- Markov3D_v2(256, 16)
             // Original: 499.23kb; Encoded: 341.62kb (68.4%)  <-- Markov3D_v2(256, 20)
+            //
+            // Original: 492.34kb; Encoded: 355.77kb (72.3%)  <-- Markov3D_Block_v2(256, 20, 32768)
+            // Original: 492.34kb; Encoded: 364.25kb (74.0%)  <-- Markov3D_Block_v2(256, 20, 16384)
+            // Original: 492.34kb; Encoded: 367.98kb (74.7%)  <-- Markov3D_Block_v2(256, 20, 12288)
+            //
+            // Original: 499.23kb; Encoded: 369.71kb (74.1%)  <-- Markov2D_v2(256, 1)
+            // Original: 499.23kb; Encoded: 367.67kb (73.6%)  <-- Markov2D_v2(256, 2)
+            // Original: 499.23kb; Encoded: 367.86kb (73.7%)  <-- Markov2D_v2(256, 4)
+            //
+            // Original: 492.34kb; Encoded: 359.31kb (73.0%)  <-- Markov2D_Block_v2(256, 20, 32768)
+            // Original: 492.34kb; Encoded: 358.32kb (72.8%)  <-- Markov2D_Block_v2(256, 20, 16384)
+            // Original: 492.34kb; Encoded: 358.17kb (72.7%)  <-- Markov2D_Block_v2(256, 20, 12288)
+            // Original: 492.34kb; Encoded: 358.51kb (72.8%)  <-- Markov2D_Block_v2(256, 20, 8192)
+            // Original: 492.34kb; Encoded: 360.27kb (73.2%)  <-- Markov2D_Block_v2(256, 20, 4096)
             //
             // Original: 492.34kb; Encoded: 435.62kb (88.5%)  <-- SimpleLearningModel_Preset_v2(...0x00, 0x20, 0x0C, 0xFF));
             // Original: 499.23kb; Encoded: 437.15kb (87.6%)  <-- BytePreScanModel, no preamble
@@ -1631,8 +1643,10 @@ to be there when you fall.""";
             
             //var subject = new ArithmeticEncoder2(new SimpleLearningModel_Preset_v2(256, 1, 0x00));
             //var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 2));
+            //var subject = new ArithmeticEncoder2(new Markov2D_Block_v2(256, 20, 12288));
             //var subject = new ArithmeticEncoder2(new MarkovRH_v2(256, 1));
             var subject = new ArithmeticEncoder2(new Markov3D_v2(256, 20));
+            //var subject = new ArithmeticEncoder2(new Markov3D_Block_v2(256, 20, 32768));
             //var subject = new ArithmeticEncoder2(new MarkovPos_v2(256, 4));
             //var subject = new ArithmeticEncoder2(new MarkovFoldPos_v2(256, 2));
             //var subject = new ArithmeticEncoder2(new Markov4DFold_v2(256, 8));

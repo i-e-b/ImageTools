@@ -270,6 +270,7 @@ namespace ImageTools.DataCompression.Experimental
 
             public void Sort(Comparison<Loc> comparison)
             {
+                // TODO: need to do a different sort here, as `IComparer.Compare()` is too clever.
                 _list.Sort(comparison);
             }
         }
