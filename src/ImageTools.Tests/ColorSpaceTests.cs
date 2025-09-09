@@ -588,6 +588,37 @@ namespace ImageTools.Tests
             bmp.SaveBmp("./outputs/Oklab_Swatch.bmp");
         }
 
+        [Test, Description("Outputs a sample image showing the color planes")]
+        public void OKLCh_Swatch() {
+            // https://www.w3.org/TR/css-color-4/#funcdef-oklch
+            var width  = 512;
+            var height = 128;
+
+            using var bmp     = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            var       q_width = width >> 2;
+            var       dy      = 1.0 / height;
+            var       dx      = 1.0 / q_width;
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < q_width; x++)
+                {
+                    var c = Color.FromArgb((int) ColorSpace.OKLCh_To_RGB32(0.25, (y * dy), (x * dx)));
+                    bmp.SetPixel(x, y, c);
+
+                    c = Color.FromArgb((int) ColorSpace.OKLCh_To_RGB32(0.5, (y * dy), (x * dx)));
+                    bmp.SetPixel(x + q_width, y, c);
+
+                    c = Color.FromArgb((int) ColorSpace.OKLCh_To_RGB32(0.75, (y * dy), (x * dx)));
+                    bmp.SetPixel(x + (q_width*2), y, c);
+
+                    c = Color.FromArgb((int) ColorSpace.OKLCh_To_RGB32(1.0, (y * dy), (x * dx)));
+                    bmp.SetPixel(x + (q_width*3), y, c);
+                }
+            }
+
+            bmp.SaveBmp("./outputs/OKLCh_Swatch.bmp");
+        }
+
         [Test]
         public void Oklab_ColorSpace()
         {

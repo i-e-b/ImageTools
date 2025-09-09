@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Runtime.CompilerServices;
 using ImageTools.GeneralTypes;
 using ImageTools.ImageDataFormats;
 using ImageTools.Utilities;

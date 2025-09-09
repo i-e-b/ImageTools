@@ -996,12 +996,75 @@ namespace ImageTools.ImageDataFormats
             G = clip(255 * (gm + m));
             B = clip(255 * (bm + m));
         }
-        
+
+        /// <summary>
+        /// Lightness, Chroma (saturation), Hue -> OKLab Lightness, m, s.
+        /// <p>Assumes <c>L</c> in 0..1; <c>c</c>, <c>h</c> in -1..1</p>
+        /// <p>Outputs <c>R</c>, <c>G</c>, <c>B</c> in 0..255 packed</p>
+        /// </summary>
         public static uint Oklab_To_RGB32(double l, double m, double s)
         {
             Oklab_To_LinearRGB(l, m, s, out var sR, out var sG, out var sB);
             var (R,G,B) = LinearToRgb(sR, sG, sB);
             return ComponentToCompound(0, clip(R * 255.0), clip(G * 255.0), clip(B * 255.0));
+        }
+
+        /// <summary>
+        /// Lightness, Chroma (saturation), Hue -> OKLab Lightness, m, s.
+        /// <p>Assumes <c>L</c>, <c>c</c>, <c>h</c> in 0..1</p>
+        /// <p>Outputs <c>R</c>, <c>G</c>, <c>B</c> in 0..255 packed</p>
+        /// </summary>
+        public static uint OKLCh_To_RGB32(double l, double c, double h)
+        {
+            Oklch_To_Oklab(l, c, h, out var L, out var m, out var s);
+            Oklab_To_LinearRGB(l, m, s, out var sR, out var sG, out var sB);
+            var (R,G,B) = LinearToRgb(sR, sG, sB);
+            return ComponentToCompound(0, clip(R * 255.0), clip(G * 255.0), clip(B * 255.0));
+        }
+
+        /// <summary>
+        /// Lightness, Chroma (saturation), Hue -> OKLab Lightness, m, s.
+        /// <p>Assumes <c>L</c>, <c>c</c>, <c>h</c> in 0..1</p>
+        /// <p>Outputs <c>m</c>, <c>s</c> in -1..1</p>
+        /// </summary>
+        public static void Oklch_To_Oklab(double l, double c, double h, out double L, out double m, out double s)
+        {
+            // https://www.w3.org/TR/css-color-4/#funcdef-oklch
+            /*
+    If H is missing, a = b = 0
+    Otherwise,
+        a = C cos(H)
+        b = C sin(H)
+    L is the same */
+            L = l;
+
+            if (h < 0.0)
+            {
+                m = 0;
+                s = 0;
+                return;
+            }
+
+            m = c * Math.Cos(h * 2 * Math.PI);
+            s = c * Math.Sin(h * 2 * Math.PI);
+        }
+
+
+        /// <summary>
+        /// OKLab Lightness, m, s -> Lightness, Chroma (saturation), Hue
+        /// <p>Assumes <c>L</c>, <c>m</c>, <c>s</c> in -1..1</p>
+        /// <p>Outputs <c>c</c>, <c>h</c> in 0..1</p>
+        /// </summary>
+        public static void Oklab_To_Oklch(double l, double m, double s, out double L, out double C, out double H)
+        {
+            /*
+    C = sqrt(a^2 + b^2)
+    if (C > epsilon) H = atan2(b, a) else H is missing
+    L is the same */
+            L = l;
+            C = Math.Sqrt((m * m) + (s * s));
+            H = 0;
+            if (C > 0.000004) H = Math.Atan2(s, m);
         }
 
         /// <summary>
