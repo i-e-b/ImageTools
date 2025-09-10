@@ -1981,6 +1981,8 @@ to be there when you fall.""";
             // Original: 492.34kb; Encoded: 375.24kb (76.2%) <-- Markov2D_v2(256, 64)
             //
             // Original: 492.34kb; Encoded: 395.42kb (80.3%) <-- new Markov3D_v2(256, 28) (very slow)!
+            //
+            // Original: 492.34kb; Encoded: 426.05kb (86.5%) <-- HashMatchCompressor(16, 2)
 
             var path     = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
@@ -1988,7 +1990,10 @@ to be there when you fall.""";
             var smallest  = 1400;
             var largest   = 0;
             var totalSize = 0;
-            var deflateSize = 0;
+
+            var deflateSize     = 0;
+            var deflateSmallest = 1400;
+            var deflateLargest  = 0;
 
             var c = 0;
             for (int i = 0; i < expected.Length; i+= 1400)
@@ -1997,17 +2002,26 @@ to be there when you fall.""";
                 var len = expected.Length - i;
                 if (len > 1400) len = 1400;
 
-                deflateSize += (int)DeflateSize(expected, i, len);
+                var dSize = (int)DeflateSize(expected, i, len);
+                deflateSize += dSize;
+                deflateSmallest = Math.Min(dSize, deflateSmallest);
+                deflateLargest = Math.Max(dSize, deflateLargest);
+
                 var src     = new MemoryStream(expected, i, len);
+
                 //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(256, 4));
                 var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 28));
                 //var subject = new ArithmeticEncoder2(new Markov3D_v2(256, 28));
 
                 using var encoded = new MemoryStream();
                 subject.CompressStream(new ByteSymbolStream(src), encoded);
+                var result = (int)encoded.Length;
+
+                //var subject = new HashMatchCompressor(16, 2);
+                //var encoded = subject.Compress(src.ToArray());
+                //var result = (int)encoded.Length;
 
                 //Console.WriteLine($"    b{c}: {len}->{encoded.Length}");
-                var result = (int)encoded.Length;
                 totalSize += result;
                 if (result > largest) largest = result;
                 if (result < smallest) smallest = result;
@@ -2018,6 +2032,7 @@ to be there when you fall.""";
             Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(totalSize)} ({percent:0.0}%)");
             Console.WriteLine($"Min block: {smallest}; Max block: {largest}; Block count: {c};");
             Console.WriteLine($"Sum of deflate blocks: {Bin.Human(deflateSize)} ({defPercent:0.0}%)");
+            Console.WriteLine($"deflate min block: {deflateSmallest}; max block: {deflateLargest};");
 
             Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(totalSize)} ({percent:0.0}%)\r\n");
         }
@@ -2034,19 +2049,24 @@ to be there when you fall.""";
             var path     = @"C:\temp\LargeEspIdf.bin";
             var expected = File.ReadAllBytes(path);
 
-            var smallest  = 1400;
-            var largest   = 0;
-            var totalSize = 0;
-            var deflateSize = 0;
+            const int chunkSize   = 1400;
+
+            var smallest       = chunkSize;
+            var largest        = 0;
+            var totalSize      = 0;
+            var deflateSize    = 0;
+            var largestDeflate = 0;
 
             var c = 0;
-            for (int i = 0; i < expected.Length; i+= 1400)
+            for (int i = 0; i < expected.Length; i+= chunkSize)
             {
                 c++;
                 var len = expected.Length - i;
-                if (len > 1400) len = 1400;
+                if (len > chunkSize) len = chunkSize;
 
-                deflateSize += (int)DeflateSize(expected, i, len);
+                var dSize = (int)DeflateSize(expected, i, len);
+                largestDeflate = Math.Max(dSize, largestDeflate);
+                deflateSize += dSize;
 
                 var stx     = Stx.ForwardTransform(expected, i, len);
 
@@ -2068,6 +2088,7 @@ to be there when you fall.""";
             Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(totalSize)} ({percent:0.0}%)");
             Console.WriteLine($"Min block: {smallest}; Max block: {largest}; Block count: {c};");
             Console.WriteLine($"Sum of deflate blocks: {Bin.Human(deflateSize)} ({defPercent:0.0}%)");
+            Console.WriteLine($"   max deflate blocks: {largestDeflate}");
 
             Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(totalSize)} ({percent:0.0}%)\r\n");
         }
