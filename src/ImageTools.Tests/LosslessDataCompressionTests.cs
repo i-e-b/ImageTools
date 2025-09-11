@@ -965,6 +965,7 @@ to be there when you fall.""";
         
         [Test]
         public void SplitTree_round_trip () {
+            // Original: 1.11kb; Encoded: 1.02kb (91.8%)
             var expected = Moby;
 
             var src = Encoding.UTF8.GetBytes(expected);
@@ -1365,6 +1366,34 @@ to be there when you fall.""";
 
             Assert.That(result, Is.EqualTo(src).AsCollection);
             Assert.Pass($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
+        }
+
+        [Test]
+        public void compress_firmware_image_with_simple_1_of_8_predictor()
+        {
+            // Original: 492.34kb; AC-compressed: 468.18kb (95.1%)
+
+            Dictionary<int, uint> fixedMap = new() {{0,1}, {1, 4}}; // end = 1/8, 0=2/8, 1 = 4/8
+
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var src  = File.ReadAllBytes(path);
+
+            var encoded = OneOfEightEncoder.Compress(src);
+            //var ac      = new ArithmeticEncoder2(new PreDefinedModel_v2(2, fixedMap));
+            var ac      = new ArithmeticEncoder2(new SimpleLearningModel_v2(2, 2));
+
+            var dest = new MemoryStream();
+            ac.CompressStream(new BitSymbolStream(new MemoryStream(encoded)), dest);
+            var compLen = dest.Position;
+
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            percent = (100.0 * compLen) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; AC-compressed: {Bin.Human(compLen)} ({percent:0.0}%)");
+            var result = OneOfEightEncoder.Decompress(encoded);
+            Console.WriteLine();
+
+            Assert.That(result, Is.EqualTo(src).AsCollection);
         }
 
         [Test]

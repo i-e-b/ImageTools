@@ -436,6 +436,55 @@ namespace ImageTools.DataCompression.Experimental
         }
     }
 
+
+    /// <summary>
+    /// Pre-defined, fixed model
+    /// </summary>
+    public class PreDefinedModel_v2 : IProbabilityModel2
+    {
+        private ISumTree _map;
+
+        private readonly int _countEntry; // Entry index for max count
+        private readonly int _endSymbol; // Symbol for end-of-data
+
+        /// <summary>
+        /// Feed a preset model
+        /// </summary>
+        /// <param name="symbolCount">Number of coding symbols</param>
+        /// <param name="values">value -> relative probability map</param>
+        public PreDefinedModel_v2(int symbolCount, IDictionary<int, uint> values)
+        {
+            _endSymbol = symbolCount;
+            _countEntry = _endSymbol + 1;
+
+            _map = new FenwickTree(_countEntry, _endSymbol);
+
+            foreach (var value in values)
+            {
+                _map.IncrementSymbol(value.Key, value.Value);
+            }
+        }
+
+        public void UpdateModel(int prev, int next, ulong max)
+        {
+            // No updates
+        }
+
+        public ISumTree SymbolProbability(int symbol, int position)
+        {
+            return _map;
+        }
+
+        public void Reset()
+        {
+        }
+
+        public int EndSymbol()
+        {
+            return _endSymbol;
+        }
+    }
+
     /// <summary>
     /// Single probability tree, learning from incoming data
     /// </summary>
