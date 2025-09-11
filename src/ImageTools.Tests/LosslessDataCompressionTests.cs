@@ -15,6 +15,8 @@ using Lomont.Compression.Codec;
 using NUnit.Framework;
 // ReSharper disable AssignNullToNotNullAttribute
 
+// https://en.wikibooks.org/wiki/Data_Compression
+
 namespace ImageTools.Tests
 {
     [TestFixture]
@@ -398,7 +400,6 @@ namespace ImageTools.Tests
                 resultBmp.SaveBmp("./outputs/ArithmeticEncode_3.bmp");
             }
         }
-        
         
         [Test]
         public void compressing_a_wavelet_image_with_LZMA () {
@@ -1345,7 +1346,27 @@ to be there when you fall.""";
             Assert.That(result, Is.EqualTo(expected).AsCollection);
             Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
         }
-        
+
+        [Test]
+        public void compress_firmware_image_with_wide_push_to_front()
+        {
+            // Doesn't work well on firmware image
+            // Original: 492.34kb; Encoded: 488.79kb (99.3%)
+
+            var path = @"C:\temp\LargeEspIdf.bin";
+            var src  = File.ReadAllBytes(path);
+
+            var encoded = WidePushToFrontEncoder.Compress(src);
+
+            var percent = (100.0 * encoded.Length) / src.Length;
+            Console.WriteLine($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            var result = WidePushToFrontEncoder.Decompress(encoded);
+            Console.WriteLine();
+
+            Assert.That(result, Is.EqualTo(src).AsCollection);
+            Assert.Pass($"Original: {Bin.Human(src.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
+        }
+
         [Test]
         public void compress_firmware_image_ac () {
             // Equivalent deflate:             307.28kb (61.6%)
@@ -1995,6 +2016,8 @@ to be there when you fall.""";
             var deflateSmallest = 1400;
             var deflateLargest  = 0;
 
+            var externalModel = new Markov2D_v2(256, 16);
+
             var c = 0;
             for (int i = 0; i < expected.Length; i+= 1400)
             {
@@ -2011,6 +2034,11 @@ to be there when you fall.""";
 
                 //var subject = new ArithmeticEncoder2(new SimpleLearningModel_v2(256, 4));
                 var subject = new ArithmeticEncoder2(new Markov2D_v2(256, 28));
+                //var subject = new ArithmeticEncoder2(externalModel); // 75.9%
+                //var subject = new ArithmeticEncoder2(new MarkovRH_v2(256, 28)); // 84.8%
+                //var subject = new ArithmeticEncoder2(new MarkovFoldPos_v2(256, 28)); // 90.6%
+                //var subject = new ArithmeticEncoder2(new BytePreScanModel(expected, new MemoryStream())); // 88.7%
+                //var subject = new ArithmeticEncoder2(new BytePreScanModel(src.ToArray(), new MemoryStream())); // 79.3%
                 //var subject = new ArithmeticEncoder2(new Markov3D_v2(256, 28));
 
                 using var encoded = new MemoryStream();
