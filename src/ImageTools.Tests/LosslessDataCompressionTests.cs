@@ -1371,15 +1371,15 @@ to be there when you fall.""";
         [Test]
         public void compress_firmware_image_with_simple_1_of_8_predictor()
         {
-            // Original: 492.34kb; AC-compressed: 468.18kb (95.1%)
-
-            Dictionary<int, uint> fixedMap = new() {{0,1}, {1, 4}}; // end = 1/8, 0=2/8, 1 = 4/8
+            // Original: 492.34kb;  AC-compressed: 468.18kb (95.1%) <-- SimpleLearningModel(2,2)
+            // Original: 492.34kb;  AC-compressed: 468.66kb (95.2%) <-- PreDefinedModel (600/999)
+            // Original: 492.34kb; WITHOUT 1-of-8: 466.96kb (94.8%)
 
             var path = @"C:\temp\LargeEspIdf.bin";
             var src  = File.ReadAllBytes(path);
 
             var encoded = OneOfEightEncoder.Compress(src);
-            //var ac      = new ArithmeticEncoder2(new PreDefinedModel_v2(2, fixedMap));
+            //var ac      = new ArithmeticEncoder2(new PreDefinedModel_v2(2,  new Dictionary<int, uint> {{0,600}, {1,999}}));
             var ac      = new ArithmeticEncoder2(new SimpleLearningModel_v2(2, 2));
 
             var dest = new MemoryStream();
