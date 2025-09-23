@@ -1649,7 +1649,58 @@ to be there when you fall.""";
             Assert.That(result, Is.EqualTo(expected).AsCollection);
             Assert.Pass($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)\r\n");
         }
-        
+
+        [Test]
+        public void arithmetic_encoder_2_LZ_source()
+        {
+            // Equivalent deflate: 307.28kb (61.6%)
+            //
+            //        Without LZ back-refs: 435.64kb (88.5%) <-- SimpleLearningModel_v2(2)
+            //
+            // Original: 492.34kb; Encoded: 380.12kb (77.2%) <-- SimpleLearningModel_v2(1)
+            // Original: 492.34kb; Encoded: 380.13kb (77.2%) <-- SimpleLearningModel_v2(2)
+            // Original: 492.34kb; Encoded: 380.14kb (77.2%) <-- SimpleLearningModel_v2(4)
+            //
+            // Original: 492.34kb; Encoded: 349.31kb (70.9%) <-- Markov2D_v2(1)
+            // Original: 492.34kb; Encoded: 347.60kb (70.6%) <-- Markov2D_v2(2)
+            // Original: 492.34kb; Encoded: 347.95kb (70.7%) <-- Markov2D_v2(4)
+            //
+            // Original: 492.34kb; Encoded: 364.71kb (74.1%) <-- Markov3D_v2(2)
+            // Original: 492.34kb; Encoded: 350.20kb (71.1%) <-- Markov3D_v2(10)
+            // Original: 492.34kb; Encoded: 350.67kb (71.2%) <-- Markov3D_v2(20)
+
+            var path     = @"C:\temp\LargeEspIdf.bin";
+            var expected = File.ReadAllBytes(path);
+
+            var encoded = new MemoryStream();
+
+            var symbolSrc = new LzSymbolStream(expected);
+            //var subject   = new ArithmeticEncoder2(new SimpleLearningModel_v2(LzSymbolStream.SymbolCount, 4));
+            //var subject = new ArithmeticEncoder2(new Markov2D_v2(LzSymbolStream.SymbolCount, 1));
+            var subject = new ArithmeticEncoder2(new Markov3D_v2(LzSymbolStream.SymbolCount, 10));
+
+            var sw = Stopwatch.StartNew();
+            subject.CompressStream(symbolSrc, encoded);
+            sw.Stop();
+            Console.WriteLine($"Compression took {sw.Elapsed}");
+
+            var percent = (100.0 * encoded.Length) / expected.Length;
+            Console.WriteLine($"Original: {Bin.Human(expected.Length)}; Encoded: {Bin.Human(encoded.Length)} ({percent:0.0}%)");
+            encoded.Seek(0, SeekOrigin.Begin);
+
+
+            var symbolDst = new LzSymbolStream();
+            sw.Restart();
+            var ok = subject.DecompressStream(encoded, symbolDst);
+            sw.Stop();
+            Console.WriteLine($"Decompress took {sw.Elapsed}");
+
+            var actual = symbolDst.GetDecoded();
+
+            Assert.That(actual, Is.EqualTo(expected).AsCollection);
+            Assert.That(ok, "Stream was truncated, but should not have been");
+        }
+
         [Test]
         public void arithmetic_encoder_2_compress_firmware()
         {
@@ -2055,9 +2106,16 @@ to be there when you fall.""";
                 if (len > 1400) len = 1400;
 
                 var dSize = (int)DeflateSize(expected, i, len);
-                deflateSize += dSize;
-                deflateSmallest = Math.Min(dSize, deflateSmallest);
-                deflateLargest = Math.Max(dSize, deflateLargest);
+                if (dSize < len) // Only use deflate if reasonable
+                {
+                    deflateSize += dSize;
+                    deflateSmallest = Math.Min(dSize, deflateSmallest);
+                    deflateLargest = Math.Max(dSize, deflateLargest);
+                }
+                else
+                {
+                    deflateSize += len;
+                }
 
                 var src     = new MemoryStream(expected, i, len);
 
