@@ -464,6 +464,36 @@ namespace ImageTools.Tests
             bmp.SaveBmp("./outputs/YUV_int_Swatch.bmp");
         }
 
+
+        [Test, Description("Outputs a sample image showing the color planes")]
+        public void YJK_Swatch() {
+            var width  = 512;
+            var height = 128;
+
+            using var bmp     = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            var       q_width = width >> 2;
+            var       dy      = 255.0f / height;
+            var       dx      = 255.0f / q_width;
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < q_width; x++)
+                {
+                    var c = Color.FromArgb((int) ColorSpace.YJK_To_RGB32(0, (int)(y * dy), (int)(x * dx)));
+                    bmp.SetPixel(x, y, c);
+
+                    c = Color.FromArgb((int) ColorSpace.YJK_To_RGB32(100, (int)(y * dy), (int)(x * dx)));
+                    bmp.SetPixel(x + q_width, y, c);
+
+                    c = Color.FromArgb((int) ColorSpace.YJK_To_RGB32(180, (int)(y * dy), (int)(x * dx)));
+                    bmp.SetPixel(x + (q_width*2), y, c);
+
+                    c = Color.FromArgb((int) ColorSpace.YJK_To_RGB32(255, (int)(y * dy), (int)(x * dx)));
+                    bmp.SetPixel(x + (q_width*3), y, c);
+                }
+            }
+
+            bmp.SaveBmp("./outputs/YJK_Swatch.bmp");
+        }
         
         [Test, Description("Outputs a sample image showing the color planes")]
         public void Ycrcb_Swatch()

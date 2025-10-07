@@ -911,6 +911,36 @@ namespace ImageTools.ImageDataFormats
             Z =                                      1.93485343 * S;
         }
 
+
+
+        public static void YJK_To_RGB(double y, double j, double k, out double R, out double G, out double B)
+        {
+            const double _5_4 = 5.0 / 4.0;
+
+            j -= 127.5;
+            k -= 127.5;
+
+            R = y + j;
+            G = y + k;
+            B = _5_4*y - j/2.0 - k/4.0;
+        }
+
+        public static void RGB_To_YJK(double r, double g, double b, out double Y, out double J, out double K)
+        {
+            Y = b / 2 + r / 4 + g / 8;
+            J = r - Y;
+            K = g - Y;
+        }
+
+        /// <summary>
+        /// https://en.wikipedia.org/wiki/YJK
+        /// </summary>
+        public static uint YJK_To_RGB32(int y, int j, int k)
+        {
+            YJK_To_RGB(y, j, k, out var R, out var G, out var B);
+            return ComponentToCompound(0, clip(R), clip(G), clip(B));
+        }
+
         /// <summary>
         /// Scale a [0..1] value to a [0..255] value
         /// </summary>
