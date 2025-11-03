@@ -375,10 +375,49 @@
             }
         }
 
+
+        /// <summary>
+        /// Encode a single value to an open writable bitstream
+        /// </summary>
+        public static void FibonacciEncodeOne(uint value, BitwiseStreamWrapper output)
+        {
+            var n = value + 1;
+
+            var res   = 1;
+            var count = 1;
+
+            // find the smallest fibonacci number greater than `n`
+            uint f = 1, k = 1;
+            while (f <= n)
+            {
+                f = fibonacci(++k);
+            }
+
+            // decompose back through the sequence
+            while (--k > 1)
+            {
+                f = fibonacci(k);
+                count++;
+                res <<= 1;
+
+                if (f <= n)
+                {
+                    res |= 1;
+                    n -= f;
+                }
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                output.WriteBit((res & 1) == 1);
+                res >>= 1;
+            }
+        }
+
         /// <summary>
         /// Encode a single value to an open bitstream
         /// </summary>
-        public static void FibonacciEncodeOne(uint value, BitwiseStreamWrapper output) {
+        public static void FibonacciEncodeOne_Old(uint value, BitwiseStreamWrapper output) {
             var n = value + 1;
 
             var res = new Stack<byte>(20);
