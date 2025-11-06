@@ -7,6 +7,25 @@ namespace ImageTools.Tests;
 public class ThresholdingTests
 {
     [Test]
+    public void thresholding_an_easy_photographic_image()
+    {
+        using (var bmp = Load.FromFile("./inputs/wiki_pre_otsus_algorithm.jpg"))
+        {
+            var subject = new UnsharpThreshold();
+
+            for (int scale = 2; scale < 5; scale++)
+            {
+                for (int exposure = -8; exposure <= 8; exposure += 4)
+                {
+                    using var result = subject.Matrix(bmp, true, scale, exposure);
+
+                    result.SaveBmp($"./outputs/Threshold_wiki_s{scale}_e{exposure}.bmp");
+                }
+            }
+        }
+    }
+
+    [Test]
     public void thresholding_a_photographic_image()
     {
         using (var bmp = Load.FromFile("./inputs/7.jpg"))
