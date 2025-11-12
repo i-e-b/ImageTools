@@ -95,12 +95,12 @@ public class ThresholdingTests
 
 
     [Test]
-    [TestCase("clear", 5, -4)]
-    [TestCase("clear_with_rotation", 5, -4)]
-    [TestCase("obscured", 5, -4)]
-    [TestCase("mild_shadow", 6, 0)]
-    [TestCase("strong_shadow", 4, 1)]
-    public void thresholding_qr_code_photos(string name, int scale, int exposure)
+    [TestCase("clear", 5, -4, 2)]
+    [TestCase("clear_with_rotation", 5, -4, 2)]
+    [TestCase("obscured", 5, -4, 2)]
+    [TestCase("mild_shadow", 6, 0, 2)]
+    [TestCase("strong_shadow", 4, 0, 2)]
+    public void thresholding_qr_code_photos(string name, int scale, int exposure, int openRadius)
     {
         var subject = new UnsharpThreshold();
 
@@ -113,12 +113,13 @@ public class ThresholdingTests
 
         if (rotated is null) throw new Exception("Failed to rotate");
 
-        rotated.SaveBmp($"./outputs/qr_{name}_rotated.bmp");*/
-
+        rotated.SaveBmp($"./outputs/qr_{name}_rotated.bmp");
+*/
         using var thresholded = subject.Matrix(/*rotated*/original, false, scale, exposure);
+        thresholded.SaveBmp($"./outputs/qr_{name}_threshold_at_s{scale}_e{exposure}.bmp");
 
-        using var result = MorphologicalTransforms.Opening2D(thresholded, 1);
+        using var result = MorphologicalTransforms.Opening2D(thresholded, openRadius);
 
-        result.SaveBmp($"./outputs/qr_{name}_threshold_at_s{scale}_e{exposure}.bmp");
+        result.SaveBmp($"./outputs/qr_{name}_opened_at_r{openRadius}.bmp");
     }
 }

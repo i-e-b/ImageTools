@@ -131,8 +131,7 @@ public class MorphologicalTransforms
         if (srcHeight < radius) return;
 
         var samples = new double[radius * 2]; // search window
-        var temp    = new double[srcHeight]; // temporary row values
-        var end     = srcHeight - 1;
+        var temp    = new double[srcHeight]; // temporary column values
 
         for (var x = 0; x < srcWidth; x++)
         {
@@ -147,22 +146,36 @@ public class MorphologicalTransforms
 
             var si = 0; // index of next sample to overwrite.
 
-            for (var y = 0; y < srcHeight; y++)
+            // main section
+            var safeEnd = srcHeight - radius;
+            var yOff    = x;
+            for (var y = 0; y < safeEnd; y++)
             {
                 var max  = samples[0];
                 for (var i = 1; i < samples.Length; i++) { if (samples[i] > max) max = samples[i]; }
                 temp[y] = max;
 
-                var bottom = Math.Min(end, y + radius);
-                var yOff   = bottom * srcWidth;
-                samples[si++] = src[yOff + x];
+                samples[si++] = src[yOff];
+                if (si >= samples.Length) si = 0;
+                yOff += srcWidth;
+            }
+
+            // runoff
+            for (var y = safeEnd; y < srcHeight; y++)
+            {
+                var max  = samples[0];
+                for (var i = 1; i < samples.Length; i++) { if (samples[i] > max) max = samples[i]; }
+                temp[y] = max;
+
+                samples[si++] = src[yOff];
                 if (si >= samples.Length) si = 0;
             }
 
+            yOff = x;
             for (var y = 0; y < srcHeight; y++)
             {
-                var yOff = y * srcWidth;
-                src[yOff + x] = temp[y];
+                src[yOff] = temp[y];
+                yOff += srcWidth;
             }
         }
     }
@@ -219,8 +232,7 @@ public class MorphologicalTransforms
         if (srcHeight < radius) return;
 
         var samples = new double[radius * 2]; // search window
-        var temp    = new double[srcHeight]; // temporary row values
-        var end     = srcHeight - 1;
+        var temp    = new double[srcHeight]; // temporary column values
 
         for (var x = 0; x < srcWidth; x++)
         {
@@ -235,22 +247,36 @@ public class MorphologicalTransforms
 
             var si = 0; // index of next sample to overwrite.
 
-            for (var y = 0; y < srcHeight; y++)
+            // main section
+            var safeEnd = srcHeight - radius;
+            var yOff    = x;
+            for (var y = 0; y < safeEnd; y++)
             {
                 var min  = samples[0];
                 for (var i = 1; i < samples.Length; i++) { if (samples[i] < min) min = samples[i]; }
                 temp[y] = min;
 
-                var bottom = Math.Min(end, y + radius);
-                var yOff   = bottom * srcWidth;
-                samples[si++] = src[yOff + x];
+                samples[si++] = src[yOff];
+                if (si >= samples.Length) si = 0;
+                yOff += srcWidth;
+            }
+
+            // runoff
+            for (var y = safeEnd; y < srcHeight; y++)
+            {
+                var min  = samples[0];
+                for (var i = 1; i < samples.Length; i++) { if (samples[i] < min) min = samples[i]; }
+                temp[y] = min;
+
+                samples[si++] = src[yOff];
                 if (si >= samples.Length) si = 0;
             }
 
+            yOff = x;
             for (var y = 0; y < srcHeight; y++)
             {
-                var yOff = y * srcWidth;
-                src[yOff + x] = temp[y];
+                src[yOff] = temp[y];
+                yOff += srcWidth;
             }
         }
     }
