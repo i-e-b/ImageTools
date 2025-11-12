@@ -191,8 +191,8 @@ namespace ImageTools
         private static void CopySubsampled(int sw, int sh, double sx, double sy, int dw, double dx, double dy, float[] sY, float[] sU, float[] sV, float[] dY, float[] dU, float[] dV)
         {
             // bounds check
-            if (sy < 0 || sy > sw) return;
-            if (sx < 0 || sx > sh) return;
+            if (sy < 0 || sy > sh) return;
+            if (sx < 0 || sx > sw) return;
             
             // work out the sample weights
             var fx2 = Fractional(sx);
@@ -210,12 +210,18 @@ namespace ImageTools
             
             var sm0 = sw*(int)sy + (int)sx;
             if (sm0 < 0) sm0 = 0;
+            if (sm0 >= sY.Length) sm0 = sY.Length - 1;
+
             var sm1 = sm0 + ox;
             var sm2 = sm0 + oy;
             var sm3 = sm2 + ox;
-            
+
+            if (sm1 < 0 || sm1 >= sY.Length) sm1 = sm0;
+            if (sm2 < 0 || sm2 >= sY.Length) sm2 = sm0;
+            if (sm3 < 0 || sm3 >= sY.Length) sm3 = sm0;
+
             var dm = dw*(int)dy + (int)dx;
-            if (dm < 0 || dm >= dY!.Length) return;
+            if (dm < 0 || dm >= dY.Length) return;
 
             dY[dm] = (float) (sY[sm0] * f0 + sY[sm1] * f1 + sY[sm2] * f2 + sY[sm3] * f3);
             dU[dm] = (float) (sU[sm0] * f0 + sU[sm1] * f1 + sU[sm2] * f2 + sU[sm3] * f3);
