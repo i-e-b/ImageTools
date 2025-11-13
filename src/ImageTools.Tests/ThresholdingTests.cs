@@ -97,7 +97,7 @@ public class ThresholdingTests
     [Test]
     [TestCase("clear", 5, -4, 2)]
     [TestCase("clear_with_rotation", 5, -4, 2)]
-    [TestCase("obscured", 5, -4, 2)]
+    [TestCase("obscured", 4, 0, 2)]
     [TestCase("mild_shadow", 6, 0, 2)]
     [TestCase("strong_shadow", 4, 0, 2)]
     public void thresholding_qr_code_photos(string name, int scale, int exposure, int openRadius)
@@ -116,8 +116,8 @@ public class ThresholdingTests
 
     [Test]
     [TestCase("clear", 5, -4, 2)]
-    [TestCase("clear_with_rotation", 5, -4, 2)]
-    [TestCase("obscured", 5, -4, 2)]
+    [TestCase("clear_with_rotation", 5, 0, 2)]
+    [TestCase("obscured", 4, 0, 2)]
     [TestCase("mild_shadow", 6, 0, 2)]
     [TestCase("strong_shadow", 4, 0, 2)]
     public void thresholding_qr_code_photos_with_closing_first(string name, int scale, int exposure, int openRadius)
@@ -127,9 +127,10 @@ public class ThresholdingTests
         using var original = Load.FromFile($"./inputs/qr_codes/{name}.jpg");
 
         using var morphed = MorphologicalTransforms.Opening2D(original, openRadius);
+        morphed.SaveBmp($"./outputs/qr_cf_{name}_opened_at_r{openRadius}.bmp");
 
         using var result = subject.Matrix(morphed, false, scale, exposure);
 
-        result.SaveBmp($"./outputs/qr_{name}_opened_at_r{openRadius}_threshold_at_s{scale}_e{exposure}.bmp");
+        result.SaveBmp($"./outputs/qr_cf_{name}_opened_at_r{openRadius}_threshold_at_s{scale}_e{exposure}.bmp");
     }
 }
