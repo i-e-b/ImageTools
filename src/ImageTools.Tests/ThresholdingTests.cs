@@ -106,20 +106,30 @@ public class ThresholdingTests
 
         using var original = Load.FromFile($"./inputs/qr_codes/{name}.jpg");
 
-        /*using var radon = Radon.BuildRadon(original, out var highestEnergyRotation);
-
-        Console.WriteLine($"Best rotation by energy = {highestEnergyRotation:0.00}");
-        using var rotated = Rotate.SelectRotateRad(original, highestEnergyRotation - (Math.PI/2.0)); // radon likes to rotate QR codes CCW
-
-        if (rotated is null) throw new Exception("Failed to rotate");
-
-        rotated.SaveBmp($"./outputs/qr_{name}_rotated.bmp");
-*/
-        using var thresholded = subject.Matrix(/*rotated*/original, false, scale, exposure);
+        using var thresholded = subject.Matrix(original, false, scale, exposure);
         thresholded.SaveBmp($"./outputs/qr_{name}_threshold_at_s{scale}_e{exposure}.bmp");
 
         using var result = MorphologicalTransforms.Opening2D(thresholded, openRadius);
 
         result.SaveBmp($"./outputs/qr_{name}_opened_at_r{openRadius}.bmp");
+    }
+
+    [Test]
+    [TestCase("clear", 5, -4, 2)]
+    [TestCase("clear_with_rotation", 5, -4, 2)]
+    [TestCase("obscured", 5, -4, 2)]
+    [TestCase("mild_shadow", 6, 0, 2)]
+    [TestCase("strong_shadow", 4, 0, 2)]
+    public void thresholding_qr_code_photos_with_closing_first(string name, int scale, int exposure, int openRadius)
+    {
+        var subject = new UnsharpThreshold();
+
+        using var original = Load.FromFile($"./inputs/qr_codes/{name}.jpg");
+
+        using var morphed = MorphologicalTransforms.Opening2D(original, openRadius);
+
+        using var result = subject.Matrix(morphed, false, scale, exposure);
+
+        result.SaveBmp($"./outputs/qr_{name}_opened_at_r{openRadius}_threshold_at_s{scale}_e{exposure}.bmp");
     }
 }

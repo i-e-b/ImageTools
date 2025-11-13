@@ -102,19 +102,32 @@ public class MorphologicalTransforms
                 samples[i + radius] = src[yOff + i]; // right side
             }
 
-            var si = 0; // index of next sample to overwrite.
+            var si = samples.Length - 1; // index of next sample to overwrite.
 
-            for (var x = 0; x < srcWidth; x++)
+            // main section
+            var safeEnd = srcWidth - radius;
+            for (var x = 0; x < safeEnd; x++)
             {
+                samples[si++] = src[yOff + x + radius];
+                if (si >= samples.Length) si = 0;
+
                 var max = samples[0];
                 for (var i = 1; i < samples.Length; i++) { if (samples[i] > max) max = samples[i]; }
                 temp[x] = max;
-
-                var right = Math.Min(end, x + radius);
-                samples[si++] = src[yOff + right];
-                if (si >= samples.Length) si = 0;
             }
 
+            // runoff
+            for (var x = safeEnd; x < srcWidth; x++)
+            {
+                samples[si++] = src[yOff + end];
+                if (si >= samples.Length) si = 0;
+
+                var max = samples[0];
+                for (var i = 1; i < samples.Length; i++) { if (samples[i] > max) max = samples[i]; }
+                temp[x] = max;
+            }
+
+            // copy back
             for (var x = 0; x < srcWidth; x++)
             {
                 src[yOff + x] = temp[x];
@@ -136,41 +149,42 @@ public class MorphologicalTransforms
         for (var x = 0; x < srcWidth; x++)
         {
             // pre-load samples
-            var dy = 0;
+            var yOff    = x;
             for (var i = 0; i < radius; i++)
             {
-                samples[i] = src[x]; // left side
-                samples[i + radius] = src[x + dy]; // right side
-                dy += srcWidth;
+                samples[i] = src[x]; // top side
+                samples[i + radius] = src[yOff]; // bottom side
+                yOff += srcWidth;
             }
 
-            var si = 0; // index of next sample to overwrite.
+            var si = samples.Length - 1; // index of next sample to overwrite.
 
             // main section
-            var safeEnd = srcHeight - radius;
-            var yOff    = x;
+            var safeEnd = srcHeight - radius - 1;
+            yOff = x + (radius * srcWidth);
             for (var y = 0; y < safeEnd; y++)
             {
-                var max  = samples[0];
-                for (var i = 1; i < samples.Length; i++) { if (samples[i] > max) max = samples[i]; }
-                temp[y] = max;
-
                 samples[si++] = src[yOff];
                 if (si >= samples.Length) si = 0;
                 yOff += srcWidth;
+
+                var max  = samples[0];
+                for (var i = 1; i < samples.Length; i++) { if (samples[i] > max) max = samples[i]; }
+                temp[y] = max;
             }
 
             // runoff
             for (var y = safeEnd; y < srcHeight; y++)
             {
+                samples[si++] = src[yOff];
+                if (si >= samples.Length) si = 0;
+
                 var max  = samples[0];
                 for (var i = 1; i < samples.Length; i++) { if (samples[i] > max) max = samples[i]; }
                 temp[y] = max;
-
-                samples[si++] = src[yOff];
-                if (si >= samples.Length) si = 0;
             }
 
+            // copy back
             yOff = x;
             for (var y = 0; y < srcHeight; y++)
             {
@@ -203,19 +217,32 @@ public class MorphologicalTransforms
                 samples[i + radius] = src[yOff + i]; // right side
             }
 
-            var si = 0; // index of next sample to overwrite.
+            var si = samples.Length - 1; // index of next sample to overwrite.
 
-            for (var x = 0; x < srcWidth; x++)
+            // main section
+            var safeEnd = srcWidth - radius;
+            for (var x = 0; x < safeEnd; x++)
             {
+                samples[si++] = src[yOff + x + radius];
+                if (si >= samples.Length) si = 0;
+
                 var min = samples[0];
                 for (var i = 1; i < samples.Length; i++) { if (samples[i] < min) min = samples[i]; }
                 temp[x] = min;
-
-                var right = Math.Min(end, x + radius);
-                samples[si++] = src[yOff + right];
-                if (si >= samples.Length) si = 0;
             }
 
+            // runoff
+            for (var x = safeEnd; x < srcWidth; x++)
+            {
+                samples[si++] = src[yOff + end];
+                if (si >= samples.Length) si = 0;
+
+                var min = samples[0];
+                for (var i = 1; i < samples.Length; i++) { if (samples[i] < min) min = samples[i]; }
+                temp[x] = min;
+            }
+
+            // copy back
             for (var x = 0; x < srcWidth; x++)
             {
                 src[yOff + x] = temp[x];
@@ -237,41 +264,42 @@ public class MorphologicalTransforms
         for (var x = 0; x < srcWidth; x++)
         {
             // pre-load samples
-            var dy = 0;
+            var yOff    = x;
             for (var i = 0; i < radius; i++)
             {
-                samples[i] = src[x]; // left side
-                samples[i + radius] = src[x + dy]; // right side
-                dy += srcWidth;
+                samples[i] = src[x]; // top side
+                samples[i + radius] = src[yOff]; // bottom side
+                yOff += srcWidth;
             }
 
-            var si = 0; // index of next sample to overwrite.
+            var si = samples.Length - 1; // index of next sample to overwrite.
 
             // main section
-            var safeEnd = srcHeight - radius;
-            var yOff    = x;
+            var safeEnd = srcHeight - radius - 1;
+            yOff = x + (radius * srcWidth);
             for (var y = 0; y < safeEnd; y++)
             {
-                var min  = samples[0];
-                for (var i = 1; i < samples.Length; i++) { if (samples[i] < min) min = samples[i]; }
-                temp[y] = min;
-
                 samples[si++] = src[yOff];
                 if (si >= samples.Length) si = 0;
                 yOff += srcWidth;
+
+                var min  = samples[0];
+                for (var i = 1; i < samples.Length; i++) { if (samples[i] < min) min = samples[i]; }
+                temp[y] = min;
             }
 
             // runoff
             for (var y = safeEnd; y < srcHeight; y++)
             {
+                samples[si++] = src[yOff];
+                if (si >= samples.Length) si = 0;
+
                 var min  = samples[0];
                 for (var i = 1; i < samples.Length; i++) { if (samples[i] < min) min = samples[i]; }
                 temp[y] = min;
-
-                samples[si++] = src[yOff];
-                if (si >= samples.Length) si = 0;
             }
 
+            // copy back
             yOff = x;
             for (var y = 0; y < srcHeight; y++)
             {

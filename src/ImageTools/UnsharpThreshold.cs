@@ -12,8 +12,8 @@ namespace ImageTools;
 /// </summary>
 public class UnsharpThreshold
 {
-    private const int UpperLimit = 251;
-    private const int LowerLimit = 4;
+    private const int UpperLimit = 240;
+    private const int LowerLimit = 16;
 
     /// <summary>
     /// Threshold an entire bitmap, returning a new bitmap
