@@ -1,4 +1,5 @@
-﻿using ImageTools.Utilities;
+﻿using System.Diagnostics;
+using ImageTools.Utilities;
 using NUnit.Framework;
 
 namespace ImageTools.Tests;
@@ -77,6 +78,25 @@ public class ThresholdingTests
     }
 
     [Test]
+    public void thresholding_and_opening_a_scratched_image()
+    {
+        using var bmp     = Load.FromFile("./inputs/qr_code_tilted_scratched.png");
+        var       subject = new UnsharpThreshold();
+
+        for (int scale = 2; scale < 6; scale++)
+        {
+            for (int exposure = -8; exposure <= 8; exposure += 8)
+            {
+                using var result = subject.Matrix(bmp, false, 4, exposure);
+
+                using var morphed = MorphologicalTransforms.Opening2D(result, scale);
+
+                morphed.SaveBmp($"./outputs/Threshold_qr_scratched_s{scale}_e{exposure}.bmp");
+            }
+        }
+    }
+
+    [Test]
     public void thresholding_a_test_image()
     {
         using var bmp     = Load.FromFile("./inputs/3.png");
@@ -106,10 +126,18 @@ public class ThresholdingTests
 
         using var original = Load.FromFile($"./inputs/qr_codes/{name}.jpg");
 
+        var sw = Stopwatch.StartNew();
+
         using var thresholded = subject.Matrix(original, false, scale, exposure);
+        sw.Stop();
+        Console.WriteLine($"Thresholding transform took {sw.Elapsed}");
+
         thresholded.SaveBmp($"./outputs/qr_{name}_threshold_at_s{scale}_e{exposure}.bmp");
 
+        sw.Restart();
         using var result = MorphologicalTransforms.Opening2D(thresholded, openRadius);
+        sw.Stop();
+        Console.WriteLine($"Opening transform took {sw.Elapsed}");
 
         result.SaveBmp($"./outputs/qr_{name}_opened_at_r{openRadius}.bmp");
     }
@@ -120,17 +148,81 @@ public class ThresholdingTests
     [TestCase("obscured", 4, 0, 2)]
     [TestCase("mild_shadow", 6, 0, 2)]
     [TestCase("strong_shadow", 4, 0, 2)]
-    public void thresholding_qr_code_photos_with_closing_first(string name, int scale, int exposure, int openRadius)
+    public void thresholding_qr_code_photos_with_opening_first(string name, int scale, int exposure, int openRadius)
     {
         var subject = new UnsharpThreshold();
 
         using var original = Load.FromFile($"./inputs/qr_codes/{name}.jpg");
 
+        var sw = Stopwatch.StartNew();
+
         using var morphed = MorphologicalTransforms.Opening2D(original, openRadius);
+        sw.Stop();
+        Console.WriteLine($"Opening transform took {sw.Elapsed}");
         morphed.SaveBmp($"./outputs/qr_cf_{name}_opened_at_r{openRadius}.bmp");
 
+        sw.Restart();
         using var result = subject.Matrix(morphed, false, scale, exposure);
+        sw.Stop();
+        Console.WriteLine($"Thresholding transform took {sw.Elapsed}");
 
         result.SaveBmp($"./outputs/qr_cf_{name}_opened_at_r{openRadius}_threshold_at_s{scale}_e{exposure}.bmp");
+    }
+
+
+    [Test]
+    [TestCase("clear", 5, -4, 2)]
+    [TestCase("clear_with_rotation", 5, -4, 2)]
+    [TestCase("obscured", 4, 0, 2)]
+    [TestCase("mild_shadow", 6, 0, 2)]
+    [TestCase("strong_shadow", 4, 0, 2)]
+    public void thresholding_qr_code_photos_byte(string name, int scale, int exposure, int openRadius)
+    {
+        var subject = new UnsharpThreshold();
+
+        using var original = Load.FromFile($"./inputs/qr_codes/{name}.jpg");
+
+        var sw = Stopwatch.StartNew();
+
+        using var thresholded = subject.Matrix(original, false, scale, exposure);
+        sw.Stop();
+        Console.WriteLine($"Thresholding transform took {sw.Elapsed}");
+
+        thresholded.SaveBmp($"./outputs/qr_{name}_threshold_at_s{scale}_e{exposure}_byte.bmp");
+
+        sw.Restart();
+        using var result = MorphologicalTransformsByte.Opening2D(thresholded, openRadius);
+        sw.Stop();
+        Console.WriteLine($"Opening transform took {sw.Elapsed}");
+
+        result.SaveBmp($"./outputs/qr_{name}_opened_at_r{openRadius}_byte.bmp");
+    }
+
+    [Test]
+    [TestCase("clear", 5, -4, 2)]
+    [TestCase("clear_with_rotation", 5, 0, 2)]
+    [TestCase("obscured", 4, 0, 2)]
+    [TestCase("mild_shadow", 6, 0, 2)]
+    [TestCase("strong_shadow", 4, 0, 2)]
+    public void thresholding_qr_code_photos_with_opening_first_byte(string name, int scale, int exposure, int openRadius)
+    {
+        var subject = new UnsharpThreshold();
+
+        using var original = Load.FromFile($"./inputs/qr_codes/{name}.jpg");
+
+        var sw = Stopwatch.StartNew();
+
+        using var morphed = MorphologicalTransformsByte.Opening2D(original, openRadius);
+        sw.Stop();
+        Console.WriteLine($"Opening transform took {sw.Elapsed}");
+
+        morphed.SaveBmp($"./outputs/qr_cf_{name}_opened_at_r{openRadius}_byte.bmp");
+
+        sw.Restart();
+        using var result = subject.Matrix(morphed, false, scale, exposure);
+        sw.Stop();
+        Console.WriteLine($"Thresholding transform took {sw.Elapsed}");
+
+        result.SaveBmp($"./outputs/qr_cf_{name}_opened_at_r{openRadius}_threshold_at_s{scale}_e{exposure}_byte.bmp");
     }
 }

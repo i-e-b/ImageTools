@@ -114,18 +114,4 @@ public class UnsharpThreshold
         BitmapTools.PlanesToImageByte(dst, ColorSpace.YCoCgToRGB, 0, results, noColor, noColor);
         return dst;
     }
-
-    /// <summary>
-    /// Threshold a single row in a bitmap, returning a bit array.
-    /// The unsharp mask is applied only in horizontal.
-    /// </summary>
-    /// <param name="src">Input bitmap</param>
-    /// <param name="row">Y-coordinate of row in <c>src</c> bitmap to process</param>
-    /// <param name="invert">If <c>true</c> the output bitmap will be inverted</param>
-    /// <param name="scale">Target scale of features. Adjust to pick out different detail levels. Range 1..8 inclusive. 5 or 6 are good defaults</param>
-    /// <param name="exposure">Negative for lighter image, positive for darker. Zero is no bias. Between -16 and 16 seem to work in most cases</param>
-    public BitArray Row(Bitmap src, int row, bool invert, int scale, int exposure)
-    {
-        throw new NotImplementedException();
-    }
 }

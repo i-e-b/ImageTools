@@ -698,6 +698,65 @@ public class BitmapTools
         }
     }
 
+    /// <summary>
+    /// Convert a bitmap image to a set of color planes, given a space conversion.
+    /// Output ranges are 0..255 bytes
+    /// </summary>
+    public static unsafe void ImageToLuminanceByte(Bitmap src, out byte[] Ls)
+    {
+        var ri      = new Rectangle(Point.Empty, src.Size);
+        var srcData = src.LockBits(ri, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+        var len     = srcData.Height * srcData.Width;
+        Ls = new byte[len];
+        try
+        {
+            var s = (uint*)srcData.Scan0;
+            for (int i = 0; i < len; i++)
+            {
+                var c = s[i];
+
+                var r = (int) ((c >> 16) & 0xff);
+                var g = (int) ((c >>  8) & 0xff);
+                var b = (int) ((c      ) & 0xff);
+
+                var Co = r - b;
+                var tmp = b + (Co / 2);
+                var Cg = g - tmp;
+                var y = tmp + (Cg / 2);
+                Ls[i] = (byte)y;
+            }
+        }
+        finally
+        {
+            src.UnlockBits(srcData);
+        }
+    }
+
+    /// <summary>
+    /// Convert a luminance plane to a bitmap image
+    /// </summary>
+    public static unsafe void LuminancePlaneToImageByte(Bitmap dst, int offset, byte[] Ls)
+    {
+        var ri      = new Rectangle(Point.Empty, dst.Size);
+        var dstData = dst.LockBits(ri, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+        var len     = dstData.Height * dstData.Width;
+
+        try
+        {
+            var s = (uint*)dstData.Scan0;
+            for (int i = 0; i < len; i++)
+            {
+                var Y  = Ls[offset + i];
+
+                s[i] = (uint)((255 << 24) | (Y << 16) | (Y << 8) | Y);
+            }
+        }
+        finally
+        {
+            dst.UnlockBits(dstData);
+        }
+    }
+
 
     /// <summary>
     /// Convert a bitmap image to a set of color planes, given a space conversion.
