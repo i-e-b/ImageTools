@@ -1120,7 +1120,7 @@ namespace ImageTools
         /// <param name="imgWidth">Width of the image region of interest. This must be less-or-equal to the plane width. Does not need to be a power of two</param>
         /// <param name="imgHeight">Height of the image region of interest. This must be less-or-equal to the plane height. Does not need to be a power of two</param>
         /// <param name="decompose">Wavelet for compression</param>
-        public static void WaveletDecomposePlanar2(GeneralDecompose decompose, GeneralRestore restore, float[] Y, float[] U, float[] V, int planeWidth, int planeHeight, int imgWidth, int imgHeight)
+        public static void WaveletDecomposePlanar2(GeneralDecompose? decompose, GeneralRestore? restore, float[] Y, float[] U, float[] V, int planeWidth, int planeHeight, int imgWidth, int imgHeight)
         {
             // Current best: 265kb (using input 3.png)
 
@@ -1140,21 +1140,24 @@ namespace ImageTools
                 DC_to_AC(buffer);
 
                 // Transform
-                for (int i = 0; i < rounds; i++)
+                if (decompose is not null)
                 {
-                    var height = p2Height >> i;
-                    var width = p2Width >> i;
+                    for (int i = 0; i < rounds; i++)
+                    {
+                        var height = p2Height >> i;
+                        var width  = p2Width >> i;
 
-                    // Wavelet decompose vertical
-                    for (int x = 0; x < width; x++) // each column
-                    {
-                        decompose(buffer, hx, height, x, planeWidth);
-                    }
-                    
-                    // Wavelet decompose HALF horizontal
-                    for (int y = 0; y < height / 2; y++) // each row
-                    {
-                        decompose(buffer, wx, width, y * planeWidth, 1);
+                        // Wavelet decompose vertical
+                        for (int x = 0; x < width; x++) // each column
+                        {
+                            decompose(buffer, hx, height, x, planeWidth);
+                        }
+
+                        // Wavelet decompose HALF horizontal
+                        for (int y = 0; y < height / 2; y++) // each row
+                        {
+                            decompose(buffer, wx, width, y * planeWidth, 1);
+                        }
                     }
                 }
 
@@ -1177,21 +1180,24 @@ namespace ImageTools
                 FromStorageOrder2D(buffer, planeWidth, planeHeight, rounds, imgWidth, imgHeight);
 
                 // Restore
-                for (int i = rounds - 1; i >= 0; i--)
+                if (restore is not null)
                 {
-                    var height = p2Height >> i;
-                    var width = p2Width >> i;
-
-                    // Wavelet restore HALF horizontal
-                    for (int y = 0; y < height / 2; y++) // each row
+                    for (int i = rounds - 1; i >= 0; i--)
                     {
-                        restore(buffer, wx, width,  y * planeWidth, 1);
-                    }
+                        var height = p2Height >> i;
+                        var width  = p2Width >> i;
 
-                    // Wavelet restore vertical
-                    for (int x = 0; x < width; x++) // each column
-                    {
-                        restore(buffer, hx, height, x, planeWidth);
+                        // Wavelet restore HALF horizontal
+                        for (int y = 0; y < height / 2; y++) // each row
+                        {
+                            restore(buffer, wx, width, y * planeWidth, 1);
+                        }
+
+                        // Wavelet restore vertical
+                        for (int x = 0; x < width; x++) // each column
+                        {
+                            restore(buffer, hx, height, x, planeWidth);
+                        }
                     }
                 }
 

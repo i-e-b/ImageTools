@@ -178,7 +178,20 @@ namespace ImageTools.Tests
 
             Assert.That(Load.FileExists("./outputs/Cdf97_Morton_32bpp_3.bmp"));
         }
-        
+
+        [Test]
+        public void show_wavelet_decomposition()
+        {
+            using var bmp = Load.FromFile("./inputs/qr_code_tilted_scratched.png");
+            BitmapTools.ImageToPlanes_ForcePower2(bmp, ColorSpace.RGBToYUV, out var Y, out var U, out var V, out var width, out var height);
+            WaveletCompress.WaveletDecomposePlanar2(CDF.Fwt97, null, Y, U, V, width, height, bmp.Width, bmp.Height);
+
+            using var bmp2 = new Bitmap(bmp);
+            BitmapTools.PlanesToImage_f(bmp2, ColorSpace.YUVToRGB, 0, Y, U, V);
+
+            bmp2.SaveBmp("./outputs/qr_code_tilted_scratched__Cdf97_Planar_32bpp_decomposed.bmp");
+        }
+
         [Test]
         public void cdf97_planar_reduce_test()
         {

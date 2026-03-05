@@ -463,6 +463,102 @@ namespace ImageTools
 
 
         /// <summary>
+        /// Apply a hard-focus effect into a new bitmap (original is unchanged).
+        /// NOTE: This currently assumes a square power-of-two sized source image
+        /// <para></para>
+        /// This is done by a wavelet transform where the low-frequency coefficients
+        /// are reduced but not removed
+        /// </summary>
+        public static Bitmap FrequencyFactor(Bitmap sourceImage, float[] factors)
+        {
+            if (sourceImage == null) return null;
+            BitmapTools.ArgbImageToYUVPlanes_f(sourceImage, out var Y, out var U, out var V);
+
+            var buffers = new[] { Y, U, V };
+            int rounds = (int)Math.Log(sourceImage.Width, 2);
+            //Console.WriteLine($"{rounds} rounds");
+
+            foreach (var buffer in buffers)
+            {
+                // DC to AC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] -= 127.5f; }
+
+                // Transform
+                for (int i = 0; i < rounds; i++)
+                {
+                    var height = sourceImage.Height >> i;
+                    var width = sourceImage.Width >> i;
+
+                    var hx = new float[height];
+                    var wx = new float[width];
+
+                    // Wavelet decompose vertical
+                    for (int x = 0; x < width; x++) // each column
+                    {
+                        CDF.Fwt97(buffer, hx, height, x, sourceImage.Width);
+                    }
+
+                    // Wavelet decompose HALF horizontal
+                    for (int y = 0; y < height / 2; y++) // each row
+                    {
+                        CDF.Fwt97(buffer, wx, width, y * sourceImage.Width, 1);
+                    }
+                }
+
+                // this puts coefficients in frequency order
+                WaveletCompress.ToStorageOrder2D(buffer, sourceImage.Width, sourceImage.Height, rounds, sourceImage.Width, sourceImage.Height);
+
+                // expand coefficients.
+                for (int r = 0; r <= rounds; r++)
+                {
+                    float factor = (r >= factors.Length) ? factors[^1] : factors[r];
+
+                    var end   = buffer.Length >> r;
+                    var start = end >> 1;
+                    //Console.WriteLine($"Round {r}, bytes {start} to {end} of {buffer.Length-1}; Factor={factor};");
+
+                    for (int i = start; i < end; i++)
+                    {
+                        buffer[i] *= factor;
+                    }
+                }
+
+                // Restore
+                WaveletCompress.FromStorageOrder2D(buffer, sourceImage.Width, sourceImage.Height, rounds, sourceImage.Width, sourceImage.Height);
+
+                // Restore
+                for (int i = rounds - 1; i >= 0; i--)
+                {
+                    var height = sourceImage.Height >> i;
+                    var width = sourceImage.Width >> i;
+
+                    var hx = new float[height];
+                    var wx = new float[width];
+
+                    // Wavelet restore HALF horizontal
+                    for (int y = 0; y < height / 2; y++) // each row
+                    {
+                        CDF.Iwt97(buffer, wx, width, y * sourceImage.Width, 1);
+                    }
+
+                    // Wavelet restore vertical
+                    for (int x = 0; x < width; x++) // each column
+                    {
+                        CDF.Iwt97(buffer, hx, height, x, sourceImage.Width);
+                    }
+                }
+
+                // AC to DC
+                for (int i = 0; i < buffer.Length; i++) { buffer[i] += 127.5f; }
+            }
+
+            var dest = new Bitmap(sourceImage.Width, sourceImage.Height, PixelFormat.Format32bppArgb);
+            BitmapTools.YUVPlanes_To_ArgbImage(dest, 0, Y, U, V);
+            return dest;
+        }
+
+
+        /// <summary>
         /// Apply a matrix kernel to a bitmap, output into a new bitmap (original is unchanged).
         /// Edges are handled by reflection
         /// </summary>
