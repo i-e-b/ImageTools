@@ -117,6 +117,25 @@ public class ThresholdingTests
     }
 
     [Test]
+    public void frequency_limit_and_thresholding_a_scratched_webcam_image()
+    {
+        using var bmp     = Load.FromFile("./inputs/qr_codes/webcam_scratched.png");
+        var       subject = new UnsharpThreshold();
+
+        for (int scale = 2; scale <= 8; scale+=2)
+        {
+            for (int exposure = 0; exposure <= 6; exposure += 2)
+            {
+                using var limited = Blur.FrequencyFactor(bmp, [0.0f, 0.0f, 0.0f, 0.25f, 0.5f, 0.75f, 1.0f]);
+                using var morph   = MorphologicalTransforms.Opening2D(limited, scale / 2);
+                using var result  = subject.Matrix(morph, false, 4, exposure);
+
+                result.SaveBmp($"./outputs/Threshold_webcam_qr_scratched_s{scale}_e{exposure}_fLimit.bmp");
+            }
+        }
+    }
+
+    [Test]
     public void blurring_and_thresholding_a_scratched_image()
     {
         using var bmp     = Load.FromFile("./inputs/qr_code_tilted_scratched.png");
