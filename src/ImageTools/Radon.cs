@@ -79,7 +79,8 @@ namespace ImageTools
                 {
                     for (var dx = -halfWidth; dx < halfWidth; dx++)
                     {
-                        inverse.Mul(dx, dy, out var spX, out var spY);//var sp = new Vector2(dx, dy) * inverse;
+                        inverse.Mul(dx, dy, out var spX, out var spY);
+
                         var sx = spX + halfWidth;
                         var sy = spY + halfHeight;
 
@@ -195,20 +196,25 @@ namespace ImageTools
             var ox = sx < sw-1 ? 1 : 0;
             var oy = sy < sh-1 ? sw : 0;
 
-            var sm0 = (int)Math.FusedMultiplyAdd(sw, tsy, tsx);//sw * (int)sy + (int)sx;
+            var sm0 = (int)Math.FusedMultiplyAdd(sw, tsy, tsx);
             var sm1 = sm0 + ox;
             var sm2 = sm0 + oy;
             var sm3 = sm2 + ox;
 
             var max = sourceLength - 1;
-            if (sm0 < 0) sm0 = 0;
+            sm0 = Math.Clamp(sm0, 0, max);
+            sm1 = Math.Clamp(sm1, 0, max);
+            sm2 = Math.Clamp(sm2, 0, max);
+            sm3 = Math.Clamp(sm3, 0, max);
+
+            /*if (sm0 < 0) sm0 = 0;
             if (sm1 < 0) sm1 = 0;
             if (sm2 < 0) sm2 = 0;
             if (sm3 < 0) sm3 = 0;
             if (sm0 > max) sm0 = max;
             if (sm1 > max) sm1 = max;
             if (sm2 > max) sm2 = max;
-            if (sm3 > max) sm3 = max;
+            if (sm3 > max) sm3 = max;*/
             /*sm0 = Math.Max(0, Math.Min(max, sm0));
             sm1 = Math.Max(0, Math.Min(max, sm1));
             sm2 = Math.Max(0, Math.Min(max, sm2));
@@ -218,7 +224,7 @@ namespace ImageTools
             if (sm2 < 0) sm2 = 0; else if (sm2 > max) sm2 = max;
             if (sm3 < 0) sm3 = 0; else if (sm3 > max) sm3 = max;*/
 
-            var dm = (int)Math.FusedMultiplyAdd(dw, Math.Truncate(dy), Math.Truncate(dx));//dw*(int)dy + (int)dx;
+            var dm = (int)Math.FusedMultiplyAdd(dw, Math.Truncate(dy), Math.Truncate(dx));
             if (dm < 0 || dm >= destLength) return;
 
             // These look-ups are about 20% of the entire run-time

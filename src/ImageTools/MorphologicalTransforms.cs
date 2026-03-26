@@ -64,6 +64,19 @@ public class MorphologicalTransforms
     /// Perform an dilate then erode with the same radius.
     /// This should remove small speckles of dark on light backgrounds
     /// </summary>
+    public static void Opening2D(double[] samples, int width, int height, int radius)
+    {
+        ErodeColumns(samples, radius, width, height);
+        ErodeRows(samples, radius, width, height);
+
+        DilateColumns(samples, radius, width, height);
+        DilateRows(samples, radius, width, height);
+    }
+
+    /// <summary>
+    /// Perform an dilate then erode with the same radius.
+    /// This should remove small speckles of dark on light backgrounds
+    /// </summary>
     public static Bitmap Closing2D(Bitmap src, int radius)
     {
         BitmapTools.ImageToPlanes(src, ColorSpace.RGBToYCoCg, out var luminance, out var co, out var cg);
@@ -77,6 +90,20 @@ public class MorphologicalTransforms
         var dst = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
         BitmapTools.PlanesToImage(dst, ColorSpace.YCoCgToRGB, 0, luminance, co, cg);
         return dst;
+    }
+
+
+    /// <summary>
+    /// Perform an dilate then erode with the same radius.
+    /// This should remove small speckles of dark on light backgrounds
+    /// </summary>
+    public static void Closing2D(double[] samples, int width, int height, int radius)
+    {
+        DilateColumns(samples, radius, width, height);
+        DilateRows(samples, radius, width, height);
+
+        ErodeColumns(samples, radius, width, height);
+        ErodeRows(samples, radius, width, height);
     }
 
     /// <summary>

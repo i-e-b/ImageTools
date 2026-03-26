@@ -69,7 +69,7 @@ namespace ImageTools
             }
 
             // Make all numbers positive (only in predicted area)
-            Console.WriteLine($"Min = {minVal}");
+            //Console.WriteLine($"Min = {minVal}");
             var maxVal = 0.0;
 
             var average = 0.0;

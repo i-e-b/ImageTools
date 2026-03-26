@@ -97,5 +97,76 @@ namespace ImageTools.Tests
             Assert.That(Load.FileExists("./outputs/3_reduced_loco_i_RGB.bmp"));
         }
 
+
+        [Test]
+        public void qr_code__jpeg_LOCO_I__RGB_space ()
+        {
+            using var bmp = Load.FromFile("./inputs/qr_code.png");
+            using var dst = new Bitmap(bmp);
+
+            BitmapTools.ImageToPlanes(bmp, ColorSpace.Native, out var R, out var G, out var B);
+
+            // Lossless JPEG type prediction
+            var R2 = Decorrelation.LocoI_Predict(R, bmp.Width, bmp.Height, out var numZeros);
+            var G2 = Decorrelation.LocoI_Predict(G, bmp.Width, bmp.Height, out _);
+            var B2 = Decorrelation.LocoI_Predict(B, bmp.Width, bmp.Height, out _);
+
+            var pc = R.Length / (double)numZeros;
+            Console.WriteLine($"{numZeros} zeros ({pc:0.00}% non-zero)");
+
+            // save changed image
+            BitmapTools.PlanesToImage(dst, ColorSpace.Native, 0, R2, G2, B2);
+            dst.SaveBmp("./outputs/qr_code_reduced_loco_i_RGB.bmp");
+
+            Assert.That(Load.FileExists("./outputs/qr_code_reduced_loco_i_RGB.bmp"));
+        }
+
+
+        [Test]
+        public void qr_code_bad_case__jpeg_LOCO_I__RGB_space ()
+        {
+            using var bmp = Load.FromFile("./inputs/qr_code_tilted_scratched.png");
+            using var dst = new Bitmap(bmp);
+
+            BitmapTools.ImageToPlanes(bmp, ColorSpace.Native, out var R, out var G, out var B);
+
+            // Lossless JPEG type prediction
+            var R2 = Decorrelation.LocoI_Predict(R, bmp.Width, bmp.Height, out var numZeros);
+            var G2 = Decorrelation.LocoI_Predict(G, bmp.Width, bmp.Height, out _);
+            var B2 = Decorrelation.LocoI_Predict(B, bmp.Width, bmp.Height, out _);
+
+            var pc = R.Length / (double)numZeros;
+            Console.WriteLine($"{numZeros} zeros ({pc:0.00}% non-zero)");
+
+            // save changed image
+            BitmapTools.PlanesToImage(dst, ColorSpace.Native, 0, R2, G2, B2);
+            dst.SaveBmp("./outputs/qr_code_tilted_scratched__reduced_loco_i_RGB.bmp");
+
+            Assert.That(Load.FileExists("./outputs/qr_code_tilted_scratched__reduced_loco_i_RGB.bmp"));
+        }
+
+        [Test]
+        public void qr_code_blurred__jpeg_LOCO_I__RGB_space ()
+        {
+            using var bmp = Load.FromFile("./inputs/qr_code_tilted_blurred.png");
+            using var dst = new Bitmap(bmp);
+
+            BitmapTools.ImageToPlanes(bmp, ColorSpace.Native, out var R, out var G, out var B);
+
+            // Lossless JPEG type prediction
+            var R2 = Decorrelation.LocoI_Predict(R, bmp.Width, bmp.Height, out var numZeros);
+            var G2 = Decorrelation.LocoI_Predict(G, bmp.Width, bmp.Height, out _);
+            var B2 = Decorrelation.LocoI_Predict(B, bmp.Width, bmp.Height, out _);
+
+            var pc = R.Length / (double)numZeros;
+            Console.WriteLine($"{numZeros} zeros ({pc:0.00}% non-zero)");
+
+            // save changed image
+            BitmapTools.PlanesToImage(dst, ColorSpace.Native, 0, R2, G2, B2);
+            dst.SaveBmp("./outputs/qr_code_tilted_blurred__reduced_loco_i_RGB.bmp");
+
+            Assert.That(Load.FileExists("./outputs/qr_code_tilted_blurred__reduced_loco_i_RGB.bmp"));
+        }
+
     }
 }
