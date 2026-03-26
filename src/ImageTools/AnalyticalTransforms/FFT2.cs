@@ -31,85 +31,119 @@
  */
 public class FFT2
 {
-    // Element for linked list in which we store the
-    // input/output data. We use a linked list because
-    // for sequential access it's faster than array index.
     class FFTElement
     {
-        public double re = 0.0;     // Real component
-        public double im = 0.0;     // Imaginary component
-        public FFTElement next;     // Next element in linked list
-        public uint revTgt;         // Target position post bit-reversal
+        public double      Re; // Real component
+        public double      Im; // Imaginary component
+        public FFTElement? Next; // Next element in linked list
+        public uint        RevTgt; // Target position post bit-reversal
+
+        public FFTElement(FFTElement? next)
+        {
+            Next = next;
+        }
     }
 
-    private uint m_logN = 0;        // log2 of FFT size
-    private uint m_N = 0;           // FFT size
-    private FFTElement[] m_X;       // Vector of linked list elements
+    private readonly uint _logN; // log2 of FFT size
+    private readonly uint _n; // FFT size
 
-    /**
-     *
-     */
-    public FFT2()
-    {
-    }
+    private readonly FFTElement?[] _elements; // Vector of linked list elements
 
-    /**
-     * Initialize class to perform FFT of specified size.
-     *
-     * @param   logN    Log2 of FFT length. e.g. for 512 pt FFT, logN = 9.
-     */
-    public void init(
-        uint logN )
+    /// <summary>
+    /// Set up a FFT transform for given scale
+    /// </summary>
+    /// <param name="logN">log2 of FFT size</param>
+    public FFT2(uint logN)
     {
-        m_logN = logN;
-        m_N = (uint)(1 << (int)m_logN);
+        _logN = logN;
+        _n = (uint)(1 << (int)_logN);
 
         // Allocate elements for linked list of complex numbers.
-        m_X = new FFTElement[m_N];
-        for (uint k = 0; k < m_N; k++)
-            m_X[k] = new FFTElement();
+        _elements = new FFTElement[_n];
+        for (uint k = 0; k < _n; k++)
+            _elements[k] = new FFTElement(null);
 
         // Set up "next" pointers.
-        for (uint k = 0; k < m_N-1; k++)
-            m_X[k].next = m_X[k+1];
+        for (uint k = 0; k < _n-1; k++)
+            _elements[k]!.Next = _elements[k+1];
 
         // Specify target for bit reversal re-ordering.
-        for (uint k = 0; k < m_N; k++ )
-            m_X[k].revTgt = BitReverse(k,logN);
+        for (uint k = 0; k < _n; k++ )
+            _elements[k]!.RevTgt = BitReverse(k,logN);
     }
 
-    /**
-     * Performs in-place complex FFT.
-     *
-     * @param   xRe     Real part of input/output
-     * @param   xIm     Imaginary part of input/output
-     * @param   inverse If true, do an inverse FFT
-     */
-    public void run(
+    /// <summary>
+    /// Basic row/column transposition
+    /// </summary>
+    public static double[] Transpose(double[] samples, int width)
+    {
+        var length = samples.Length;
+        var result = new double[length];
+        var end = samples.Length - 1;
+
+        var src = 0;
+        var dst = 0;
+        while (src < length)
+        {
+            result[dst] = samples[src++];
+            dst += width;
+            if (dst > end) dst -= end;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Performs in-place complex FFT
+    /// </summary>
+    /// <param name="xRe">Real part of input/output</param>
+    /// <param name="xIm">Imaginary part of input/output</param>
+    public void SpaceToFrequency(double[] xRe, double[] xIm)
+    {
+        Run(xRe, xIm, false);
+    }
+
+    /// <summary>
+    /// Performs in-place complex iFFT
+    /// </summary>
+    /// <param name="xRe">Real part of input/output</param>
+    /// <param name="xIm">Imaginary part of input/output</param>
+    public void FrequencyToSpace(double[] xRe, double[] xIm)
+    {
+        Run(xRe, xIm, true);
+    }
+
+    /// <summary>
+    /// Performs in-place complex FFT
+    /// </summary>
+    /// <param name="xRe">Real part of input/output</param>
+    /// <param name="xIm">Imaginary part of input/output</param>
+    /// <param name="inverse">If true, do an inverse FFT</param>
+    private void Run(
         double[] xRe,
         double[] xIm,
-        bool inverse = false )
+        bool inverse )
     {
-        uint numFlies = m_N >> 1;   // Number of butterflies per sub-FFT
-        uint span = m_N >> 1;       // Width of the butterfly
-        uint spacing = m_N;         // Distance between start of sub-FFTs
+        var numFlies = _n >> 1;   // Number of butterflies per sub-FFT
+        var span = _n >> 1;       // Width of the butterfly
+        var spacing = _n;         // Distance between start of sub-FFTs
         uint wIndexStep = 1;        // Increment for twiddle table index
 
         // Copy data into linked complex number objects
-        // If it's an IFFT, we divide by N while we're at it
-        FFTElement x = m_X[0];
+        // If it's an iFFT, we divide by N while we're at it
+        var x = _elements[0];
         uint k = 0;
-        double scale = inverse ? 1.0/m_N : 1.0;
+        var scale = inverse ? 1.0/_n : 1.0;
         while (x != null)
         {
-            x.re = scale*xRe[k];
-            x.im = scale*xIm[k];
-            x = x.next;
+            x.Re = scale*xRe[k];
+            x.Im = scale*xIm[k];
+            x = x.Next;
             k++;
         }
 
         // For each stage of the FFT
-        for (uint stage = 0; stage < m_logN; stage++)
+        for (uint stage = 0; stage < _logN; stage++)
         {
             // Compute a multiplier factor for the "twiddle factors".
             // The twiddle factors are complex unit vectors spaced at
@@ -118,48 +152,50 @@ public class FFT2
             // implementations the twiddle factors are cached, but because
             // array lookup is relatively slow in C#, it's just
             // as fast to compute them on the fly.
-            double wAngleInc = wIndexStep * 2.0*Math.PI/m_N;
+            var wAngleInc = wIndexStep * 2.0*Math.PI/_n;
             if (inverse == false)
                 wAngleInc *= -1;
-            double wMulRe = Math.Cos(wAngleInc);
-            double wMulIm = Math.Sin(wAngleInc);
+            var wMulRe = Math.Cos(wAngleInc);
+            var wMulIm = Math.Sin(wAngleInc);
 
-            for (uint start = 0; start < m_N; start += spacing)
+            for (uint start = 0; start < _n; start += spacing)
             {
-                FFTElement xTop = m_X[start];
-                FFTElement xBot = m_X[start+span];
+                var xTop = _elements[start];
+                var xBot = _elements[start+span];
 
-                double wRe = 1.0;
-                double wIm = 0.0;
+                var wRe = 1.0;
+                var wIm = 0.0;
 
                 // For each butterfly in this stage
                 for (uint flyCount = 0; flyCount < numFlies; ++flyCount)
                 {
+                    if (xTop is null || xBot is null) break;
+
                     // Get the top & bottom values
-                    double xTopRe = xTop.re;
-                    double xTopIm = xTop.im;
-                    double xBotRe = xBot.re;
-                    double xBotIm = xBot.im;
+                    var xTopRe = xTop.Re;
+                    var xTopIm = xTop.Im;
+                    var xBotRe = xBot.Re;
+                    var xBotIm = xBot.Im;
 
                     // Top branch of butterfly has addition
-                    xTop.re = xTopRe + xBotRe;
-                    xTop.im = xTopIm + xBotIm;
+                    xTop.Re = xTopRe + xBotRe;
+                    xTop.Im = xTopIm + xBotIm;
 
-                    // Bottom branch of butterly has subtraction,
+                    // Bottom branch of butterfly has subtraction,
                     // followed by multiplication by twiddle factor
                     xBotRe = xTopRe - xBotRe;
                     xBotIm = xTopIm - xBotIm;
-                    xBot.re = xBotRe*wRe - xBotIm*wIm;
-                    xBot.im = xBotRe*wIm + xBotIm*wRe;
+                    xBot.Re = xBotRe*wRe - xBotIm*wIm;
+                    xBot.Im = xBotRe*wIm + xBotIm*wRe;
 
                     // Advance butterfly to next top & bottom positions
-                    xTop = xTop.next;
-                    xBot = xBot.next;
+                    xTop = xTop.Next;
+                    xBot = xBot.Next;
 
                     // Update the twiddle factor, via complex multiply
                     // by unit vector with the appropriate angle
                     // (wRe + j wIm) = (wRe + j wIm) x (wMulRe + j wMulIm)
-                    double tRe = wRe;
+                    var tRe = wRe;
                     wRe = wRe*wMulRe - wIm*wMulIm;
                     wIm = tRe*wMulIm + wIm*wMulRe;
                 }
@@ -174,23 +210,22 @@ public class FFT2
         // The algorithm leaves the result in a scrambled order.
         // Unscramble while copying values from the complex
         // linked list elements back to the input/output vectors.
-        x = m_X[0];
+        x = _elements[0];
         while (x != null)
         {
-            uint target = x.revTgt;
-            xRe[target] = x.re;
-            xIm[target] = x.im;
-            x = x.next;
+            var target = x.RevTgt;
+            xRe[target] = x.Re;
+            xIm[target] = x.Im;
+            x = x.Next;
         }
     }
 
-    /**
-     * Do bit reversal of specified number of places of an int
-     * For example, 1101 bit-reversed is 1011
-     *
-     * @param   x       Number to be bit-reverse.
-     * @param   numBits Number of bits in the number.
-     */
+    /// <summary>
+    /// Do bit reversal of specified number of places of an int.
+    /// For example, 1101 bit-reversed is 1011
+    /// </summary>
+    /// <param name="x">Number to be bit-reverse</param>
+    /// <param name="numBits">Number of bits in the number</param>
     private uint BitReverse(
         uint x,
         uint numBits)
@@ -205,4 +240,27 @@ public class FFT2
         return y;
     }
 
+    /// <summary>
+    /// Adjust values to fill range
+    /// </summary>
+    public static void Normalise(double[] values, double max)
+    {
+        var top = values[0];
+        var bot = values[0];
+
+        for (var i = 1; i < values.Length; i++)
+        {
+            top = Math.Max(top, values[i]);
+            bot = Math.Min(bot, values[i]);
+        }
+
+        var range = top - bot;
+        var scale = max / range;
+
+
+        for (var i = 0; i < values.Length; i++)
+        {
+            values[i] = (values[i] - bot) * scale;
+        }
+    }
 }

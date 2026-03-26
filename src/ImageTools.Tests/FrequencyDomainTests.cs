@@ -29,23 +29,20 @@ public class FrequencyDomainTests
     {
         using var src  = Load.FromFile("./inputs/qr_code.png");
 
-
         BitmapTools.ImageToPlanes(src, ColorSpace.RGBToYCoCg, out var Y, out _, out _);
 
-
-        var subject = new FFT2();
         var len     = (uint)Math.Log2(Y.Length);
-        subject.init(len);
+        var subject = new FFT2(len);
 
         var im = new double[Y.Length];
-        subject.run(Y, im);
+        subject.SpaceToFrequency(Y, im);
 
         var min = 0.0;
         var max = 0.0;
-        for (int i = 0; i < Y.Length; i++)
+        foreach (var t in Y)
         {
-            min = Math.Min(min, Y[i]);
-            max = Math.Max(max, Y[i]);
+            min = Math.Min(min, t);
+            max = Math.Max(max, t);
         }
 
         var factor = 100.0;//max / 256.0;
@@ -63,60 +60,118 @@ public class FrequencyDomainTests
 
 
     [Test]
-    public void fft_scale_focussing_test()
+    [TestCase("qr_code_tilted_scratched.png")]
+    [TestCase("qr_code_tilted_blurred.png")]
+    [TestCase("qr_code_tilted.png")]
+    [TestCase("qr_codes/sticker_faded_stained.jpg")]
+    [TestCase("qr_codes/sticker_torn_crinkled.jpg")]
+    [TestCase("qr_codes/webcam_scratched.png")]
+    public void fft_scale_lowpass_test(string filename)
     {
-        using var src  = Load.FromFile("./inputs/qr_codes/qr_code_tilted_scratched.png");
-
-
-        BitmapTools.ImageToPlanes(src, ColorSpace.RGBToYCoCg, out var Y, out var co, out var cg);
-
-
-        var subject = new FFT2();
-        var len     = (uint)Math.Log2(Y.Length);
-        subject.init(len);
-
-        var im = new double[Y.Length];
-
-        subject.run(Y, im);
-
-        var min = 0.0;
-        var max = 0.0;
-        for (int i = 0; i < Y.Length; i++)
+        for (int scale = 4; scale <= 32; scale+=4)
         {
-            min = Math.Min(min, Y[i]);
-            max = Math.Max(max, Y[i]);
-        }
-        Console.WriteLine($"Min={min:0.00}; Max={max:0.00};");
+            using var src  = Load.FromFile($"./inputs/{filename}");
 
+            BitmapTools.ImageToPlanes(src, ColorSpace.RGBToYCoCg, out var Y, out var co, out var cg);
 
-        // Cut off high-frequency co-efficients
-        for (int i = Y.Length / 24; i < Y.Length; i++)
-        {
-            Y[i] = 0.0;
-            im[i] = 0.0;
-        }
+            var source  = FFT2.Transpose(Y, src.Width);
+            var len     = (uint)Math.Log2(source.Length);
+            var subject = new FFT2(len);
 
-        // Cut off low power co-efficients
-        var thresh  = 5000.0;
-        var reduced = 0;
-        for (int i = 0; i < Y.Length; i++)
-        {
-            if (Math.Abs(Y[i]) < thresh)
+            var im = new double[source.Length];
+
+            // Cut off high-frequency co-efficients
+            subject.SpaceToFrequency(source, im);
+            for (int i = source.Length / scale; i < source.Length; i++)
             {
-                reduced++;
-                Y[i] = 0.0;
+                source[i] = 0.0;
                 im[i] = 0.0;
             }
+
+            subject.FrequencyToSpace(source, im);
+
+            // Reset phases
+            for (int i = 0; i < source.Length; i++)
+            {
+                im[i] = 0.0;
+            }
+
+            // Transpose and process again
+            source = FFT2.Transpose(source, src.Width);
+
+            // Cut off high-frequency co-efficients
+            subject.SpaceToFrequency(source, im);
+            for (int i = source.Length / scale; i < source.Length; i++)
+            {
+                source[i] = 0.0;
+                im[i] = 0.0;
+            }
+
+            subject.FrequencyToSpace(source, im);
+
+            FFT2.Normalise(source, 255);
+
+            BitmapTools.PlanesToImage(src, ColorSpace.YCoCgToRGB, 0, source, co, cg);
+            src.SaveBmp($"./outputs/{filename.Replace("/", "_").Replace(".", "_")}_scale{scale:D2}_lp_fft_2D.bmp");
         }
-
-        var percent = (100.0 * reduced) / Y.Length;
-        Console.WriteLine($"Cut {reduced} co-efficients ({percent}%)");
-
-        subject.run(Y, im, true);
+    }
 
 
-        BitmapTools.PlanesToImage(src, ColorSpace.YCoCgToRGB, 0, Y, co, cg);
-        src.SaveBmp("./outputs/qr_code_scratched__rc_fft_1D.bmp");
+    [Test]
+    [TestCase("qr_code_tilted_scratched.png")]
+    [TestCase("qr_code_tilted_blurred.png")]
+    [TestCase("qr_code_tilted.png")]
+    [TestCase("qr_codes/sticker_faded_stained.jpg")]
+    [TestCase("qr_codes/sticker_torn_crinkled.jpg")]
+    [TestCase("qr_codes/webcam_scratched.png")]
+    public void fft_scale_highpass_test(string filename)
+    {
+        for (int scale = 4; scale <= 32; scale+=4)
+        {
+            using var src  = Load.FromFile($"./inputs/{filename}");
+
+            BitmapTools.ImageToPlanes(src, ColorSpace.RGBToYCoCg, out var Y, out var co, out var cg);
+
+            var source  = FFT2.Transpose(Y, src.Width);
+            var len     = (uint)Math.Log2(source.Length);
+            var subject = new FFT2(len);
+
+            var im = new double[source.Length];
+
+            // Cut off low-frequency co-efficients
+            subject.SpaceToFrequency(source, im);
+            for (int i = 0; i < source.Length / scale; i++)
+            {
+                source[i] = 0.0;
+                im[i] = 0.0;
+            }
+
+            subject.FrequencyToSpace(source, im);
+
+            // Reset phases
+            for (int i = 0; i < source.Length; i++)
+            {
+                im[i] = 0.0;
+            }
+
+            // Transpose and process again
+            source = FFT2.Transpose(source, src.Width);
+
+            // Cut off low-frequency co-efficients
+            subject.SpaceToFrequency(source, im);
+            for (int i = 0; i < source.Length / scale; i++)
+            {
+                source[i] = 0.0;
+                im[i] = 0.0;
+            }
+
+            subject.FrequencyToSpace(source, im);
+
+            FFT2.Normalise(source, 255);
+
+            BitmapTools.PlanesToImage(src, ColorSpace.YCoCgToRGB, 0, source, co, cg);
+            src.SaveBmp($"./outputs/{filename.Replace("/", "_").Replace(".", "_")}_scale{scale:D2}_hp_fft_2D.bmp");
+        }
     }
 
 
@@ -125,65 +180,45 @@ public class FrequencyDomainTests
     {
         using var src  = Load.FromFile("./inputs/qr_codes/table_5.jpg");
 
+        const int scale = 4;
 
-        BitmapTools.ImageToPlanes(src, ColorSpace.RGB_To_HCL, out var h, out var c, out var l);
+        BitmapTools.ImageToPlanes(src, ColorSpace.RGB_To_HCL, out var h, out _, out _);
 
-        var source = h;
+        var source = FFT2.Transpose(h, src.Width);
 
-        // Despeckle hue image
-        MorphologicalTransforms.Opening2D(source, src.Width, src.Height, 1);
-        MorphologicalTransforms.Closing2D(source, src.Width, src.Height, 1);
-
-        var zero   = new double[source.Length];
-
-        BitmapTools.PlanesToImage(src, ColorSpace.HCL_To_RGB, 0, zero, zero, source);
-        src.SaveBmp("./outputs/table_5_qr_code__decomp.bmp");
-
-        var subject = new FFT2();
+        var zero    = new double[source.Length];
         var len     = (uint)Math.Log2(source.Length);
-        subject.init(len);
+        var subject = new FFT2(len);
 
         var im = new double[source.Length];
 
-        subject.run(source, im);
-
-        var min = 0.0;
-        var max = 0.0;
-        for (int i = 0; i < source.Length; i++)
-        {
-            min = Math.Min(min, source[i]);
-            max = Math.Max(max, source[i]);
-        }
-        Console.WriteLine($"Min={min:0.00}; Max={max:0.00};");
-
-
         // Cut off high-frequency co-efficients
-        for (int i = source.Length / 8; i < source.Length; i++)
+        subject.SpaceToFrequency(source, im);
+        for (int i = source.Length / scale; i < source.Length; i++)
         {
             source[i] = 0.0;
             im[i] = 0.0;
         }
+        subject.FrequencyToSpace(source, im);
 
-        // Cut off low power co-efficients
-        var thresh  = 5000.0;
-        var reduced = 0;
-        for (int i = 0; i < source.Length; i++)
+        // Reset phases
+        for (int i = 0; i < source.Length; i++) { im[i] = 0.0; }
+
+        // Transpose and process again
+        source = FFT2.Transpose(source, src.Width);
+
+        // Cut off high-frequency co-efficients
+        subject.SpaceToFrequency(source, im);
+        for (int i = source.Length / scale; i < source.Length; i++)
         {
-            if (Math.Abs(source[i]) < thresh)
-            {
-                reduced++;
-                source[i] = 0.0;
-                im[i] = 0.0;
-            }
+            source[i] = 0.0;
+            im[i] = 0.0;
         }
+        subject.FrequencyToSpace(source, im);
 
-        var percent = (100.0 * reduced) / source.Length;
-        Console.WriteLine($"Cut {reduced} co-efficients ({percent}%)");
-
-        subject.run(source, im, true);
-
+        FFT2.Normalise(source, 255);
 
         BitmapTools.PlanesToImage(src, ColorSpace.HCL_To_RGB, 0, zero, zero, source);
-        src.SaveBmp("./outputs/table_5_qr_code__rc_fft_1D.bmp");
+        src.SaveBmp("./outputs/table_5_qr_code__rc_fft_2D.bmp");
     }
 }
