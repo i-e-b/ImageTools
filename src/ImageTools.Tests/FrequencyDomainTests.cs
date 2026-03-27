@@ -31,8 +31,8 @@ public class FrequencyDomainTests
 
         BitmapTools.ImageToPlanes(src, ColorSpace.RGBToYCoCg, out var Y, out _, out _);
 
-        var len     = (uint)Math.Log2(Y.Length);
-        var subject = new FFT2(len);
+        var len     = (int)Math.Log2(Y.Length);
+        var subject = new FFT(len);
 
         var im = new double[Y.Length];
         subject.SpaceToFrequency(Y, im);
@@ -74,9 +74,9 @@ public class FrequencyDomainTests
 
             BitmapTools.ImageToPlanes(src, ColorSpace.RGBToYCoCg, out var Y, out var co, out var cg);
 
-            var source  = FFT2.Transpose(Y, src.Width);
-            var len     = (uint)Math.Log2(source.Length);
-            var subject = new FFT2(len);
+            var source  = FFT.Transpose(Y, src.Width);
+            var len     = (int)Math.Log2(source.Length);
+            var subject = new FFT(len);
 
             var im = new double[source.Length];
 
@@ -97,7 +97,7 @@ public class FrequencyDomainTests
             }
 
             // Transpose and process again
-            source = FFT2.Transpose(source, src.Width);
+            source = FFT.Transpose(source, src.Width);
 
             // Cut off high-frequency co-efficients
             subject.SpaceToFrequency(source, im);
@@ -109,7 +109,7 @@ public class FrequencyDomainTests
 
             subject.FrequencyToSpace(source, im);
 
-            FFT2.Normalise(source, 255);
+            FFT.Normalise(source, 255);
 
             BitmapTools.PlanesToImage(src, ColorSpace.YCoCgToRGB, 0, source, co, cg);
             src.SaveBmp($"./outputs/{filename.Replace("/", "_").Replace(".", "_")}_scale{scale:D2}_lp_fft_2D.bmp");
@@ -132,9 +132,9 @@ public class FrequencyDomainTests
 
             BitmapTools.ImageToPlanes(src, ColorSpace.RGBToYCoCg, out var Y, out var co, out var cg);
 
-            var source  = FFT2.Transpose(Y, src.Width);
-            var len     = (uint)Math.Log2(source.Length);
-            var subject = new FFT2(len);
+            var source  = FFT.Transpose(Y, src.Width);
+            var len     = (int)Math.Log2(source.Length);
+            var subject = new FFT(len);
 
             var im = new double[source.Length];
 
@@ -155,7 +155,7 @@ public class FrequencyDomainTests
             }
 
             // Transpose and process again
-            source = FFT2.Transpose(source, src.Width);
+            source = FFT.Transpose(source, src.Width);
 
             // Cut off low-frequency co-efficients
             subject.SpaceToFrequency(source, im);
@@ -167,7 +167,7 @@ public class FrequencyDomainTests
 
             subject.FrequencyToSpace(source, im);
 
-            FFT2.Normalise(source, 255);
+            FFT.Normalise(source, 255);
 
             BitmapTools.PlanesToImage(src, ColorSpace.YCoCgToRGB, 0, source, co, cg);
             src.SaveBmp($"./outputs/{filename.Replace("/", "_").Replace(".", "_")}_scale{scale:D2}_hp_fft_2D.bmp");
@@ -184,11 +184,11 @@ public class FrequencyDomainTests
 
         BitmapTools.ImageToPlanes(src, ColorSpace.RGB_To_HCL, out var h, out _, out _);
 
-        var source = FFT2.Transpose(h, src.Width);
+        var source = FFT.Transpose(h, src.Width);
 
         var zero    = new double[source.Length];
-        var len     = (uint)Math.Log2(source.Length);
-        var subject = new FFT2(len);
+        var len     = (int)Math.Log2(source.Length);
+        var subject = new FFT(len);
 
         var im = new double[source.Length];
 
@@ -205,7 +205,7 @@ public class FrequencyDomainTests
         for (int i = 0; i < source.Length; i++) { im[i] = 0.0; }
 
         // Transpose and process again
-        source = FFT2.Transpose(source, src.Width);
+        source = FFT.Transpose(source, src.Width);
 
         // Cut off high-frequency co-efficients
         subject.SpaceToFrequency(source, im);
@@ -216,7 +216,7 @@ public class FrequencyDomainTests
         }
         subject.FrequencyToSpace(source, im);
 
-        FFT2.Normalise(source, 255);
+        FFT.Normalise(source, 255);
 
         BitmapTools.PlanesToImage(src, ColorSpace.HCL_To_RGB, 0, zero, zero, source);
         src.SaveBmp("./outputs/table_5_qr_code__rc_fft_2D.bmp");
