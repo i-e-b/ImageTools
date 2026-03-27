@@ -32,7 +32,7 @@ public class FrequencyDomainTests
         BitmapTools.ImageToPlanes(src, ColorSpace.RGBToYCoCg, out var Y, out _, out _);
 
         var len     = (int)Math.Log2(Y.Length);
-        var subject = new FFT(len);
+        var subject = FFT.ForScale(len);
 
         var im = new double[Y.Length];
         subject.SpaceToFrequency(Y, im);
@@ -76,7 +76,7 @@ public class FrequencyDomainTests
 
             var source  = FFT.Transpose(Y, src.Width);
             var len     = (int)Math.Log2(source.Length);
-            var subject = new FFT(len);
+            var subject = FFT.ForScale(len);
 
             var im = new double[source.Length];
 
@@ -134,7 +134,7 @@ public class FrequencyDomainTests
 
             var source  = FFT.Transpose(Y, src.Width);
             var len     = (int)Math.Log2(source.Length);
-            var subject = new FFT(len);
+            var subject = FFT.ForScale(len);
 
             var im = new double[source.Length];
 
@@ -188,7 +188,7 @@ public class FrequencyDomainTests
 
         var zero    = new double[source.Length];
         var len     = (int)Math.Log2(source.Length);
-        var subject = new FFT(len);
+        var subject = FFT.ForScale(len);
 
         var im = new double[source.Length];
 

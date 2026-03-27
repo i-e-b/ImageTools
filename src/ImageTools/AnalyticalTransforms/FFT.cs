@@ -1,8 +1,6 @@
 ﻿namespace ImageTools.AnalyticalTransforms;
 
-// Source - https://stackoverflow.com/a/7817663
-// Posted by Gerry Beauregard, modified by community. See post 'Timeline' for change history
-// Retrieved 2026-03-26, License - CC BY-SA 4.0
+// Derived from - https://stackoverflow.com/a/7817663
 
 /**
  * Performs an in-place complex FFT.
@@ -11,17 +9,31 @@ public class FFT
 {
     private readonly double[] _re; // Real components
     private readonly double[] _im; // Imaginary components
-    private readonly int[]    _next; // Next element in linked list
     private readonly int[]    _revTgt; // Target position post bit-reversal
 
     private readonly int _logN; // log2 of FFT size
     private readonly int _n; // FFT size
 
+    private static readonly Dictionary<int, FFT> _cachedScales = new();
+
     /// <summary>
     /// Set up a FFT transform for given scale
     /// </summary>
     /// <param name="logN">log2 of FFT size</param>
-    public FFT(int logN)
+    public static FFT ForScale(int logN)
+    {
+        if (_cachedScales.TryGetValue(logN, out var scale)) return scale;
+
+        var result = new FFT(logN);
+        _cachedScales[logN] = result;
+        return result;
+    }
+
+    /// <summary>
+    /// Set up a FFT transform for given scale
+    /// </summary>
+    /// <param name="logN">log2 of FFT size</param>
+    private FFT(int logN)
     {
         _logN = logN;
         _n = 1 << _logN;
@@ -29,26 +41,11 @@ public class FFT
         // Allocate elements for linked list of complex numbers.
         _re = new double[_n];
         _im = new double[_n];
-        _next = new int[_n];
         _revTgt = new int[_n];
 
-
-        //_elements = new FFTElement[_n];
-        //for (TInt k = 0; k < _n; k++)
-        //    _elements[k] = new FFTElement(null);
-
-        // Set up "next" pointers.
-        for (var k = 0; k < _n - 1; k++)
-        {
-            //_elements[k]!.Next = _elements[k + 1];
-            _next[k] = k + 1;
-        }
-        _next[^1] = -1;
-
         // Specify target for bit reversal re-ordering.
-        for (int k = 0; k < _n; k++)
+        for (var k = 0; k < _n; k++)
         {
-            //_elements[k]!.RevTgt = BitReverse(k, logN);
             _revTgt[k] = BitReverse(k, logN);
         }
     }
@@ -112,15 +109,11 @@ public class FFT
 
         // Copy data into linked complex number objects
         // If it's an iFFT, we divide by N while we're at it
-        var x     = 0;
-        int k     = 0;
         var scale = inverse ? 1.0 / _n : 1.0;
-        while (x >= 0)
+        for (int i = 0; i < _re.Length; i++)
         {
-            _re[x] = scale*xRe[k];
-            _im[x] = scale*xIm[k];
-            x = _next[x];
-            k++;
+            _re[i] = scale * xRe[i];
+            _im[i] = scale * xIm[i];
         }
 
         // For each stage of the FFT
@@ -133,9 +126,8 @@ public class FFT
             // implementations the twiddle factors are cached, but because
             // array lookup is relatively slow in C#, it's just
             // as fast to compute them on the fly.
-            var wAngleInc = wIndexStep * 2.0*Math.PI/_n;
-            if (inverse == false)
-                wAngleInc *= -1;
+            var wAngleInc = wIndexStep * 2.0 * Math.PI / _n;
+            if (!inverse) wAngleInc *= -1;
             var wMulRe = Math.Cos(wAngleInc);
             var wMulIm = Math.Sin(wAngleInc);
 
@@ -153,32 +145,32 @@ public class FFT
                     if (xTop < 0 || xBot < 0) break;
 
                     // Get the top & bottom values
-                    var xTopRe = _re[xTop];//xTop.Re;
-                    var xTopIm = _im[xTop];//xTop.Im;
-                    var xBotRe = _re[xBot];//xBot.Re;
-                    var xBotIm = _im[xBot];//xBot.Im;
+                    var xTopRe = _re[xTop];
+                    var xTopIm = _im[xTop];
+                    var xBotRe = _re[xBot];
+                    var xBotIm = _im[xBot];
 
                     // Top branch of butterfly has addition
-                    /*xTop.Re*/_re[xTop] = xTopRe + xBotRe;
-                    /*xTop.Im*/_im[xTop] = xTopIm + xBotIm;
+                    _re[xTop] = xTopRe + xBotRe;
+                    _im[xTop] = xTopIm + xBotIm;
 
                     // Bottom branch of butterfly has subtraction,
                     // followed by multiplication by twiddle factor
                     xBotRe = xTopRe - xBotRe;
                     xBotIm = xTopIm - xBotIm;
-                    /*xBot.Re*/_re[xBot] = xBotRe*wRe - xBotIm*wIm;
-                    /*xBot.Im*/_im[xBot] = xBotRe*wIm + xBotIm*wRe;
+                    _re[xBot] = xBotRe * wRe - xBotIm * wIm;
+                    _im[xBot] = xBotRe * wIm + xBotIm * wRe;
 
                     // Advance butterfly to next top & bottom positions
-                    xTop = _next[xTop];//xTop.Next;
-                    xBot = _next[xBot];//xBot.Next;
+                    xTop++;
+                    xBot++;
 
                     // Update the twiddle factor, via complex multiply
                     // by unit vector with the appropriate angle
                     // (wRe + j wIm) = (wRe + j wIm) x (wMulRe + j wMulIm)
                     var tRe = wRe;
-                    wRe = wRe*wMulRe - wIm*wMulIm;
-                    wIm = tRe*wMulIm + wIm*wMulRe;
+                    wRe = wRe * wMulRe - wIm * wMulIm;
+                    wIm = tRe * wMulIm + wIm * wMulRe;
                 }
             }
 
@@ -191,13 +183,11 @@ public class FFT
         // The algorithm leaves the result in a scrambled order.
         // Unscramble while copying values from the complex
         // linked list elements back to the input/output vectors.
-        x = 0;//_elements[0];
-        while (x >= 0)
+        for (int i = 0; i < _re.Length; i++)
         {
-            var target = _revTgt[x];//x.RevTgt;
-            xRe[target] = _re[x];//x.Re;
-            xIm[target] = _im[x];//x.Im;
-            x = _next[x]; //x.Next;
+            var target = _revTgt[i];
+            xRe[target] = _re[i];
+            xIm[target] = _im[i];
         }
     }
 
@@ -207,12 +197,10 @@ public class FFT
     /// </summary>
     /// <param name="x">Number to be bit-reverse</param>
     /// <param name="numBits">Number of bits in the number</param>
-    private int BitReverse(
-        int x,
-        int numBits)
+    private static int BitReverse(int x, int numBits)
     {
-        int y = 0;
-        for (int i = 0; i < numBits; i++)
+        var y = 0;
+        for (var i = 0; i < numBits; i++)
         {
             y <<= 1;
             y |= x & 0x0001;
