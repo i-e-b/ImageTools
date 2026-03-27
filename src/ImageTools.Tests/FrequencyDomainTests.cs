@@ -66,6 +66,7 @@ public class FrequencyDomainTests
     [TestCase("qr_codes/sticker_faded_stained.jpg")]
     [TestCase("qr_codes/sticker_torn_crinkled.jpg")]
     [TestCase("qr_codes/webcam_scratched.png")]
+    [TestCase("qr_codes/strong_shadow.jpg")]
     public void fft_scale_lowpass_test(string filename)
     {
         for (int scale = 4; scale <= 32; scale+=4)
@@ -75,8 +76,7 @@ public class FrequencyDomainTests
             BitmapTools.ImageToPlanes(src, ColorSpace.RGBToYCoCg, out var Y, out var co, out var cg);
 
             var source  = FFT.Transpose(Y, src.Width);
-            var len     = (int)Math.Log2(source.Length);
-            var subject = FFT.ForScale(len);
+            var subject = FFT.ForSize(source.Length);
 
             var im = new double[source.Length];
 
@@ -221,4 +221,5 @@ public class FrequencyDomainTests
         BitmapTools.PlanesToImage(src, ColorSpace.HCL_To_RGB, 0, zero, zero, source);
         src.SaveBmp("./outputs/table_5_qr_code__rc_fft_2D.bmp");
     }
+
 }

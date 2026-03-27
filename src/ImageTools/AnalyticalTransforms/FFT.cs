@@ -14,7 +14,27 @@ public class FFT
     private readonly int _logN; // log2 of FFT size
     private readonly int _n; // FFT size
 
+    //private static int Log2(int n) {return (int)(Math.log(n) / Math.log(2));} // For Java
+    private static int Log2(int n) {return (int)Math.Log2(n);} // For C#
+
+    private static int NextPower2(int v){v--;v |= v >> 1;v |= v >> 2;v |= v >> 4;v |= v >> 8;v |= v >> 16;v++;return v;}
+
     private static readonly Dictionary<int, FFT> _cachedScales = new();
+
+
+    /// <summary>
+    /// Set up a FFT transform for given input size
+    /// </summary>
+    /// <param name="n">size of the input data</param>
+    public static FFT ForSize(int n)
+    {
+        var logN = Log2(NextPower2(n));
+        if (_cachedScales.TryGetValue(logN, out var scale)) return scale;
+
+        var result = new FFT(logN);
+        _cachedScales[logN] = result;
+        return result;
+    }
 
     /// <summary>
     /// Set up a FFT transform for given scale
@@ -51,7 +71,8 @@ public class FFT
     }
 
     /// <summary>
-    /// Basic row/column transposition
+    /// Basic row/column transposition.
+    /// This does <b>not</b> require a power-of-two size.
     /// </summary>
     public static double[] Transpose(double[] samples, int width)
     {
@@ -110,10 +131,19 @@ public class FFT
         // Copy data into linked complex number objects
         // If it's an iFFT, we divide by N while we're at it
         var scale = inverse ? 1.0 / _n : 1.0;
-        for (int i = 0; i < _re.Length; i++)
+
+        // copy image into Fourier buffer with reflection if it's not a power of 2
+        var sigLen = xRe.Length;
+        for (var i = 0; i < sigLen; i++)
         {
             _re[i] = scale * xRe[i];
             _im[i] = scale * xIm[i];
+        }
+        for (var i = sigLen; i < _re.Length; i++)
+        {
+            var x = sigLen - (i - sigLen) - 1;
+            _re[i] = scale * xRe[x];
+            _im[i] = 0;
         }
 
         // For each stage of the FFT
@@ -181,11 +211,12 @@ public class FFT
         }
 
         // The algorithm leaves the result in a scrambled order.
-        // Unscramble while copying values from the complex
-        // linked list elements back to the input/output vectors.
-        for (int i = 0; i < _re.Length; i++)
+        // Unscramble while copying values back
+        for (var i = 0; i < _re.Length; i++)
         {
             var target = _revTgt[i];
+            if (target >= xRe.Length) continue;
+
             xRe[target] = _re[i];
             xIm[target] = _im[i];
         }

@@ -1,6 +1,6 @@
 ﻿namespace ImageTools.AnalyticalTransforms;
 
-using TInt= Int32;
+using TInt= UInt32;
 
 // Source - https://stackoverflow.com/a/7817663
 // Posted by Gerry Beauregard, modified by community. See post 'Timeline' for change history
